@@ -3,12 +3,21 @@ module HOPE
 using JuMP 
 using DataFrames 
 using CSV
+using XLSX
 using LinearAlgebra
 using YAML
 using Dates
 using Clustering
 using Distances
 using Combinatorics
+using Statistics
+
+#using solver
+#using Gurobi
+#using CPLEX
+using Cbc
+using HiGHS
+#using Clp
 
 #include HOPE module scripts
 include("read_input_data.jl");		#read input data module

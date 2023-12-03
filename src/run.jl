@@ -1,8 +1,10 @@
 function run_hope(case::AbstractString)
+	#wk_dir = @__DIR__
+	#path = joinpath(wk_dir,case)
 	path = case
-	outpath = case*"/output/"
+	outpath = path*"/output/"
 	#Set model configuration 
-	config_set = YAML.load(open("Settings/HOPE_model_settings.yml"))
+	config_set = YAML.load(open(case*"/Settings/HOPE_model_settings.yml"))
 
 	#Set solver configuration
 	optimizer =  initiate_solver(config_set["solver"])

@@ -1,6 +1,15 @@
+function mkdir_overwrite(path::AbstractString)
+    if isdir(path)
+        rm(path; force=true, recursive=true)
+        println("'output' folder exists, will be overwrite now!")
+    end
+    mkdir(path)
+end
+
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)
-	mkdir(outpath, exist_ok=true)
+	mkdir_overwrite(outpath)
     model_mode = config_set["model_mode"]
+    println("HOPE model ("*model_mode*" mode) is successfully solved!")
     if model_mode == "GTEP"
         ##read input for print	
         Gendata = input_data["Gendata"]
@@ -187,5 +196,5 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "es_power_hourly.csv"), P_es_df, writeheader=true)
 	
     end
-	return
+	println("Write solved results in the folder 'output' DONE!")
 end
