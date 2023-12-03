@@ -16,3 +16,20 @@ Users can select the proper mode of HOPE based on their research needs.
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/) The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://github.com/MahdiMehrtash).
 
 ## Installation
+### Install Julia and clone the HOPE repository
+1. Install the [Julia](http://julialang.org/) 
+2. Clone or download the HOPE repository to your local directory. For example, save the HOPE project in your `home` directory:`/yourpath/home/HOPE`.
+### Using Visual Studio Code
+Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) the paragram. 
+1. Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
+2. In the TERMINAL, type `Julia`. Julia will be opened as below:
+   ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
+3. Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v.18)` changing to `(HOPE)`, which means the HOPE project is activated successfully. 
+   ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
+4. Type `instantiate` in the (HOPE) pkg prompt.
+5. Type `st` to check that the dependencies (packages that HOPE needs) have been installed.  Type `up` to update the version of dependencies (packages). 
+![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
+6. If there is no error in the above processes, the **HOPE** model has been successful. Then type `Backspace` back to the Juila prompt.
+   Type using `HOPE`, 
+
+### Using Command Prompt 
