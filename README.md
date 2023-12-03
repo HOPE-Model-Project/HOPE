@@ -1,4 +1,4 @@
-# HOPE-Holistic Optimization Program for Electricity 
+# HOPE - Holistic Optimization Program for Electricity 
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://SW.github.io/HOPE.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://SW.github.io/HOPE.jl/dev/)
