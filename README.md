@@ -12,6 +12,6 @@ The Holistic Optimization Program for Electricity (HOPE) model is a transparent 
 4. DART mode (under development): a bilevel market model for simulating day-head and real-time market
 Users can select the proper mode of HOPE based on their research needs. 
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/) The main contributors include [Shen Wang](https://ceepr.mit.edu/people/wang/) and [Mahdi Mehrtash](https://github.com/MahdiMehrtash).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/) The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://github.com/MahdiMehrtash).
 
 ## Installation
