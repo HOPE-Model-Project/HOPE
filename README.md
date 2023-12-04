@@ -4,6 +4,8 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://SW.github.io/HOPE.jl/dev/)
 [![Build Status](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 
+![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
+
 ## Overview
 The Holistic Optimization Program for Electricity (HOPE) model is a transparent tool for evaluating electric sector transition paths regarding power system planning, system operation, optimal power flow, and market designs. It is highly configurable and modulized programming coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling modern power systems and electricity market, including:
 1. `GTEP` mode: a generation & transmission expansion planning model
