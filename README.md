@@ -46,7 +46,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 ## Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
-<img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="200" height="50" />
+<img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="200" height="100" />
 
 
 
