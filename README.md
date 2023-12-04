@@ -6,7 +6,7 @@
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 ## Acknowledgement
-This project is funded by [Marylander Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
+This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 
 ## Overview
