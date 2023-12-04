@@ -41,7 +41,7 @@ The solved results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case
 
 ## Solvers
 ## Program Sponsors
-<img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="50" />
+<img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="80" />
 <img src="https://github.com/swang22/HOPE/assets/125523842/a63ec280-f6b0-4451-b80a-bd9f13b54519" width="200" height="50" />
 
 
