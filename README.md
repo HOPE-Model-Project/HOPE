@@ -15,7 +15,7 @@ The Holistic Optimization Program for Electricity (HOPE) model is a transparent 
 
 Users can select the proper mode of HOPE based on their research needs. 
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/) The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
 
 ## Installation
 ### Install Julia and clone the HOPE repository
