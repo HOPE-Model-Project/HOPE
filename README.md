@@ -19,7 +19,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 
 ## Installation
 ### Install Julia and clone the HOPE repository
-1. Install the [Julia](http://julialang.org/) 
+1. Install [Julia](http://julialang.org/) language.
 2. Clone or download the **HOPE** repository to your local directory. For example, save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`.
 ### Using Visual Studio Code to Run a Case
 Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) the paragram. 
@@ -40,4 +40,8 @@ The solved results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case
 ### Using Command Prompt to Run a Case
 
 ## Solvers
-## 
+## Program Sponsors
+![image](https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118)
+![image](https://github.com/swang22/HOPE/assets/125523842/a63ec280-f6b0-4451-b80a-bd9f13b54519)
+
+
