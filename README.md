@@ -16,7 +16,7 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 3. `OPF` mode: (under development): an optimal power flow model
 4. `DART` mode: (under development): a bilevel market model for simulating day-head and real-time markets
 
-Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk),[Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Groubi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
+Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Groubi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
 
@@ -41,8 +41,16 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
 ### Using Command Prompt to Run a Case
+#### Windows users
+
+#### Mac users
 
 ## Solvers
+### Free Solvers
+
+
+### Commercial Solvers
+
 
 ## Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
