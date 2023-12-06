@@ -10,7 +10,7 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 
 ## Overview
-The Holistic Optimization Program for Electricity (HOPE) model is a transparent tool for evaluating electric sector transition paths regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
+The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent tool for evaluating electric sector transition paths regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
 3. `OPF` mode: (under development): an optimal power flow model
@@ -32,7 +32,7 @@ Download [VScode](https://code.visualstudio.com/) and [install](https://code.vis
 3. Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8)` changing to `(HOPE)`, which means the HOPE project is activated successfully. 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
 4. Type `instantiate` in the (HOPE) pkg prompt.
-5. Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). This step may take some time for first-time users.
+5. Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 6. If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click on `Backspace` to back to the Juila prompt.
    To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
