@@ -56,7 +56,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 7. After finishing the setup and the first time successful run, you can skip steps 4 and 5 for your future runs.  
-![image](https://github.com/swang22/HOPE/assets/125523842/f2b491bb-d4ca-4dc4-8171-cba05cc10a23)
+
   
 #### Mac users
 
