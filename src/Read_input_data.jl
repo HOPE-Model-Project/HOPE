@@ -95,7 +95,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"Load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             #candidate
-            println("Reading resourc candidate")
+            println("Reading resource candidate")
             input_data["Estoragedata_candidate"]=CSV.read(joinpath(folderpath,"Estoragedata_candidate.csv"),DataFrame)
             input_data["Linedata_candidate"]=CSV.read(joinpath(folderpath,"Linedata_candidate.csv"),DataFrame)
             input_data["Gendata_candidate"]=CSV.read(joinpath(folderpath,"Gendata_candidate.csv"),DataFrame)
