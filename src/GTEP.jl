@@ -424,7 +424,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		Estoragedata_candidate[:,"Max Power (MW)"] .= [v for (i,v) in enumerate(Estoragedata_candidate[:,"Max Power (MW)"] .*value.(model[:z]))]
 		print("Selected_storage_table",Estoragedata_candidate[[i for (i, v) in enumerate(value.(model[:z])) if v > 0],:],"\n\n")
 		#-----------------------------------------------------------
-		print("Solving time:", solver_time)
+		print("Solving time: ", solver_time)
 	elseif model_mode == "PCM"
 		#Printing results for debugging purpose-------------------------
 		print("\n\n","Model mode: PCM","\n\n");
@@ -436,6 +436,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("RPSPenalty= ",value.(model[:RPSPenalty]),"\n\n");
 		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
 		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
+		print("Solving time: ", solver_time)
 	end
 	return  model
 end
