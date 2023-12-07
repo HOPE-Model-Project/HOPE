@@ -38,7 +38,8 @@ Download [VScode](https://code.visualstudio.com/) and [install](https://code.vis
    To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
 ![image](https://github.com/swang22/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
-![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
+![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
+
 7. After finishing the setup and the first time successful run, you can skip steps 4 and 5 for your future runs.  
 
 ### Using System Terminal to Run a Case
