@@ -9,8 +9,8 @@
  - threads = 1
 
 """
-function initiate_solver(solver_name::String)
-	solver_settings = YAML.load(open("Settings/"*solver_name*"_settings.yml"))
+function initiate_solver(solver_name::String, path::AbstractStrings)
+	solver_settings = YAML.load(open(path*"Settings/"*solver_name*"_settings.yml"))
 	if solver_name == "cbc"
 			# Optional solver parameters ############################################
 		Myseconds = 1e-6
