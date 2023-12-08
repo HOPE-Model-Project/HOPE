@@ -25,9 +25,9 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Install [Julia](http://julialang.org/) language.
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click green "Code" button and choose "Download ZIP". This step will allow you to save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`. 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". You need to save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
-If you are in README.md file, go back to HOPE repository, then follow the above steps.
+
  
 
 # Run a Case in HOPE
@@ -36,7 +36,7 @@ Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) an
 
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
 
-**(2)** In the VScode TERMINAL, type `Julia` and press "Enter" button. Julia will be opened as below:
+**(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
    
@@ -58,7 +58,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 **(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.   
 
 ## Using System Terminal to Run a Case
-You can use system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
+You can use a system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
 ### Windows users
 **(1)** Open **Command Prompt** from Windows **Start** and navigate to your home path:`/yourpath/home`.
 
@@ -89,7 +89,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 # Solvers
 ## Free Solvers
-CBC
+Cbc
 
 ## Commercial Solvers
 Gorubi
