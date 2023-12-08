@@ -24,6 +24,8 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 ### Install Julia and clone the HOPE repository
 1. Install [Julia](http://julialang.org/) language.
 2. Clone or download the **HOPE** repository to your local directory. For example, save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`.
+![image](https://github.com/swang22/HOPE/assets/125523842/2f4bd9bd-0a0c-46e3-9146-e5aeaa558f92)
+
 ### Using Visual Studio Code to Run a Case (Recommended)
 Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. 
 1. Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
