@@ -7,7 +7,7 @@ function run_hope(case::AbstractString)
 	config_set = YAML.load(open(case*"/Settings/HOPE_model_settings.yml"))
 
 	#Set solver configuration
-	optimizer =  initiate_solver(config_set["solver"], path)
+	optimizer =  initiate_solver(config_set["solver"],path)
 
 	#read in data
 	input_data = load_data(config_set,path)

@@ -9,7 +9,7 @@
  - threads = 1
 
 """
-function initiate_solver(solver_name::String, path::AbstractStrings)
+function initiate_solver(solver_name::String, path::String)
 	solver_settings = YAML.load(open(path*"Settings/"*solver_name*"_settings.yml"))
 	if solver_name == "cbc"
 			# Optional solver parameters ############################################
