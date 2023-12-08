@@ -9,6 +9,7 @@ end
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)
 	mkdir_overwrite(outpath)
     model_mode = config_set["model_mode"]
+    println() 
     println("HOPE model ("*model_mode*" mode) is successfully solved!")
     if model_mode == "GTEP"
         ##read input for print	
