@@ -25,7 +25,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Install [Julia](http://julialang.org/) language.
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". You need to save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`. 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 
  
