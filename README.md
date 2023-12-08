@@ -28,18 +28,19 @@ Install [Julia](http://julialang.org/) language.
 Clone OR download the **HOPE** repository to your local directory - click green "Code" button and choose "Download ZIP". This step will allow you to save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 If you are in README.md file, go back to HOPE repository, then follow the above steps.
-
-## 2.3 Install Visual Studio Code (Recommended)
-Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. 
+ 
 
 # 3. Run a Case in HOPE
-## 3.1 Using VScode to Run a Case
+## 3.1 Using VScode to Run a Case (Recommend)
+Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
 
 **(2)** In the VScode TERMINAL, type `Julia` and press "Enter" button (If this does not work, press "CTRL + Shift + P", choose "Julia Environment"). Julia will be opened as below:
+
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
    
 **(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
    
 **(4)** Type `instantiate` in the (HOPE) pkg prompt (make sure you are in your `home` directory, not the `home/HOPE` directory!).
@@ -48,7 +49,7 @@ Download [VScode](https://code.visualstudio.com/) and [install](https://code.vis
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed! Then, press `Backspace` button to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
 ![image](https://github.com/swang22/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
@@ -85,14 +86,16 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
   
 #### 3.2.2 Mac users
 
-## Solvers
-### Free Solvers
+# 4. Solvers
+## 4.1 Free Solvers
+CBC
 
+## 4.2 Commercial Solvers
+Gorubi
 
-### Commercial Solvers
+# 5. Documentation
 
-
-## Program Sponsors
+# 6. Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
 
