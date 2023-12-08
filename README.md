@@ -34,7 +34,7 @@ Clone OR download the **HOPE** repository to your local directory - click the gr
 ## Using VScode to Run a Case (Recommend)
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
 
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
+**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
 
 **(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
