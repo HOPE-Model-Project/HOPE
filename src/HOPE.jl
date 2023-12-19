@@ -39,5 +39,6 @@ export get_TPmatched_ts
 export solve_model
 export write_outputs
 export run_hope
+export initiate_solver
 
 end
