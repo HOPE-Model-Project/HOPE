@@ -1,9 +1,8 @@
-###Summary
+### Summary
+### Details
 
-###Details
-
-###References
-
-###Checks
-[]Tested Changes
-[]Stakeholder Approval
+### References
+[Example](www.google.com) 
+### Checks
+- [ ] Tested Changes
+- [ ] Stakeholder Approval
