@@ -6,9 +6,10 @@ CurrentModule = HOPE
 
 Documentation for [HOPE](https://github.com/SW/HOPE.jl).
 
-```@index
-```
+Package for Power System Modeling
 
-```@autodocs
-Modules = [HOPE]
+## Install
+
+```julia-repl
+pkg> add https://github.com/swang22/HOPE.jl
 ```
