@@ -89,10 +89,10 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 # Solvers
 ## Free Solvers
-Cbc
+**Cbc**
 
 ## Commercial Solvers
-Gorubi
+**Gorubi**
 
 # Documentation
 
