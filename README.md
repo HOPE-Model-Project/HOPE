@@ -9,7 +9,7 @@
 This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 
-# 1. Overview
+# Overview
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
@@ -20,22 +20,23 @@ Users can select the proper mode of HOPE based on their research needs. Each mod
 
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
 
-# 2. Preparation Phase
-## 2.1 Install Julia
+# Preparation Phase
+## 1. Install Julia
 Install [Julia](http://julialang.org/) language.
 
-## 2.2 Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click green "Code" button and choose "Download ZIP". This step will allow you to save the **HOPE** project in your `home` directory:`/yourpath/home/HOPE`. 
+## 2. Download HOPE repository
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
-If you are in README.md file, go back to HOPE repository, then follow the above steps.
+
  
 
-# 3. Run a Case in HOPE
-## 3.1 Using VScode to Run a Case (Recommend)
+# Run a Case in HOPE
+## Using VScode to Run a Case (Recommend)
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home path:`/yourpath/home`.
 
-**(2)** In the VScode TERMINAL, type `Julia` and press "Enter" button (If this does not work, press "CTRL + Shift + P", choose "Julia Environment"). Julia will be opened as below:
+**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
+
+**(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
    
@@ -56,9 +57,9 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 **(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.   
 
-## 3.2 Using System Terminal to Run a Case
-You can use system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
-### 3.2.1 Windows users
+## Using System Terminal to Run a Case
+You can use a system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
+### Windows users
 **(1)** Open **Command Prompt** from Windows **Start** and navigate to your home path:`/yourpath/home`.
 
 **(2)** Type `julia`. Julia will be opened as below:
@@ -84,18 +85,18 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 **(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.  
 
   
-#### 3.2.2 Mac users
+#### Mac users
 
-# 4. Solvers
-## 4.1 Free Solvers
-CBC
+# Solvers
+## Free Solvers
+**Cbc**
 
-## 4.2 Commercial Solvers
-Gorubi
+## Commercial Solvers
+**Gorubi**
 
-# 5. Documentation
+# Documentation
 
-# 6. Program Sponsors
+# Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
 

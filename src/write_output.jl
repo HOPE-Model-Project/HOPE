@@ -1,6 +1,7 @@
 function mkdir_overwrite(path::AbstractString)
     if isdir(path)
         rm(path; force=true, recursive=true)
+        println() 
         println("'output' folder exists, will be overwritten now!")
     end
     mkdir(path)
