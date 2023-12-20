@@ -67,7 +67,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading polices")
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"carbonpolices"))
             #rpspolicydata=
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"rpspolices"))
+            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"rpspolicies"))
             println("xlsx Files Successfully Load From $folderpath")
 
         else
@@ -103,7 +103,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading polices")
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolices.csv"),DataFrame)
             #rpspolicydata=
-            input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolices.csv"),DataFrame)
+            input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
             println("CSV Files Successfully Load From $folderpath")
         end
 
@@ -145,7 +145,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading polices")
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"carbonpolices"))
             #rpspolicydata=
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"rpspolices"))
+            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"rpspolicies"))
             println("xlsx Files Successfully Load From $folderpath")
         else
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
@@ -176,7 +176,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading polices")
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolices.csv"),DataFrame)
             #rpspolicydata=
-            input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolices.csv"),DataFrame)
+            input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
             println("CSV Files Successfully Load From $folderpath")
         end   
     end
