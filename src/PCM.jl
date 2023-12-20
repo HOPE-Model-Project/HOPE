@@ -160,7 +160,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		PT_emis=10^9										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];]#g						#Maximum power generation of unit g, MW
-		RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))							#w						#Renewable portfolio standard in state w,  unitless
+		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))							#w						#Renewable portfolio standard in state w,  unitless
 		#RM=0.02#											#Planning reserve margin, unitless
 		RM_SPIN_g = Dict(zip(G,Gendata[:,Symbol("RM_SPIN")]))
 		RU_g = Dict(zip(G,Gendata[:,Symbol("RU")]))
@@ -371,7 +371,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)# same as 
 	##read input for print	
 	W=unique(input_data["Busdata"][:,"State"])							#Set of states, index w/w’
 	RPSdata = input_data["RPSdata"]
-	RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))
+	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
 		Estoragedata_candidate = input_data["Estoragedata_candidate"]
 		Linedata_candidate = input_data["Linedata_candidate"]
