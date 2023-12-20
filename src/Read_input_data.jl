@@ -173,7 +173,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
 
             #policies
-            println("Reading polices")
+            println("Reading policies")
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolicies.csv"),DataFrame)
             #rpspolicydata=
             input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
