@@ -172,7 +172,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		PT_emis=10^9										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];Gendata_candidate[:,"Pmin (MW)"]]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
-		RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
+		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
 		RM=config_set["planning_reserve_margin"]#												#Planning reserve margin, unitless
 		SECAP=[Estoragedata[:,"Capacity (MWh)"];Estoragedata_candidate[:,"Capacity (MWh)"]]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Estoragedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
@@ -397,7 +397,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	##read input for print	
 	W=unique(input_data["Busdata"][:,"State"])							#Set of states, index w/w’
 	RPSdata = input_data["RPSdata"]
-	RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))
+	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
 		Estoragedata_candidate = input_data["Estoragedata_candidate"]
 		Linedata_candidate = input_data["Linedata_candidate"]
