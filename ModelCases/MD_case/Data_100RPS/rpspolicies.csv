@@ -1,3 +1,3 @@
-State,RPS
-MD,1
-NMD,0
+From_state,To_state,RPS
+MD,NMD,1
+NMD,MD,0

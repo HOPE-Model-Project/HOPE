@@ -317,7 +317,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 								>= (1+RM)*sum(PK[i] for i in I_w["MD"]), base_name = "RA_con")
 
 		##############
-		##RPSPolices##
+		##RPSPolicies##
 		##############
 		#(23) RPS, state level total Defining
 		RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
