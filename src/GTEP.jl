@@ -337,7 +337,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 									>= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
 		
 		###############
-		#CarbonPolices#				
+		#CarbonPolicies#				
 		###############
 		#(27) State carbon emission limit
 		#CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,t,h] for g in intersect(G_F,G_i[i]) for h in H[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
