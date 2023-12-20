@@ -151,14 +151,14 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
 		BM = 10^12;														#big M penalty
 		CC_g = [Gendata[:,"CC"];Gendata_candidate[:,"CC"]]#g       		#Capacity credit of generating units, unitless
-		CC_s = [Estoragedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s    #Capacity credit of storage units, unitless
+		CC_s = [Estoragedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s  #Capacity credit of storage units, unitless
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];Gendata_candidate[:,"EF"]]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict("MD"=>10^12,"NMD"=>10^12)#w							#Carbon emission limits at state w, t
 		F_max=[Branchdata[!,"Capacity (MW)"];Linedata_candidate[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
 		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s					#Investment cost of storage unit s, M$
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s				#Investment cost of storage unit s, M$
 		IBG=10^15														#Total investment budget for generators
 		IBL=10^15														#Total investment budget for transmission lines
 		IBS=10^15														#Total investment budget for storages
@@ -172,7 +172,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		PT_emis=10^9										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];Gendata_candidate[:,"Pmin (MW)"]]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
-		RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))	#w						#Renewable portfolio standard in state w,  unitless
+		RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
 		RM=config_set["planning_reserve_margin"]#												#Planning reserve margin, unitless
 		SECAP=[Estoragedata[:,"Capacity (MWh)"];Estoragedata_candidate[:,"Capacity (MWh)"]]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Estoragedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
@@ -199,7 +199,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#Variables---------------------------------------------
 		@variable(model, a[G,T]>=0) 							#Bidding carbon allowance of unit g in time period t, ton
 		@variable(model, b[G,T]>=0) 							#Banking of allowance of g in time period t, ton
-		@variable(model, f[L,T,H_T])								#Active power in transmission corridor/line l in h from resrource g, MW
+		@variable(model, f[L,T,H_T])							#Active power in transmission corridor/line l in h from resrource g, MW
 		@variable(model, em_emis[W]>=0)							#Carbon emission violated emission limit in state  w, ton
 		@variable(model, p[G,T,H_T]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
