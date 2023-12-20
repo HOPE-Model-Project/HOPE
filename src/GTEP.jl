@@ -137,8 +137,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		LR_i=[[findall(Branchdata[:,"To_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"To_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]		#Set of receiving transmission corridors of zone i， subset of L
 		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Branchdata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Branchdata[:,"To_zone"])]))
 		I_w=Dict(zip(W, [findall(Busdata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
-		WIR_w=Dict(zip(["MD","NMD"],[["MD","NMD"],["MD","NMD"]]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
-		WER_w=Dict(zip(["MD","NMD"],[["NMD"],["MD"]]))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
+		WER_w=Dict(zip(unique(df[:, :From_state]),[df[findall(df[:,"From_state"].==i),"To_state"] for i in unique(df[:, :From_state])]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
+		WIR_w=Dict(zip(unique(df[:, :From_state]), push!(df[findall(df[:,"From_state"].==i),"To_state"], i) for i in unique(df[:, :From_state])))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
@@ -172,7 +172,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		PT_emis=10^9										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];Gendata_candidate[:,"Pmin (MW)"]]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
-		RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
+		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
 		RM=config_set["planning_reserve_margin"]#												#Planning reserve margin, unitless
 		SECAP=[Estoragedata[:,"Capacity (MWh)"];Estoragedata_candidate[:,"Capacity (MWh)"]]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Estoragedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
@@ -317,7 +317,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 								>= (1+RM)*sum(PK[i] for i in I_w["MD"]), base_name = "RA_con")
 
 		##############
-		##RPSPolices##
+		##RPSPolicies##
 		##############
 		#(23) RPS, state level total Defining
 		RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
@@ -337,7 +337,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 									>= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
 		
 		###############
-		#CarbonPolices#				
+		#CarbonPolicies#				
 		###############
 		#(27) State carbon emission limit
 		#CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,t,h] for g in intersect(G_F,G_i[i]) for h in H[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
@@ -397,7 +397,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	##read input for print	
 	W=unique(input_data["Busdata"][:,"State"])							#Set of states, index w/w’
 	RPSdata = input_data["RPSdata"]
-	RPS=Dict(zip(RPSdata[:,:State],RPSdata[:,:RPS]))
+	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
 		Estoragedata_candidate = input_data["Estoragedata_candidate"]
 		Linedata_candidate = input_data["Linedata_candidate"]
