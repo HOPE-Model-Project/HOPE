@@ -1,7 +1,22 @@
 using HOPE
 using Documenter
+import DataStructures: OrderedDict
 
 DocMeta.setdocmeta!(HOPE, :DocTestSetup, :(using HOPE); recursive=true)
+pages = OrderedDict(
+    "Home Page" => [
+        "Introduction" => "index.md",
+        "Installation"=>"installation.md",
+        "Run a case"=>"run_case.md",
+    ],
+    "Model Mode and Formulation" => [
+        "Model Introduction" => "model_introduction.md",
+        "Notation" => "notation.md",
+        "GTEP" => "GTEP.md",
+        "PCM" => "PCM.md",
+    ],
+)  
+
 
 makedocs(;
     modules=[HOPE],
@@ -14,10 +29,7 @@ makedocs(;
         edit_link="master",
         assets=String[],
     ),
-    pages=[
-        "Home" => "index.md",
-        "Reference" => "reference.md",
-    ],
+    pages=[p for p in pages],
 )
 
 deploydocs(;

@@ -1,34 +1,6 @@
-# HOPE - Holistic Optimization Program for Electricity 
-
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://SW.github.io/HOPE.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://SW.github.io/HOPE.jl/dev/)
-[![Build Status](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml?query=branch%3Amaster)
-
-![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
-## Acknowledgement
-This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
-<img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
-
-# Overview
-The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
-1. `GTEP` mode: a generation & transmission expansion planning model
-2. `PCM` mode: a production cost model
-3. `OPF` mode: (under development): an optimal power flow model
-4. `DART` mode: (under development): a bilevel market model for simulating day-head and real-time markets
-
-Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Groubi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
-
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
-
-# Preparation Phase
-## 1. Install Julia
-Install [Julia](http://julialang.org/) language.
-
-## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`. 
-![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
-
- 
+```@meta
+CurrentModule = HOPE
+```
 
 # Run a Case in HOPE
 ## Using VScode to Run a Case (Recommend)
@@ -83,26 +55,4 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
 **(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.  
-
-  
-#### Mac users
-
-# Solvers
-## Free Solvers
-**Cbc**
-
-## Commercial Solvers
-**Gorubi**
-
-# Documentation
-
-Documentation for [HOPE](https://github.com/SW/HOPE.jl).
-
-
-# Program Sponsors
-<img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
-<img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
-
-
-
 
