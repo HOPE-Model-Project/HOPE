@@ -23,6 +23,3 @@ The open-source packages (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](ht
 pkg> add https://github.com/swang22/HOPE.jl
 ```
 
-```@autodocs
-Modules = [HOPE]
-```
