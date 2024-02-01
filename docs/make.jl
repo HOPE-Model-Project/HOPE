@@ -14,9 +14,8 @@ pages = OrderedDict(
         "Notation" => "notation.md",
         "GTEP" => "GTEP.md",
         "PCM" => "PCM.md",
-    ],
+    ]
 )  
-
 
 makedocs(;
     modules=[HOPE],
@@ -29,7 +28,7 @@ makedocs(;
         edit_link="master",
         assets=String[],
     ),
-    pages=[p for p in pages],
+    pages=[p for p in pages]
 )
 
 deploydocs(;
