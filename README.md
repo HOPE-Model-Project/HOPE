@@ -96,7 +96,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 # Documentation
 
-Documentation for [HOPE](https://github.com/SW/HOPE.jl).
+Documentation for [HOPE](https://swang22.github.io/HOPE/dev/).
 
 
 # Program Sponsors
