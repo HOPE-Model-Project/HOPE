@@ -24,7 +24,7 @@ makedocs(;
     sitename="HOPE.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://SW.github.io/HOPE.jl",
+        canonical="github.com/swang22/HOPE.git",
         edit_link="master",
         assets=String[],
     ),
