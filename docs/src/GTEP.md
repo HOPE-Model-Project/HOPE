@@ -7,8 +7,8 @@
 (1) Minimize total system cost:
 ```math
 \begin{aligned}
-&\min\sum_{g \in G^{+}} \tilde{I}_{g} x_{g} + \sum_{g \in G, t \in T} VCG_{g} N_{t} \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) \\
-&+ \sum_{l \in L_{+}} \tilde{I}_{l} Y_{l} + \sum_{d \in D, t \in T} VOLL_{d} N_{t} \sum_{h \in H_{t}} p_{d,t,h}^{LS} + PT^{rps} \sum_{w \in W} pt_{w}^{rps} + PT^{emis} \sum_{w \in W} em_{w}^{emis}  (1)
+&\min\sum_{g \in G^{+}} \tilde{I}_{g} x_{g} + \sum_{g \in G, t \in T} VCG_{g} \times N_{t} \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) \\
+&+ \sum_{l \in L_{+}} \tilde{I}_{l} \times Y_{l} + \sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \sum_{h \in H_{t}} p_{d,t,h}^{LS} + PT^{rps} \sum_{w \in W} pt_{w}^{rps} + PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
 \end{aligned}
 ```
 
