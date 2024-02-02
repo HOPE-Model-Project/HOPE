@@ -19,8 +19,8 @@ pages = OrderedDict(
 
 makedocs(;
     modules=[HOPE],
-    authors="swang22 <worldspace321@gmail.com> and contributors",
-    repo="https://github.com/SW/HOPE.jl/blob/{commit}{path}#{line}",
+    authors="Shen Wang, Mahdi Mehrtash, Zoe Song and contributors",
+    #repo="https://github.com/SW/HOPE.jl/blob/{commit}{path}#{line}",
     sitename="HOPE.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -32,6 +32,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/SW/HOPE.jl",
+    repo="github.com/swang22/HOPE",
     devbranch="master",
 )
