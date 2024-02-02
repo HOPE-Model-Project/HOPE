@@ -32,6 +32,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/swang22/HOPE",
+    repo="github.com/swang22/HOPE.git",
     devbranch="master",
 )
