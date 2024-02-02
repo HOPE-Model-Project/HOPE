@@ -2,7 +2,7 @@
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://swang22.github.io/HOPE.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://swang22.github.io/HOPE/dev/)
-[![Build Status](https://github.com/swang22/HOPE.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/swang22/HOPE.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Build Status](https://github.com/swang22/HOPE/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/swang22/HOPE/actions/workflows/CI.yml?query=branch%3Amaster)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 ## Acknowledgement
