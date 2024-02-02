@@ -1,5 +1,10 @@
-## Problem Formulation
-(1) Objective function
+## Overview
+
+
+# Problem Formulation
+## Objective function
+
+(1) Minimize total system cost:
 ```math
 \begin{aligned}
 &\min\sum_{g \in G^{+}} \tilde{I}_{g} x_{g} + \sum_{g \in G, t \in T} VCG_{g} N_{t} \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) \\
