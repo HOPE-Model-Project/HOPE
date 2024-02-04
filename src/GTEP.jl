@@ -177,8 +177,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		RM=config_set["planning_reserve_margin"]#												#Planning reserve margin, unitless
 		SECAP=[Estoragedata[:,"Capacity (MWh)"];Estoragedata_candidate[:,"Capacity (MWh)"]]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Estoragedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
-		SC=[1,1,1,1,1]#s									#The maximum rates of charging, unitless
-		SD=[1,1,1,1,1]#s									#The maximum rates of discharging, unitless
+		SC=[Estoragedata[:,"Charging Rate"]; Estoragedata_candidate[:, "Charging Rate"]]#s									#The maximum rates of charging, unitless
+		SD=[Estoragedata[:,"Discharging Rate"]; Estoragedata_candidate[:, "Discharging Rate"]]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s						#Variable (degradation) cost of storage unit s, $/MWh
 		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
