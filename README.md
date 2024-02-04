@@ -1,8 +1,8 @@
 # HOPE - Holistic Optimization Program for Electricity 
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://SW.github.io/HOPE.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://SW.github.io/HOPE.jl/dev/)
-[![Build Status](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/SW/HOPE.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://swang22.github.io/HOPE.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://swang22.github.io/HOPE/dev/)
+[![Build Status](https://github.com/swang22/HOPE/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/swang22/HOPE/actions/workflows/CI.yml?query=branch%3Amaster)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 ## Acknowledgement
@@ -18,7 +18,7 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Groubi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
 
 # Preparation Phase
 ## 1. Install Julia
@@ -96,7 +96,7 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 # Documentation
 
-Documentation for [HOPE](https://github.com/SW/HOPE.jl).
+Documentation for [HOPE](https://swang22.github.io/HOPE/dev/).
 
 
 # Program Sponsors

@@ -16,4 +16,4 @@ Users can select the proper mode of HOPE based on their research needs. Each mod
 
 # Contributors
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for current HOPE version include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/) and Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for current HOPE version include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song]().
