@@ -1,14 +1,3 @@
-@doc raw"""
-
- - seconds = 1e-6
- - logLevel = 1e-6
- - maxSolutions = -1
- - maxNodes = -1
- - allowableGap = -1
- - ratioGap = Inf
- - threads = 1
-
-"""
 function initiate_solver(solver_name::String, path::String)
 	solver_settings = YAML.load(open(path*"Settings/"*solver_name*"_settings.yml"))
 	if solver_name == "cbc"

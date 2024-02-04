@@ -171,7 +171,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		SD=[Estoragedata[:,"SD"];]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
-		VOLL=100000#d										#Value of loss of load d, $/MWh
+		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
 		e_ch=[Estoragedata[:,"Charging efficiency"];]#s				#Charging efficiency of storage unit s, unitless
 		e_dis=[Estoragedata[:,"Discharging efficiency"];]#s		#Discharging efficiency of storage unit s, unitless
 			
