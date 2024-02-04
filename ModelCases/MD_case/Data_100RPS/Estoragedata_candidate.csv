@@ -1,5 +1,5 @@
-Zone,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost (M$),Cost ($/MWh),EF,CC
-APS_MD,Battery,4000.0,1000.0,0.9,0.9,3.6,0.1,0,1
-DPL_MD,Battery,4000.0,1000.0,0.9,0.9,3.6,0.1,0,1
-BGE,Battery,4000.0,1000.0,0.9,0.9,3.6,0.1,0,1
-PEPCO,Battery,4000.0,1000.0,0.9,0.9,3.6,0.1,0,1
+Zone,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost (M$),Cost ($/MWh),EF,CC,Charging Rate,Discharging Rate
+APS_MD,Battery,4000,1000,0.9,0.9,3.6,0.1,0,1,1,1
+DPL_MD,Battery,4000,1000,0.9,0.9,3.6,0.1,0,1,1,1
+BGE,Battery,4000,1000,0.9,0.9,3.6,0.1,0,1,1,1
+PEPCO,Battery,4000,1000,0.9,0.9,3.6,0.1,0,1,1,1

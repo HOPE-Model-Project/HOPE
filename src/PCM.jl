@@ -168,8 +168,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		RD_g = Dict(zip(G,Gendata[:,Symbol("RD")]))
 		SECAP=[Estoragedata[:,"Capacity (MWh)"];]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Estoragedata[:,"Max Power (MW)"];]#s		#Maximum capacity of storage unit s, MWh
-		SC=[Estoragedata[:,"SC"];]#s									#The maximum rates of charging, unitless
-		SD=[Estoragedata[:,"SD"];]#s									#The maximum rates of discharging, unitless
+		SC=[Estoragedata[:,"Charging Rate"];]#s									#The maximum rates of charging, unitless
+		SD=[Estoragedata[:,"Discharging Rate"];]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
 		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
