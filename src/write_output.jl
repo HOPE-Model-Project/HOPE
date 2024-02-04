@@ -2,7 +2,7 @@ function mkdir_overwrite(path::AbstractString)
     if isdir(path)
         rm(path; force=true, recursive=true)
         println() 
-        println("'output' folder exists, will be overwritten now!")
+        println("'output' folder exists, will be overwritten!")
     end
     mkdir(path)
 end
@@ -146,10 +146,6 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
 
         ##Storage---------------------------------------------------------------------------------------------------------------------
-        S=[s for s=1:Num_sto+Num_Csto]							        #Set of storage units, index s
-        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
-        S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
-
         P_es_df = DataFrame(
             Technology = vcat(Estoragedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
             Zone = vcat(Estoragedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
@@ -231,19 +227,42 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
     elseif model_mode == "PCM" 
         Gendata = input_data["Gendata"]
         Estoragedata = input_data["Estoragedata"]
-
+        Branchdata = input_data["Branchdata"]
+        Busdata = input_data["Busdata"]
+        Loaddata = input_data["Loaddata"]
+        VOLL = input_data["VOLL"]
         
         #Calculate number of elements of input data
-        #Num_bus=size(Busdata,1);
+        Num_bus=size(Busdata,1);
         Num_Egen=size(Gendata,1);
-        #Num_load=count(!iszero, Busdata[:,3]);
-        #Num_Eline=size(Branchdata,1);
-        #Num_zone=length(Busdata[:,"Zone_id"]);
+        Num_load=count(!iszero, Busdata[:,3]);
+        Num_Eline=size(Branchdata,1);
+        Num_zone=length(Busdata[:,"Zone_id"]);
         Num_sto=size(Estoragedata,1);
+        #Mapping
+        #Index-Zone Mapping dict
+		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Busdata[:,"Zone_id"]))
+		Zone_idx_dict = Dict(zip(Busdata[:,"Zone_id"],[i for i=1:Num_zone]))
+        #Set
+        D=[d for d=1:Num_load] 	
+        D_i=[[d] for d in D]
         G=[g for g=1:Num_Egen]
         S=[s for s=1:Num_sto]
         H=[h for h=1:8760]
-
+        L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
+        I=[i for i=1:Num_zone]									#Set of zones, index i
+        G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i])] for i in I]	
+        S_i=[[findall(Estoragedata[:,"Zone"].==Idx_zone_dict[i])] for i in I]
+        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
+        LS_i=[[findall(Branchdata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
+  
+        #zone
+        Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
+        #Param
+        Gencostdata = input_data["Gencostdata"]
+        VCG=[Gencostdata]#g						#Variable cost of generation unit g, $/MWh
+		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")]]#s		
+        unit_converter = 10^6
         #Power OutputDF
         P_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"]),
@@ -267,15 +286,17 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_flow_df = DataFrame(
             From_zone = vcat(Branchdata[:,"From_zone"]),
             To_zone = vcat(Branchdata[:,"To_zone"]),
-            EC_Category = [repeat(["Existing"],Num_Eline)],
-            New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
-            AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
+            EC_Category = [repeat(["Existing"],Num_Eline)...],
+            AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline)
         )
-        P_flow_df.AnnSum .= [sum(value.(model[:f][l,t,h]) for t in T for h in H_t[t] ) for l in L]
+        P_flow_df.AnnSum .= [sum(value.(model[:f][l,h]) for h in H ) for l in L]
         
-        New_built_line_idx = map(x -> x + Num_Eline, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
-        P_flow_df[!,"New_Build"] .= 0
-        P_flow_df[New_built_line_idx,:New_Build] .=1
+        #Retreive power data from solved model
+        flow = value.(model[:f])
+        flow_t_h = hcat([Array(flow[:,h]) for h in H]...)
+        flow_t_h_df = DataFrame(flow_t_h, [Symbol("h$h") for h in H])
+        P_flow_df = hcat(P_flow_df, flow_t_h_df )
+        CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
         
         ##Storage---------------------------------------------------------------------------------------------------------------------
         
@@ -283,7 +304,6 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Technology = vcat(Estoragedata[:,"Type"]),
             Zone = vcat(Estoragedata[:,"Zone"]),
             EC_Category = repeat(["Existing"],Num_sto),
-            New_Build = Array{Union{Missing,Bool}}(undef, Num_sto),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, Num_sto),     #Annual charge
             DisAnnSum = Array{Union{Missing,Float64}}(undef, Num_sto),    #Annual discharge
         )
@@ -291,7 +311,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_es_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for h in H) for s in S]
         
         #New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
-        P_es_df[!,:New_Build] .= 0
+        #P_es_df[!,:New_Build] .= 0
         #P_es_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
         power_c = value.(model[:c])
@@ -309,7 +329,29 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         P_es_df = hcat(P_es_df, power_c_h_df, power_dc_h_df, power_soc_h_df)
         CSV.write(joinpath(outpath, "es_power_hourly.csv"), P_es_df, writeheader=true)
-	
+        ##System Cost-----------------------------------------------------------------------------------------------------------
+        Cost_df = DataFrame(
+            Zone = vcat(Ordered_zone_nm),
+            Opr_cost = Array{Union{Missing,Float64}}(undef, Num_zone),
+            #RPS_plt = Array{Union{Missing,Float64}}(undef, Num_zone),
+            #Carbon_plt =Array{Union{Missing,Float64}}(undef, Num_zone),
+            LoL_plt = Array{Union{Missing,Float64}}(undef, Num_zone),
+            Total_cost = Array{Union{Missing,Float64}}(undef, Num_zone)
+        )
+        p = value.(model[:p])
+        c = value.(model[:c])
+        dc = value.(model[:dc])
+        p_LS = value.(model[:p_LS])
+        for i in  1:Num_zone
+            Opr_c = sum(VCG[g]*sum(p[g,h] for h in H) for g in intersect(G,G_i[i]); init=0) + sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H; init=0) for s in intersect(S,S_i[i]); init=0)
+            #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
+            #Cb_p = PT_emis*sum(em_emis[w] for w in W)
+            Lol_p = sum(VOLL*sum(p_LS[d,h] for h in H; init=0) for d in intersect(D,D_i[i]); init=0)
+            Tot = sum([Opr_c,Lol_p])
+            Cost_df[i,2:end] = [Opr_c,Lol_p,Tot]
+        end
+        CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
+
     end
 	println("Write solved results in the folder 'output' DONE!")
 end
