@@ -19,7 +19,7 @@
 ```
 
 ```math
-\Gamma_= 
+\Gamma = \left( x_{g}, y_{l}, z_{s}, f_{l,h}, p_{g,t,h}, p_{d,t.h}^{LS}, c_{s,t,h}, dc_{s,t,h}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis}, a_{g,t}, b_{g,t} \right)
 ```
 ## Constraints
 
