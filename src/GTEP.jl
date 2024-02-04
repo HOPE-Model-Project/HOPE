@@ -65,6 +65,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		Gendata_candidate = input_data["Gendata_candidate"]
 		#policies
 		CBPdata = input_data["CBPdata"]
+		CBP_state_data = combine(groupby(CBPdata, :State), Symbol("Allowance (tons)") => sum)
 		#rpspolicydata=
 		RPSdata = input_data["RPSdata"]
 
@@ -152,9 +153,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		BM = 10^12;														#big M penalty
 		CC_g = [Gendata[:,"CC"];Gendata_candidate[:,"CC"]]#g       		#Capacity credit of generating units, unitless
 		CC_s = [Estoragedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s  #Capacity credit of storage units, unitless
-		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
+		#CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];Gendata_candidate[:,"EF"]]#g				#Carbon emission factor of generator g, t/MWh
-		ELMT=Dict("MD"=>10^12,"NMD"=>10^12)#w							#Carbon emission limits at state w, t
+		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		F_max=[Branchdata[!,"Capacity (MW)"];Linedata_candidate[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
 		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$

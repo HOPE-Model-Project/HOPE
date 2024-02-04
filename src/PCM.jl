@@ -53,6 +53,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		NIdata = input_data["NIdata"]
 		#policies
 		CBPdata = input_data["CBPdata"]
+		CBP_state_data = combine(groupby(CBPdata, :State), Symbol("Allowance (tons)") => sum)
 		#rpspolicydata=
 		RPSdata = input_data["RPSdata"]
 
@@ -147,7 +148,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		CC_s = [Estoragedata[:,"CC"];]#s  #Capacity credit of storage units, unitless
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];]#g				#Carbon emission factor of generator g, t/MWh
-		ELMT=Dict("MD"=>10^12,"NMD"=>10^12)#w							#Carbon emission limits at state w, t
+		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		F_max=[Branchdata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
 		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
 		#N=get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
