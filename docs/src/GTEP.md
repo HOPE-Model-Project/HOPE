@@ -7,16 +7,18 @@
 (1) Minimize total system cost:
 ```math
 \begin{aligned}
-\text{min}
-\sum_{g \in G^{+}} \tilde{I}_{g} \times x_{g} + \sum_{g \in G, t \in T} VCG_{g} \times N_{t} \times \sum_{h \in H_{t}} p_{g,t,h} + \sum_{s \in S_{+}} \tilde{I}_{s} \times z_{s} + \\
-&\sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
-&\sum_{l \in L_{+}} \tilde{I}_{l} \times Y_{l} + \\
-&\sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \times \sum_{h \in H_{t}} p_{d,t,h}^{LS} + PT^{rps} \times \sum_{w \in W} pt_{w}^{rps} + PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
+\text{min}\quad
+        \sum_{g \in G^{+}} \tilde{I}_{g} \times x_{g} + \sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times 
+        \sum_{h \in H_{t}} p_{g,t,h} + \sum_{s \in S_{+}} \tilde{I}_{s} \times z_{s} + \\
+        \sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
+        \sum_{l \in L_{+}} \tilde{I}_{l} \times Y_{l} + \\
+        \sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \times \sum_{h \in H_{t}} p_{d,t,h}^{LS} + PT^{rps} 
+        \times \sum_{w \in W} pt_{w}^{rps} + PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
 \end{aligned}
 ```
-(2)
+
 ```math
- = 
+\Gamma_= 
 ```
 ## Constraints
 
