@@ -8,10 +8,9 @@
 ```math
 \begin{aligned}
         \text{min} \quad
-        &\sum_{g \in G^{+}} \tilde{I}_{g} \times x_{g} + \sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times + \\
-        &\sum_{h \in H_{t}} p_{g,t,h} + \sum_{s \in S_{+}} \tilde{I}_{s} \times z_{s} + \\
-        &\sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
-        &\sum_{l \in L_{+}} \tilde{I}_{l} \times Y_{l} + \\
+        &\sum_{g \in G^{+}} \tilde{I}_{g} \times x_{g} + \sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times \sum_{h \in H_{t}}p_{g,t,h} + \\
+        &\sum_{l \in L^{+}} \tilde{I}_{l} \times y_{l} + \\
+        &\sum_{s \in S^{+}} \tilde{I}_{s} \times z_{s} + \sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
         &\sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \times \sum_{h \in H_{t}} p_{d,t,h}^{LS} + \\
         & PT^{rps} \times \sum_{w \in W} pt_{w}^{rps} + \\
         & PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
@@ -19,7 +18,7 @@
 ```
 
 ```math
-\Gamma = \left( x_{g}, y_{l}, z_{s}, f_{l,h}, p_{g,t,h}, p_{d,t.h}^{LS}, c_{s,t,h}, dc_{s,t,h}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis}, a_{g,t}, b_{g,t} \right)
+\Gamma = \Bigl\{ x_{g}, y_{l}, z_{s}, f_{l,h}, p_{g,t,h}, p_{d,t.h}^{LS}, c_{s,t,h}, dc_{s,t,h}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis}, a_{g,t}, b_{g,t} \Bigr\}
 ```
 ## Constraints
 
