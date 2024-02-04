@@ -1,5 +1,6 @@
 module HOPE
-#using package
+##using package##
+
 using JuMP 
 using DataFrames 
 using CSV
@@ -12,12 +13,14 @@ using Distances
 using Combinatorics
 using Statistics
 
-#using solver
+##using solver#
+
 #using Gurobi
 #using CPLEX
 using Cbc
-using HiGHS
-#using Clp
+#using HiGHS
+using Clp
+using GLPK
 
 #include HOPE module scripts
 include("read_input_data.jl");		#read input data module
@@ -37,8 +40,9 @@ export load_data
 export get_representative_ts
 export get_TPmatched_ts
 export solve_model
-export write_outputs
+export write_output
 export run_hope
 export initiate_solver
+export get_representative_ts
 
 end

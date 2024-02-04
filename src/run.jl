@@ -18,7 +18,7 @@ function run_hope(case::AbstractString)
 	elseif config_set["model_mode"] == "PCM"
 		my_model = create_PCM_model(config_set,input_data,optimizer)
 	else
-		println("ModeError: Please check the model mode, it should be 'GTEP' or 'PCM' !" ) 
+		println("ModeError: Please check the model mode, it should be 'GTEP' or 'PCM', the 'OPF' and 'DART' are not availiable now !" ) 
 	end
 	#solve model
 	my_sovled_model = solve_model(config_set, input_data, my_model)
