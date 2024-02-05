@@ -7,7 +7,7 @@
 (1) Minimize total system cost:
 ```math
 \begin{aligned}
-        \text{min} \quad
+        \min_{\Gamma} \quad
         &\sum_{g \in G^{+}} \tilde{I}_{g} \times x_{g} + \sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times \sum_{h \in H_{t}}p_{g,t,h} + \\
         &\sum_{l \in L^{+}} \tilde{I}_{l} \times y_{l} + \\
         &\sum_{s \in S^{+}} \tilde{I}_{s} \times z_{s} + \sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
