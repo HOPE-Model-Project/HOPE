@@ -58,6 +58,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G_new=[g for g=Num_Egen+1:Num_Egen+Num_Cgen]
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
         S_i=[[findall(Estoragedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
+        S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
         LS_i=[[findall(Branchdata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
