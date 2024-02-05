@@ -4,7 +4,7 @@
 (1) Minimize total system cost:
 ```math
 \begin{aligned}
-        \text{min} \quad
+        \min_{\Gamma} \quad
         &\sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times \sum_{h \in H}p_{g,h} + \\
         &\sum_{s \in S, t \in T} VCS \times \sum_{h \in H} (c_{s,h} + dc_{s,h}) + \\
         &\sum_{d \in D, t \in T} VOLL_{d} \times \sum_{h \in H} p_{d,h}^{LS} + \\
