@@ -3,8 +3,8 @@ CurrentModule = HOPE
 ```
 
 # Run a Case in HOPE
-## Using VScode to Run a Case (Recommend)
-Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
+## Using VScode to Run a Case (Recommended)
+Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VScode and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
 
@@ -23,14 +23,17 @@ Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) an
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 
 **(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed! Then, press `Backspace` button to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
+
 ![image](https://github.com/swang22/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
+
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
+
 ![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
 
-**(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.   
+**(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1, 2, 3, 6.   
 
 ## Using System Terminal to Run a Case
-You can use a system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
+You can use a system terminal either with a "Windows system" or a "Mac system" to run a test case. See details below.
 ### Windows users
 **(1)** Open **Command Prompt** from Windows **Start** and navigate to your home path:`/yourpath/home`.
 
@@ -54,5 +57,5 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
-**(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.  
+**(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1, 2, 3, 6.  
 
