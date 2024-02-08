@@ -26,7 +26,8 @@ makedocs(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="github.com/swang22/HOPE.git",
         edit_link="master",
-        assets = ["Assets/Logo.ico"],
+        assets = ["assets/favicon.ico"],
+        assets = ["assets/logo.png"],
     ),
     pages=[p for p in pages]
 )
