@@ -1,5 +1,8 @@
 ## Overview
 
+The generation and transmission expansion planning (GTEP) model is for investment decision analysis under various policies and energy transition scenarios. This model is a Mixed-Integer Linear Programming (MILP) Problem.
+
+The objective of this model is to minimize total system costs, including fixed investment costs, variable operation costs, and penalties for non-compliance with policies. The techno-economic and environmental constraints of this model are budget constraints, power balance, transmission transfer limits, generator operation constraints, storage operation constraints, resource adequacy requirements, and policy constraints (i.e., renewable portfolio standards (RPS) and carbon emission limitations). The decision variables of this model includes integer decision variables for investment in resources and continuous decision variables for operations in representative days.
 
 # Problem Formulation
 ## Objective function
