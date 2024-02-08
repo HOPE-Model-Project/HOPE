@@ -1,6 +1,13 @@
-# Introduction
+## Overview
 
-## Objective Function
+The production cost model (PCM) is for system operation analysis under various policies and energy transition scenarios. This model is a Linear Programming Problem.
+
+The objective of this model is to minimize the system's (given by the planning model) total cost, including variable operation costs and penalties for non-compliance with policies. The constraints of this model are power balance, transmission transfer limit, generator operation constraints, storage operation constraints, resource adequacy requirements, and policy constraints (i.e., renewable portfolio standards (RPS) and carbon emission limitations). 
+The continuous decision variables of the PCM model are hourly operations of resources for a target year.
+
+
+# Problem Formulation
+## Objective function
 (1) Minimize total system cost:
 ```math
 \begin{aligned}
