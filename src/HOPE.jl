@@ -28,7 +28,9 @@ include("GTEP.jl");					#capacity expansion model
 include("PCM.jl");					#production cost model
 include("write_output.jl");			#write output module
 include("solver_config.jl");		#setting solver parameters
+include("solve.jl")                 #solve model function
 include("run.jl")                   #run modual
+include("debug.jl")                 #debug function
 
 #export HOPE functions
 export aggregate_gendata_gtep
@@ -36,13 +38,14 @@ export aggregate_gendata_pcm
 export configure_settings
 export create_GTEP_model
 export create_PCM_model
-export load_data
+export initiate_solver
+export debug
 export get_representative_ts
 export get_TPmatched_ts
+export load_data
+export run_debug
+export run_hope
 export solve_model
 export write_output
-export run_hope
-export initiate_solver
-export get_representative_ts
 
 end

@@ -10,5 +10,5 @@ time_periods:                     #representative day clustering, could define y
     4 : (12, 21, 3, 19)           # December 21st to March 19th;  4;winter
 planning_reserve_margin: 0.02     #planning_reserve_margin
 value_of_loss_of_load: 100000     #Value of loss of load d, $/MWh
-solver: cbc                    #solver: cbc, groubi
-
+solver: cbc                       #solver: cbc, gurobi
+debug: 0                          #Flag for turning on the Method of Debug, 0 = not active; 1 = active conflict method; 2 = active penalty method
