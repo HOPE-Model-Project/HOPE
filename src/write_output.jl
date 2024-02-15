@@ -14,34 +14,34 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
     println("HOPE model ($model_mode mode) is successfully solved!")
     if model_mode == "GTEP"
         ##read input for print	
-        Estoragedata = input_data["Estoragedata"]
+        Storagedata = input_data["Storagedata"]
         Estoragedata_candidate = input_data["Estoragedata_candidate"]
         Gendata = input_data["Gendata"]
         Gendata_candidate = input_data["Gendata_candidate"]
-        Branchdata = input_data["Branchdata"]
-        Busdata = input_data["Busdata"]
+        Linedata = input_data["Linedata"]
+        Zonedata = input_data["Zonedata"]
         Linedata_candidate = input_data["Linedata_candidate"]
         Loaddata = input_data["Loaddata"]
         VOLL = input_data["VOLL"]
         #Calculate number of elements of input data
         Num_Egen=size(Gendata,1)
-        Num_bus=size(Busdata,1)
-        Num_load=count(!iszero, Busdata[:,3])
-        Num_Eline=size(Branchdata,1)
-        Num_zone=length(Busdata[:,"Zone_id"])
-        Num_sto=size(Estoragedata,1)
+        Num_bus=size(Zonedata,1)
+        Num_load=count(!iszero, Zonedata[:,3])
+        Num_Eline=size(Linedata,1)
+        Num_zone=length(Zonedata[:,"Zone_id"])
+        Num_sto=size(Storagedata,1)
         Num_Csto=size(Estoragedata_candidate,1)
         Num_Cgen=size(Gendata_candidate,1)
         Num_Cline=size(Linedata_candidate,1)
         #Mapping
         #Index-Zone Mapping dict
-		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Busdata[:,"Zone_id"]))
-		Zone_idx_dict = Dict(zip(Busdata[:,"Zone_id"],[i for i=1:Num_zone]))
+		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Zonedata[:,"Zone_id"]))
+		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         D=[d for d=1:Num_load] 	
         D_i=[[d] for d in D]
-        W=unique(Busdata[:,"State"])
+        W=unique(Zonedata[:,"State"])
         #lines
         L=[l for l=1:Num_Eline+Num_Cline]						#Set of transmission corridors, index l
         L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
@@ -50,25 +50,25 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
         H_t=[collect(1:24) for t in T]                          #Set of hours in time period (day) t, index h, subset of H
         I=[i for i=1:Num_zone]
-        I_w=Dict(zip(W, [findall(Busdata[:,"State"].== w) for w in W])) #Set of zones in state w, subset of I
+        I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W])) #Set of zones in state w, subset of I
         HD = [h for h in 1:24]
         #Sets
         G=[g for g=1:Num_Egen+Num_Cgen]
         G_exist=[g for g=1:Num_Egen]
         G_new=[g for g=Num_Egen+1:Num_Egen+Num_Cgen]
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
-        S_i=[[findall(Estoragedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
+        S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
         S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
-        LS_i=[[findall(Branchdata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
+        LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
         #Param
         INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
 		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s	
         Gencostdata = input_data["Gencostdata"]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
         unit_converter = 10^6
 
         		#representative day clustering
@@ -126,8 +126,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         #Power flow OutputDF
         P_flow_df = DataFrame(
-            From_zone = vcat(Branchdata[:,"From_zone"],Linedata_candidate[:,"From_zone"]),
-            To_zone = vcat(Branchdata[:,"To_zone"],Linedata_candidate[:,"To_zone"]),
+            From_zone = vcat(Linedata[:,"From_zone"],Linedata_candidate[:,"From_zone"]),
+            To_zone = vcat(Linedata[:,"To_zone"],Linedata_candidate[:,"To_zone"]),
             EC_Category = [repeat(["Existing"],Num_Eline);repeat(["Candidate"],Num_Cline)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
@@ -148,8 +148,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         ##Storage---------------------------------------------------------------------------------------------------------------------
         P_es_df = DataFrame(
-            Technology = vcat(Estoragedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
-            Zone = vcat(Estoragedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
+            Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
@@ -180,12 +180,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         #Storage Capacity OutputDF
         C_es_df = DataFrame(
-            Technology = vcat(Estoragedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
-            Zone = vcat(Estoragedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
+            Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),            
-            EnergyCapacity = vcat(Estoragedata[:,"Capacity (MWh)"],Estoragedata_candidate[:,"Capacity (MWh)"]),
-            Capacity = vcat(Estoragedata[:,"Max Power (MW)"],Estoragedata_candidate[:,"Max Power (MW)"])
+            EnergyCapacity = vcat(Storagedata[:,"Capacity (MWh)"],Estoragedata_candidate[:,"Capacity (MWh)"]),
+            Capacity = vcat(Storagedata[:,"Max Power (MW)"],Estoragedata_candidate[:,"Max Power (MW)"])
         )
         C_es_df[!,:New_Build] .= 0
         C_es_df[New_built_idx,:New_Build] .= 1
@@ -227,23 +227,23 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
     
     elseif model_mode == "PCM" 
         Gendata = input_data["Gendata"]
-        Estoragedata = input_data["Estoragedata"]
-        Branchdata = input_data["Branchdata"]
-        Busdata = input_data["Busdata"]
+        Storagedata = input_data["Storagedata"]
+        Linedata = input_data["Linedata"]
+        Zonedata = input_data["Zonedata"]
         Loaddata = input_data["Loaddata"]
         VOLL = input_data["VOLL"]
         
         #Calculate number of elements of input data
-        Num_bus=size(Busdata,1);
+        Num_bus=size(Zonedata,1);
         Num_Egen=size(Gendata,1);
-        Num_load=count(!iszero, Busdata[:,3]);
-        Num_Eline=size(Branchdata,1);
-        Num_zone=length(Busdata[:,"Zone_id"]);
-        Num_sto=size(Estoragedata,1);
+        Num_load=count(!iszero, Zonedata[:,3]);
+        Num_Eline=size(Linedata,1);
+        Num_zone=length(Zonedata[:,"Zone_id"]);
+        Num_sto=size(Storagedata,1);
         #Mapping
         #Index-Zone Mapping dict
-		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Busdata[:,"Zone_id"]))
-		Zone_idx_dict = Dict(zip(Busdata[:,"Zone_id"],[i for i=1:Num_zone]))
+		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Zonedata[:,"Zone_id"]))
+		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
         #Set
         D=[d for d=1:Num_load] 	
         D_i=[[d] for d in D]
@@ -253,16 +253,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
         I=[i for i=1:Num_zone]									#Set of zones, index i
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i])] for i in I]	
-        S_i=[[findall(Estoragedata[:,"Zone"].==Idx_zone_dict[i])] for i in I]
+        S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i])] for i in I]
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
-        LS_i=[[findall(Branchdata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
+        LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
   
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         #Param
         Gencostdata = input_data["Gencostdata"]
         VCG=[Gencostdata]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")]]#s		
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")]]#s		
         unit_converter = 10^6
         #Power OutputDF
         P_gen_df = DataFrame(
@@ -285,8 +285,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         ##Transmission line-----------------------------------------------------------------------------------------------------------
         #Power flow OutputDF
         P_flow_df = DataFrame(
-            From_zone = vcat(Branchdata[:,"From_zone"]),
-            To_zone = vcat(Branchdata[:,"To_zone"]),
+            From_zone = vcat(Linedata[:,"From_zone"]),
+            To_zone = vcat(Linedata[:,"To_zone"]),
             EC_Category = [repeat(["Existing"],Num_Eline)...],
             AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline)
         )
@@ -302,8 +302,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         ##Storage---------------------------------------------------------------------------------------------------------------------
         
         P_es_df = DataFrame(
-            Technology = vcat(Estoragedata[:,"Type"]),
-            Zone = vcat(Estoragedata[:,"Zone"]),
+            Technology = vcat(Storagedata[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"]),
             EC_Category = repeat(["Existing"],Num_sto),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, Num_sto),     #Annual charge
             DisAnnSum = Array{Union{Missing,Float64}}(undef, Num_sto),    #Annual discharge

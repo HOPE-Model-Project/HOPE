@@ -8,7 +8,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	solver_time = time() - solver_start_time
 
 	##read input for print	
-	W=unique(input_data["Busdata"][:,"State"])							#Set of states, index w/w’
+	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
 	RPSdata = input_data["RPSdata"]
 	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"

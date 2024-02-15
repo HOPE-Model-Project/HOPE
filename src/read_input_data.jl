@@ -42,8 +42,8 @@ function load_data(config_set::Dict,path::AbstractString)
             
             #network
             println("Reading network")
-            input_data["Busdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"busdata"))
-            input_data["Branchdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"branchdata"))
+            input_data["Zonedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"zonedata"))
+            input_data["Linedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"linedata"))
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
@@ -52,19 +52,19 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata"))
             end 
             
-            input_data["Estoragedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Estoragedata"))
+            input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
             input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
             #time series
             println("Reading time series")
-            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"WT_timeseries_regional"))
-            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"SPV_timeseries_regional"))
-            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Load_timeseries_regional"))
+            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"wind_timeseries_regional"))
+            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"solar_timeseries_regional"))
+            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             #candidate
             println("Reading resourc candidate")
             input_data["Estoragedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Estoragedata_candidate"))
-            input_data["Linedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Linedata_candidate"))
-            input_data["Gendata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Gendata_candidate"))
+            input_data["Linedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"linedata_candidate"))
+            input_data["Gendata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata_candidate"))
             #policies
             println("Reading polices")
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"carbonpolicies"))
@@ -76,10 +76,10 @@ function load_data(config_set::Dict,path::AbstractString)
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
         
             #network
-            #Busdata=CSV.read("Data/busdata.csv",DataFrame)
+            #Zonedata=CSV.read("Data/zonedata.csv",DataFrame)
             println("Reading network")
-            input_data["Busdata"]=CSV.read(joinpath(folderpath,"busdata.csv"),DataFrame) #110% Peak
-            input_data["Branchdata"]=CSV.read(joinpath(folderpath,"branchdata.csv"),DataFrame)
+            input_data["Zonedata"]=CSV.read(joinpath(folderpath,"zonedata.csv"),DataFrame) #110% Peak
+            input_data["Linedata"]=CSV.read(joinpath(folderpath,"linedata.csv"),DataFrame)
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
@@ -88,19 +88,19 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"]=CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
             end 
             
-            input_data["Estoragedata"]=CSV.read(joinpath(folderpath,"Estoragedata.csv"),DataFrame)
+            input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
             input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
             #time series
             println("Reading time series")
-            input_data["Winddata"]=CSV.read(joinpath(folderpath,"WT_timeseries_regional.csv"),DataFrame)
-            input_data["Solardata"]=CSV.read(joinpath(folderpath,"SPV_timeseries_regional.csv"),DataFrame)
-            input_data["Loaddata"]=CSV.read(joinpath(folderpath,"Load_timeseries_regional.csv"),DataFrame)
+            input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
+            input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
+            input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             #candidate
             println("Reading resource candidate")
-            input_data["Estoragedata_candidate"]=CSV.read(joinpath(folderpath,"Estoragedata_candidate.csv"),DataFrame)
-            input_data["Linedata_candidate"]=CSV.read(joinpath(folderpath,"Linedata_candidate.csv"),DataFrame)
-            input_data["Gendata_candidate"]=CSV.read(joinpath(folderpath,"Gendata_candidate.csv"),DataFrame)
+            input_data["Estoragedata_candidate"]=CSV.read(joinpath(folderpath,"storagedata_candidate.csv"),DataFrame)
+            input_data["Linedata_candidate"]=CSV.read(joinpath(folderpath,"linedata_candidate.csv"),DataFrame)
+            input_data["Gendata_candidate"]=CSV.read(joinpath(folderpath,"gendata_candidate.csv"),DataFrame)
             #policies
             println("Reading polices")
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolicies.csv"),DataFrame)
@@ -123,8 +123,8 @@ function load_data(config_set::Dict,path::AbstractString)
 
             #network
             println("Reading network")
-            input_data["Busdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"busdata"))
-            input_data["Branchdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"branchdata"))
+            input_data["Zonedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"zonedata"))
+            input_data["Linedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"linedata"))
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
@@ -133,15 +133,15 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"gendata"))
             end 
             
-            input_data["Estoragedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"Estoragedata"))
+            input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"storagedata"))
             input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
 
         
             #time series
             println("Reading time series")
-            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"WT_timeseries_regional"))
-            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"SPV_timeseries_regional"))
-            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath*"PCM_input_total.xlsx"),"Load_timeseries_regional"))
+            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"wind_timeseries_regional"))
+            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"solar_timeseries_regional"))
+            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath*"PCM_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
 
             #policies
@@ -154,8 +154,8 @@ function load_data(config_set::Dict,path::AbstractString)
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
             
             println("Reading network")
-            input_data["Busdata"]=CSV.read(joinpath(folderpath,"busdata.csv"),DataFrame)
-            input_data["Branchdata"]=CSV.read(joinpath(folderpath,"branchdata.csv"),DataFrame)
+            input_data["Zonedata"]=CSV.read(joinpath(folderpath,"zonedata.csv"),DataFrame)
+            input_data["Linedata"]=CSV.read(joinpath(folderpath,"linedata.csv"),DataFrame)
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
@@ -164,15 +164,15 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"]=CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
             end 
             
-            input_data["Estoragedata"]=CSV.read(joinpath(folderpath,"Estoragedata.csv"),DataFrame)
+            input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
             input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
 
         
             #time series
             println("Reading time series")
-            input_data["Winddata"]=CSV.read(joinpath(folderpath,"WT_timeseries_regional.csv"),DataFrame)
-            input_data["Solardata"]=CSV.read(joinpath(folderpath,"SPV_timeseries_regional.csv"),DataFrame)
-            input_data["Loaddata"]=CSV.read(joinpath(folderpath,"Load_timeseries_regional.csv"),DataFrame)
+            input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
+            input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
+            input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
 
             #policies

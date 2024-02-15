@@ -39,11 +39,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 	elseif model_mode == "PCM" 
 	
 		#network
-		Busdata = input_data["Busdata"]
-		Branchdata = input_data["Branchdata"]
+		Zonedata = input_data["Zonedata"]
+		Linedata = input_data["Linedata"]
 		#technology
 		Gendata = input_data["Gendata"]
-		Estoragedata = input_data["Estoragedata"]
+		Storagedata = input_data["Storagedata"]
 		Gencostdata = input_data["Gencostdata"]
 		#reservedata=
 		#time series
@@ -58,17 +58,17 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		RPSdata = input_data["RPSdata"]
 
 		#Calculate number of elements of input data
-		Num_bus=size(Busdata,1);
+		Num_bus=size(Zonedata,1);
 		Num_gen=size(Gendata,1);
-		Num_load=count(!iszero, Busdata[:,3]);
-		Num_Eline=size(Branchdata,1);
-		Num_zone=length(Busdata[:,"Zone_id"]);
-		Num_sto=size(Estoragedata,1);
+		Num_load=count(!iszero, Zonedata[:,3]);
+		Num_Eline=size(Linedata,1);
+		Num_zone=length(Zonedata[:,"Zone_id"]);
+		Num_sto=size(Storagedata,1);
 		
 
 		#Index-Zone Mapping dict
-		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Busdata[:,"Zone_id"]))
-		Zone_idx_dict = Dict(zip(Busdata[:,"Zone_id"],[i for i=1:Num_zone]))
+		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Zonedata[:,"Zone_id"]))
+		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
 		#Ordered zone
 		Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
 
@@ -103,7 +103,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		I=[i for i=1:Num_zone]									#Set of zones, index i
 		J=I														#Set of zones, index j
 		L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
-		W=unique(Busdata[:,"State"])							#Set of states, index w/w’
+		W=unique(Zonedata[:,"State"])							#Set of states, index w/w’
 		W_prime = W												#Set of states, index w/w’
 
 		#SubSets------------------------------------------------
@@ -124,12 +124,12 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		H_t=[Load_tp_match[t].Hour for t in T]							#Set of hours in time period (day) t, index h, subset of H
 		H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
-		S_i=[findall(Estoragedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]				#Set of storage units connected to zone i, subset of S  
+		S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]				#Set of storage units connected to zone i, subset of S  
 		L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
-		LS_i=[findall(Branchdata[:,"From_zone"].==Idx_zone_dict[i]) for i in I]	#Set of sending transmission corridors of zone i, subset of L
-		LR_i=[findall(Branchdata[:,"To_zone"].==Idx_zone_dict[i]) for i in I]		#Set of receiving transmission corridors of zone i， subset of L
-		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Branchdata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Branchdata[:,"To_zone"])]))
-		I_w=Dict(zip(W, [findall(Busdata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
+		LS_i=[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]) for i in I]	#Set of sending transmission corridors of zone i, subset of L
+		LR_i=[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]) for i in I]		#Set of receiving transmission corridors of zone i， subset of L
+		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
+		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
 		WIR_w=Dict(zip(["MD","NMD"],[["MD","NMD"],["MD","NMD"]]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
 		WER_w=Dict(zip(["MD","NMD"],[["NMD"],["MD"]]))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
 		#WER_w=Dict(zip(["MD","NMD"],[["MD","NMD"],["MD","NMD"]]))		#Set of states that state w can export renewable credits to (includes w itself), subset of W
@@ -145,18 +145,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
 		BM = 10^12;														#big M penalty
 		CC_g = [Gendata[:,"CC"];]#g       		#Capacity credit of generating units, unitless
-		CC_s = [Estoragedata[:,"CC"];]#s  #Capacity credit of storage units, unitless
+		CC_s = [Storagedata[:,"CC"];]#s  #Capacity credit of storage units, unitless
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
-		F_max=[Branchdata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
+		F_max=[Linedata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
 		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
 		#N=get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
-		NI=Dict([(i,h) =>-NIdata[h]*(Busdata[:,"Demand (MW)"][i]/sum(Busdata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
-		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Busdata[:,"Demand (MW)"][i]/sum(Busdata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
+		NI=Dict([(i,h) =>-NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
+		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Loaddata_ordered
-		PK=Busdata[:,"Demand (MW)"]#i						#Peak power demand, MW
+		PK=Zonedata[:,"Demand (MW)"]#i						#Peak power demand, MW
 		PT_rps=10^9											#RPS volitation penalty, $/MWh
 		PT_emis=10^9										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
@@ -166,19 +166,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		RM_SPIN_g = Dict(zip(G,Gendata[:,Symbol("RM_SPIN")]))
 		RU_g = Dict(zip(G,Gendata[:,Symbol("RU")]))
 		RD_g = Dict(zip(G,Gendata[:,Symbol("RD")]))
-		SECAP=[Estoragedata[:,"Capacity (MWh)"];]#s		#Maximum energy capacity of storage unit s, MWh
-		SCAP=[Estoragedata[:,"Max Power (MW)"];]#s		#Maximum capacity of storage unit s, MWh
-		SC=[Estoragedata[:,"Charging Rate"];]#s									#The maximum rates of charging, unitless
-		SD=[Estoragedata[:,"Discharging Rate"];]#s									#The maximum rates of discharging, unitless
+		SECAP=[Storagedata[:,"Capacity (MWh)"];]#s		#Maximum energy capacity of storage unit s, MWh
+		SCAP=[Storagedata[:,"Max Power (MW)"];]#s		#Maximum capacity of storage unit s, MWh
+		SC=[Storagedata[:,"Charging Rate"];]#s									#The maximum rates of charging, unitless
+		SD=[Storagedata[:,"Discharging Rate"];]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Estoragedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
 		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
-		e_ch=[Estoragedata[:,"Charging efficiency"];]#s				#Charging efficiency of storage unit s, unitless
-		e_dis=[Estoragedata[:,"Discharging efficiency"];]#s		#Discharging efficiency of storage unit s, unitless
+		e_ch=[Storagedata[:,"Charging efficiency"];]#s				#Charging efficiency of storage unit s, unitless
+		e_dis=[Storagedata[:,"Discharging efficiency"];]#s		#Discharging efficiency of storage unit s, unitless
 			
 		#for multiple time period, we need to use following TS parameters
-		#NI_t = Dict([t => Dict([(h,i) =>-Loaddata[!,"NI"][h]*(Busdata[:,"Demand (MW)"][i]/sum(Busdata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
-		NI_h = Dict([(h,i)=>-Loaddata[!,"NI"][h]*(Busdata[:,"Demand (MW)"][i]/sum(Busdata[:,"Demand (MW)"])) for i in I for h in H])
+		#NI_t = Dict([t => Dict([(h,i) =>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
+		NI_h = Dict([(h,i)=>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])
 		P_t = Loaddata_ordered  #hi
 		
 		#For T
@@ -370,7 +370,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)# same as 
 	solver_time = time() - solver_start_time
 
 	##read input for print	
-	W=unique(input_data["Busdata"][:,"State"])							#Set of states, index w/w’
+	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
 	RPSdata = input_data["RPSdata"]
 	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
