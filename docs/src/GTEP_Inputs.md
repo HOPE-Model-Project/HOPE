@@ -3,7 +3,7 @@
 CurrentModule = HOPE
 ```
 
-# Nomenclature
+# Notation
 
 ## Sets and Indices
 ---

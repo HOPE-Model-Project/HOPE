@@ -14,6 +14,10 @@ pages = OrderedDict(
         "Notation" => "notation.md",
         "GTEP" => "GTEP.md",
         "PCM" => "PCM.md",
+    ],
+    "Input Data Explanation" => [
+        "GTEP Inputs" => "GTEP_inputs.md",
+        "PCM Inputs" => "PCM_inputs.md",
     ]
 )  
 
