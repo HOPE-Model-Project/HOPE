@@ -25,7 +25,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Install [Julia](http://julialang.org/) language.
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`. 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 
  
@@ -34,7 +34,7 @@ Clone OR download the **HOPE** repository to your local directory - click the gr
 ## Using VScode to Run a Case (Recommend)
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
 
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory could be any folder where you save your HOPE repo. The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
+**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory could be any folder where you save your HOPE project. The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
 
 **(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
