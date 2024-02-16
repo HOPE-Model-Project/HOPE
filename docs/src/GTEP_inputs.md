@@ -141,12 +141,28 @@ This is the input dataset for rescaled annual hourly load profile in each zone.
 |Zone name 1 | Rescaled load data in zone 1 on a specific period, day, and month|
 |Zone name 2 | Rescaled load data in zone 2 on a specific period, day, and month|
 |... |...|
-|NI |Net import on a specific period, day, and month|
+|NI | Net load import on a specific period, day, and month|
 ---
 
+## carbonpolicies
+This is the input dataset for carbon policies.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|State | Name of the state|
+|Time Period | Time periods for carbon allowance, can be yearly or quarterly, set by users|
+|Allowance (tons) | Carbon emission allowance for each state in tons|
+---
 
-
-
+## rpspolicies
+This is the input dataset for renewable portfolio standard policies. It defines renewable credits trading relationship between different states (i.e., the states must be neighboring states) and the renewable credit requirement for each state.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|From_state | The state that |
+|To_state | The state that |
+|RPS | State RPS requirement for state in column "From_state"|
+---
 
 
 
