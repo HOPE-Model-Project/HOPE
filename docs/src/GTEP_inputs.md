@@ -8,7 +8,9 @@ CurrentModule = HOPE
 Explanation: difference of csv & xlsx files
 
 ## gendata
+
 This is input dataset for existing generators. 
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -17,11 +19,14 @@ This is input dataset for existing generators.
 |Zone |The zone that the generator is belonging to| 
 |Type |The type of technology of the generator|
 |Cost ($/MWh) |Operating cost for the generator per megawatt hour|
-|EF |The CO2 emission factor for the generator, in CO2 per |
+|EF |The CO2 emission factor for the generator, in tons per megawatt hour|
 |CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
 ---
+
 ## gendata_candidate
+
 This is input dataset for unplanned generators. 
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -36,7 +41,9 @@ This is input dataset for unplanned generators.
 ---
 
 ## storagedata
+
 This is input dataset for existing energy storage (e.g., battery storage, pumped hydro storage). 
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -54,7 +61,9 @@ This is input dataset for existing energy storage (e.g., battery storage, pumped
 ---
 
 ## storagedata_candidate
+
 This is input dataset for unplanned energy storage (e.g., battery storage, pumped hydro storage). 
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -73,7 +82,9 @@ This is input dataset for unplanned energy storage (e.g., battery storage, pumpe
 ---
 
 ## solar_timeseries_regional
+
 This is the input dataset for rescaled annual hourly solar PV generation profile in each zone. Each zone has 8760 data points.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -86,7 +97,9 @@ This is the input dataset for rescaled annual hourly solar PV generation profile
 ---
 
 ## wind_timeseries_regional
+
 This is the input dataset for rescaled annual hourly wind generation profile in each zone. Each zone has 8760 data points.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -99,7 +112,9 @@ This is the input dataset for rescaled annual hourly wind generation profile in 
 ---
 
 ## linedata
+
 This is the input dataset for existing transmission lines, indicating transmission capacity limit for each cross zone transmission line.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -109,7 +124,9 @@ This is the input dataset for existing transmission lines, indicating transmissi
 ---
 
 ## linedata_candidate
+
 This is the input dataset for unplanned transmission lines, indicating transmission capacity limit for each cross zone (state) transmission line.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -121,7 +138,9 @@ This is the input dataset for unplanned transmission lines, indicating transmiss
 ---
 
 ## zonedata
+
 This is the input dataset for zone relevant information inlcuding demand, mapping with state, etc.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -131,7 +150,9 @@ This is the input dataset for zone relevant information inlcuding demand, mappin
 ---
 
 ## load_timeseries_regional
+
 This is the input dataset for rescaled annual hourly load profile in each zone.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -145,7 +166,9 @@ This is the input dataset for rescaled annual hourly load profile in each zone.
 ---
 
 ## carbonpolicies
+
 This is the input dataset for carbon policies.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -155,7 +178,9 @@ This is the input dataset for carbon policies.
 ---
 
 ## rpspolicies
+
 This is the input dataset for renewable portfolio standard policies. It defines renewable credits trading relationship between different states (i.e., the states must be neighboring states) and the renewable credit requirement for each state.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
