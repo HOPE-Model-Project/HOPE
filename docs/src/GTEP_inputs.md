@@ -12,85 +12,143 @@ This is input dataset for existing generators.
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|$Pmax (MW)$ |Maximum generation capacity/Nameplate generation capacity of a generator|
-|$Pmin (MW)$ |Minimum generation capacity of a generator|
-|$Zone$ |The zone that the generator is belonging to| 
-|$Type$ |The type of technology of the generator|
-|$Cost ($/MWh)$ |Operating cost for the generator per megawatt hour|
-|$EF$ |The CO2 emission factor for the generator, in CO2 per |
-|$CC$ |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
+|Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
+|Pmin (MW) |Minimum generation capacity of the generator|
+|Zone |The zone that the generator is belonging to| 
+|Type |The type of technology of the generator|
+|Cost ($/MWh) |Operating cost for the generator per megawatt hour|
+|EF |The CO2 emission factor for the generator, in CO2 per |
+|CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
 ---
-## Subsets
+## gendata_candidate
+This is input dataset for unplanned generators. 
 ---
-|**Notation** | **Description**|
+|**Column Name** | **Description**|
 | :------------ | :-----------|
-|$D_{i}$ | Set of demand connected to zone $i$, a subset of $D$|
-|$G^{PV}$, $G^{W}$, $G^{F}$ | Set of solar, wind, and dispatchable generators, respectively, subsets of $G$|
-|$G^{RPS}$ | Set of generators could provide RPS credits, subsets of $G$| 
-|$G^{L}_{l}$ | Set of generators linked to line $i$, subset of $G$|  
-|$G_{i}$ | Set of generating units connected to zone $i$, subset of $G$|  
-|$G^{E}/G^{+}$ | Set of existing/candidate generation units, index $g$, subset of $G$|
-|$H_{t}$ | Set of hours in time period (day) $t$, index $h$, subset of $H$|
-|$S^{E}/S^{+}$ | Set of existing/candidate storage units, subset of $S$|
-|$S_{i}$ | Set of storage units connected to zone $i$, subset of $S$|
-|$L^{E}/L^{+}$ | Set of existing/candidate transmission corridors|
-|$LS_{l}/LR_{l}$ | Set of sending/receiving corridors for zone $i$, subset of $L$|
-|$WIR_{w}$ | Set of states that state w can import renewable credits from (includes $w$ itself), subset of $W$|
-|$WER_{w}$ | Set of states that state w can export renewable credits to (excludes $w$ itself), subset of $W$|
+|Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
+|Pmin (MW) |Minimum generation capacity of the generator|
+|Zone |The zone that the generator is belonging to| 
+|Type |The type of technology of the generator|
+|Cost (M$) |Investment cost for the generator|
+|Cost ($/MWh) |Operating cost for the generator per megawatt hour|
+|EF |The CO2 emission factor for the generator, in tons per megawatt hour|
+|CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
 ---
-## Parameters
+
+## storagedata
+This is input dataset for existing energy storage (e.g., battery storage, pumped hydro storage). 
 ---
-|**Notation** | **Description**|
+|**Column Name** | **Description**|
 | :------------ | :-----------|
-|$ALW_{t,w}$ | Total carbon allowance in time period $t$ in state $w$, ton|
-|$AFRE_{g,h,i}$ | Availability factor of renewable energy source $g$ in hour $h$ in zone $i$, $g \in G^{PV} \bigcup G^{W}$|
-|$CC_{g/s}$ | Capacity credit of resource $g/s$, unitless|
-|$CP_{g}$ | Carbon price of generation $g \in\ G^{F}$, M$/t|
-|$EF_{g}$ | Carbon emission factor of generator $g$, t/MWh|
-|$ELMT_{w}$ | Carbon emission limits at state $w, t$|
-|$F^{max}_{l}$ | Maximum capacity of transmission corridor/line $l$, MW|
-|$\tilde{I}_{g}$ | Investment cost of candidate generator $g$, M$|
-|$\tilde{I}_{l}$ | Investment cost of  transmission line $l$, M$|
-|$\tilde{I}_{s}$ | Investment cost of  storage unit $s$, M$|
-|$IBG$ | Total investment budget for generators|
-|$IBL$ | Total investment budget for transmission lines|
-|$IBS$ | Total investment budget for storages|
-|$N_{t}$ | Number of time periods (days) represented by time period (day) $t$ per year, $/sum_{t /in T} N_{t} |H_{t}| = 8760$|
-|$NI_{i.h}$ | Net interchange in zone $i$ in hour $$h, MWh|
-|$P_{d,h}$ | Active power demand, MW|
-|$PK$ | Peak power demand, MW|
-|$PT^{rps}$ | RPS volitation penalty, $/MWh|
-|$PT^{emis}$ | Carbon emission volitation penalty, $/t|
-|$P_{g}^{min}/P_{g}^{max}$ | Minimum/Maximum power generation of unit $g$, MW|
-|$RPS_{w}$ | Renewable portfolio standard in state $w$, %, unitless|
-|$RM$ | Planning reserve margin, unitless|
-|$SCAP_{s}$ | Maximum capacity of storage unit $s$, MW|
-|$SECAP_{s}$ | Maximum energy capacity of storage unit $s$, MWh|
-|$SC_{s}/SD_{s}$ |  The maximum rates of charging/discharging, unitless|
-|$VCG_{g}$ | Variable cost of generation unit $g$, $/ MWh|
-|$VCS_{g}$ | Variable (degradation) cost of storage unit $s$, $/ MWh|
-|$VOLL_{d}$ | Value of loss of load $d$, $/MWh|
-|$\epsilon_{ch}$ | Charging efficiency of storage unit $s$, unitless|
-|$\epsilon_{dis}$ | Discharging efficiency of storage unit $s$, unitless|
+|Zone |The zone that the storage is belonging to|
+|Type |Type of technology the storage adopts|
+|Capacity (MWh) |Maximun energy capacity of the storage in megawatt hour|
+|Max Power (MW) |Maximum capacity of the storage in megawatt|
+|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost ($/MWh) |Operating cost for the storage per megawatt hour|
+|EF |The CO2 emission factor for the storage, in tons per megawatt hour|
+|CC |The capacity credit for the storage. It is the fraction/percentage of the installed/nameplate capacity of a storage which can be relied upon at a given time|
+|Charging Rate ||
+|Discharging Rate ||
 ---
-## Variables
+
+## storagedata_candidate
+This is input dataset for unplanned energy storage (e.g., battery storage, pumped hydro storage). 
 ---
-|**Notation** | **Description**|
+|**Column Name** | **Description**|
 | :------------ | :-----------|
-|$a_{g,t}$ | Bidding carbon allowance of unit $g$ in time period $t$, ton|
-|$b_{g,t}$ | Banking of allowance of g in time period $t$, ton|
-|$p_{g,t,h}$ | Active power generation of unit $g$ in time period $t$ hour $h$, MW|
-|$pw_{g,w}$ | Total renewable generation of unit $g$ in state $w$, MWh|
-|$p^{LS}_{d,t,h}$ | Load shedding of demand $d$ in time period $t$ in hour $h$, MW|
-|$pt^{rps}_{w}$ | Amount of active power violated RPS policy in state $w$, MW|
-|$pwi_{g,w,w'}$ | State $w$ imported renewable credits of from state $w'$ annually, MWh|
-|$f_{l,t,h}$ | Active power of generator $g$ through transmission corridor/line $l$ in time period $t$ and hour $h$, MW|
-|$em^{emis}_{w}$ | Carbon emission violated emission limit in state $w$, ton|
-|$x_{g}$ | Decision variable for candidate generator $g$, binary|
-|$y_{l}$ | Decision variable for candidate line $l$, binary|
-|$z_{s}$ | Decision variable for candidate storage $s$, binary|
-|$soc_{s,t,h}$ | State of charge level of storage $s$ in time period $t$ in hour $h$, MWh|
-|$c_{s,t,h}$ | Charging power of storage $s$ from grid in time period $t$ in hour $h$, MW|
-|$dc_{s,t,h}$ | Discharging power of storage $s$ from grid in time period $t$ in hour $h$, MW|
+|Zone |The zone that the storage is belonging to|
+|Type |Type of technology the storage adopts|
+|Capacity (MWh) |Maximun energy capacity of the storage in megawatt hour|
+|Max Power (MW) |Maximum capacity of the storage in megawatt|
+|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (M$) |Investment cost for the new storage|
+|Cost ($/MWh) |Operating cost for the storage per megawatt hour|
+|EF |The CO2 emission factor for the storage, in tons per megawatt hour|
+|CC |The capacity credit for the storage. It is the fraction/percentage of the installed/nameplate capacity of a storage which can be relied upon at a given time|
+|Charging Rate ||
+|Discharging Rate ||
 ---
+
+## solar_timeseries_regional
+This is the input dataset for rescaled annual hourly solar PV generation profile in each zone. Each zone has 8760 data points.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Month | Month of the year, ranging from 1 to 12|
+|Day | Day of the month, ranging from 1 to 31|
+|Period | Hour of the day, ranging from 1 to 24|
+|Zone name 1 | Rescaled solar power generation data in zone 1 on a specific period, day, and month|
+|Zone name 2 | Rescaled solar power generation data in zone 2 on a specific period, day, and month|
+|... |...|
+---
+
+## wind_timeseries_regional
+This is the input dataset for rescaled annual hourly wind generation profile in each zone. Each zone has 8760 data points.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Month | Month of the year, ranging from 1 to 12|
+|Day | Day of the month, ranging from 1 to 31|
+|Period | Hour of the day, ranging from 1 to 24|
+|Zone name 1 | Rescaled wind power generation data in zone 1 on a specific period, day, and month|
+|Zone name 2 | Rescaled wind power generation data in zone 2 on a specific period, day, and month|
+|... |...|
+---
+
+## linedata
+This is the input dataset for existing transmission lines, indicating transmission capacity limit for each cross zone transmission line.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|From_zone | Starting point of a cross zone transmission line|
+|From_zone | Ending point of a cross zone transmission line|
+|Capacity (MW) | Transmission capacity limit for the transmission line|
+---
+
+## linedata_candidate
+This is the input dataset for unplanned transmission lines, indicating transmission capacity limit for each cross zone (state) transmission line.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|From_zone | Starting point of a cross zone transmission line|
+|From_zone | Ending point of a cross zone transmission line|
+|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Cost (M$) |Investment cost for the transmission line|
+|X |...|
+---
+
+## zonedata
+This is the input dataset for zone relevant information inlcuding demand, mapping with state, etc.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Zone_id | Name of each zone, should be unique|
+|Demand (MW) | Peak demand of the zone in MW|
+|State | The state that the zone is belonging to|
+---
+
+## load_timeseries_regional
+This is the input dataset for rescaled annual hourly load profile in each zone.
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Month | Month of the year, ranging from 1 to 12|
+|Day | Day of the month, ranging from 1 to 31|
+|Period | Hour of the day, ranging from 1 to 24|
+|Zone name 1 | Rescaled load data in zone 1 on a specific period, day, and month|
+|Zone name 2 | Rescaled load data in zone 2 on a specific period, day, and month|
+|... |...|
+|NI |Net import on a specific period, day, and month|
+---
+
+
+
+
+
+
+
+
 
