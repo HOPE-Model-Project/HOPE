@@ -13,7 +13,7 @@ This is input dataset for generators.
 
 ---
 |**Column Name** | **Description**|
-| :------------ | :-----------|
+| :--------------| :-----------|
 |Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
 |Pmin (MW) |Minimum generation capacity of the generator|
 |Zone |The zone that the generator is belonging to| 
@@ -27,26 +27,10 @@ This is input dataset for generators.
 |RD | Ramp down rate for the generator|
 ---
 
-## gendata_candidate
-
-This is input dataset for unplanned generators. 
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
-|Pmin (MW) |Minimum generation capacity of the generator|
-|Zone |The zone that the generator is belonging to| 
-|Type |The type of technology of the generator|
-|Cost (M$) |Investment cost for the generator|
-|Cost ($/MWh) |Operating cost for the generator per megawatt hour|
-|EF |The CO2 emission factor for the generator, in tons per megawatt hour|
-|CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
----
 
 ## storagedata
 
-This is input dataset for existing energy storage (e.g., battery storage, pumped hydro storage). 
+This is input dataset for energy storage (e.g., battery storage, pumped hydro storage). 
 
 ---
 |**Column Name** | **Description**|
@@ -64,26 +48,6 @@ This is input dataset for existing energy storage (e.g., battery storage, pumped
 |Discharging Rate ||
 ---
 
-## storagedata_candidate
-
-This is input dataset for unplanned energy storage (e.g., battery storage, pumped hydro storage). 
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |Type of technology the storage adopts|
-|Capacity (MWh) |Maximun energy capacity of the storage in megawatt hour|
-|Max Power (MW) |Maximum capacity of the storage in megawatt|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (M$) |Investment cost for the new storage|
-|Cost ($/MWh) |Operating cost for the storage per megawatt hour|
-|EF |The CO2 emission factor for the storage, in tons per megawatt hour|
-|CC |The capacity credit for the storage. It is the fraction/percentage of the installed/nameplate capacity of a storage which can be relied upon at a given time|
-|Charging Rate ||
-|Discharging Rate ||
----
 
 ## solar_timeseries_regional
 
@@ -117,7 +81,7 @@ This is the input dataset for rescaled annual hourly wind generation profile in 
 
 ## linedata
 
-This is the input dataset for existing transmission lines, indicating transmission capacity limit for each cross zone transmission line.
+This is the input dataset for transmission lines, indicating transmission capacity limit for each cross zone transmission line.
 
 ---
 |**Column Name** | **Description**|
@@ -127,19 +91,6 @@ This is the input dataset for existing transmission lines, indicating transmissi
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 ---
 
-## linedata_candidate
-
-This is the input dataset for unplanned transmission lines, indicating transmission capacity limit for each cross zone (state) transmission line.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_zone | Starting point of a cross zone transmission line|
-|From_zone | Ending point of a cross zone transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
-|Cost (M$) |Investment cost for the transmission line|
-|X |...|
----
 
 ## zonedata
 
