@@ -3,21 +3,22 @@
 CurrentModule = HOPE
 ```
 
-# Notation
+# GTEP Inputs Explanation
 
-## Sets and Indices
+Explanation: difference of csv & xlsx files
+
+## gendata
+This is input dataset for existing generators. 
 ---
-|**Notation** | **Description**|
+|**Column Name** | **Description**|
 | :------------ | :-----------|
-|$D$ |Set of demand, index $d$|
-|$G$ |Set of all types of generating units, index $g$|
-|$H$ |Set of hours, index $h$|
-|$K$ |Set of technology types, index $k$|
-|$T$ |Set of time periods (e.g., representative days of seasons), index $t$|
-|$S$ |Set of storage units, index $s$|
-|$I,J$ |Set of zones, index $i,j$|
-|$L$ |Set of transmission corridors, index $l$|
-|$W$ |Set of states, index $w/w’$|
+|$Pmax (MW)$ |Maximum generation capacity/Nameplate generation capacity of a generator|
+|$Pmin (MW)$ |Minimum generation capacity of a generator|
+|$Zone$ |The zone that the generator is belonging to| 
+|$Type$ |The type of technology of the generator|
+|$Cost ($/MWh)$ |Operating cost for the generator per megawatt hour|
+|$EF$ |The CO2 emission factor for the generator, in CO2 per |
+|$CC$ |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
 ---
 ## Subsets
 ---
