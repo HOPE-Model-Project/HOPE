@@ -72,7 +72,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#Calculate number of elements of input data
 		Num_bus=size(Zonedata,1)
 		Num_gen=size(Gendata,1)
-		Num_load=count(!iszero, Zonedata[:,3])
+		Num_load=size(Zonedata,1) #to revise, consider nodal
 		Num_Eline=size(Linedata,1)
 		Num_zone=length(Zonedata[:,"Zone_id"])
 		Num_sto=size(Storagedata,1)
