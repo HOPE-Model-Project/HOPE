@@ -25,9 +25,14 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Install [Julia](http://julialang.org/) language.
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
+Then save the `HOPE-master` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
+>[!NOTE]
+>remember to change the folder name `HOPE-master` to `HOPE` after you decompress zip file.
 
+In your `HOPE` project, the files should be something like below:
+![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
  
 
 # Run a Case in HOPE
@@ -36,7 +41,7 @@ Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) an
 
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` 
 
- >[!NOTE]
+>[!NOTE]
 >The `home` directory could be any folder where you save your HOPE project. The `home` directory in the example below is named `Maryland-Electric-Sector-Transition`.  
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/c8acf95d-909d-44e2-8ded-61635367dc53)
