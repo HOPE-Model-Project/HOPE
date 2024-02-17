@@ -25,22 +25,37 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Install [Julia](http://julialang.org/) language.
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress zip file). Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
+Then save the `HOPE-master` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
+>[!NOTE]
+>remember to change the folder name `HOPE-master` to `HOPE` after you decompress zip file.
 
+In your `HOPE` project, the files should be something like below:
+![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
  
 
 # Run a Case in HOPE
 ## Using VScode to Run a Case (Recommend)
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
 
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory could be any folder where you save your HOPE project. The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
+**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` 
+
+>[!NOTE]
+>The `home` directory could be any folder where you save your HOPE project. The `home` directory in the example below is named `Maryland-Electric-Sector-Transition`.  
+
+![image](https://github.com/swang22/HOPE/assets/125523842/c8acf95d-909d-44e2-8ded-61635367dc53)
+
 
 **(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
-   
-**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+
+In Julia, you can use `pwd()` to check if your current working directory is your `home` directory, if it is not, you can use `cd("/yourpath/home")` to change your working directory, as the picture is shown below. 
+
+![image](https://github.com/swang22/HOPE/assets/125523842/a35268e3-b6ca-4d43-ad62-e5d0a67b0e8b)
+
+**(3)** Make sure you are in the right working directory. Then, type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
    
