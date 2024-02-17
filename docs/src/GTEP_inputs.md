@@ -5,11 +5,11 @@ CurrentModule = HOPE
 
 # GTEP Inputs Explanation
 
-Explanation: difference of csv & xlsx files
+The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used.       
 
 ## gendata
 
-This is input dataset for existing generators. 
+This is the input dataset for existing generators. 
 
 ---
 |**Column Name** | **Description**|
