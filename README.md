@@ -88,8 +88,7 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 **(4)** Type `instantiate` in the (HOPE) pkg prompt. ( After the HOPE is successfully installed, you can skip this step)
 
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
-
-![image](https://github.com/swan,g22/HOPE/assets/125523842/66ce1ea1-1b06-43d0-9f2b-542c473797aa)
+![ccf1c53042925fcfb13ee232c13210e](https://github.com/swang22/HOPE/assets/144710777/6efb4646-8c81-4f4b-bcfc-6daabbdeb615)
 
 **(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
 
