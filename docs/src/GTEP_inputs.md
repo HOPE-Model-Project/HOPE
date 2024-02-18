@@ -14,71 +14,71 @@ This is the input dataset for existing generators.
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
-|Pmin (MW) |Minimum generation capacity of the generator|
+|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
-|Type |The type of technology of the generator|
-|Cost ($/MWh) |Operating cost for the generator per megawatt hour|
-|EF |The CO2 emission factor for the generator, in tons per megawatt hour|
-|CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
+|Type |The technology type of the generator|
+|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|EF |The CO2 emission factor for the generator in tons/MWh|
+|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 ---
 
 ## gendata_candidate
 
-This is input dataset for unplanned generators. 
+This is the input dataset for candidate generators (a set of all generators that can be selected for installation). 
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|Pmax (MW) |Maximum generation capacity/Nameplate generation capacity of a generator|
-|Pmin (MW) |Minimum generation capacity of the generator|
+|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
-|Type |The type of technology of the generator|
-|Cost (M$) |Investment cost for the generator|
-|Cost ($/MWh) |Operating cost for the generator per megawatt hour|
-|EF |The CO2 emission factor for the generator, in tons per megawatt hour|
-|CC |The capacity credit for the generator. It is the fraction/percentage of the installed/nameplate capacity of a generator which can be relied upon at a given time|
+|Type |The technology type of the generator|
+|Cost (M$) |Investment cost for the generator in million dollars (M$)|
+|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|EF |The CO2 emission factor for the generator in tons/MWh|
+|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 ---
 
 ## storagedata
 
-This is input dataset for existing energy storage (e.g., battery storage, pumped hydro storage). 
+This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower). 
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |Type of technology the storage adopts|
-|Capacity (MWh) |Maximun energy capacity of the storage in megawatt hour|
-|Max Power (MW) |Maximum capacity of the storage in megawatt|
+|Zone |The zone that the generator is belonging to|
+|Type |The technology type of the generator|
+|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
+|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MWh) |Operating cost for the storage per megawatt hour|
-|EF |The CO2 emission factor for the storage, in tons per megawatt hour|
-|CC |The capacity credit for the storage. It is the fraction/percentage of the installed/nameplate capacity of a storage which can be relied upon at a given time|
-|Charging Rate ||
-|Discharging Rate ||
+|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|EF |The CO2 emission factor for the generator in tons/MWh|
+|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Charging Rate |The maximum rates of charging, unitless|
+|Discharging Rate |The maximum rates of discharging, unitless|
 ---
 
 ## storagedata_candidate
 
-This is input dataset for unplanned energy storage (e.g., battery storage, pumped hydro storage). 
+This is the input dataset for candidate energy storage units (a set of all storage units that can be selected for installation). 
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |Zone |The zone that the storage is belonging to|
-|Type |Type of technology the storage adopts|
-|Capacity (MWh) |Maximun energy capacity of the storage in megawatt hour|
-|Max Power (MW) |Maximum capacity of the storage in megawatt|
+|Type |The technology type of the generator|
+|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
+|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (M$) |Investment cost for the new storage|
-|Cost ($/MWh) |Operating cost for the storage per megawatt hour|
-|EF |The CO2 emission factor for the storage, in tons per megawatt hour|
-|CC |The capacity credit for the storage. It is the fraction/percentage of the installed/nameplate capacity of a storage which can be relied upon at a given time|
-|Charging Rate ||
-|Discharging Rate ||
+|Cost (M$) |Investment cost for the new storage in million dollars (M$)|
+|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|EF |The CO2 emission factor for the generator in tons/MWh|
+|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Charging Rate |The maximum rates of charging, unitless|
+|Discharging Rate |The maximum rates of discharging, unitless|
 ---
 
 ## solar_timeseries_regional
