@@ -16,9 +16,9 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
 3. `OPF` mode: (under development): an optimal power flow model
-4. `DART` mode: (under development): a bilevel market model for simulating day-head and real-time markets
+4. `DART` mode: (under development): a bilevel market model for simulating day-ahead and real-time markets
 
-Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Groubi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
+Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
 
@@ -31,7 +31,7 @@ Clone OR download the **HOPE** repository to your local directory - click the gr
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 Then save the `HOPE-master` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
 >[!NOTE]
->remember to change the folder name `HOPE-master` to `HOPE` after you decompress zip file.
+>remember to change the folder name `HOPE-master` to `HOPE` after you decompress the zip file.
 
 In your `HOPE` project, the files should be something like below:
 ![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
@@ -108,11 +108,16 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 **Cbc**
 
 ## Commercial Solvers
-**Gorubi**
+If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
+1. You need to get the licenses from these solvers. [Gurobi](https://www.gurobi.com/solutions/licensing/?campaignid=2027425882&adgroupid=138872525680&creative=596136109143&keyword=gurobi%20license&matchtype=e&_bn=g&gad_source=1&gclid=CjwKCAiAlcyuBhBnEiwAOGZ2S58i-V4O5NOhUBGcfMmqsbiM1jWYudIrbNsfUYIozsGvJDUu_lE05hoCJMAQAvD_BwE) or [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio/cplex-optimizer)
+2. In the `(HOPE) pkg>` project package mode, install the Gurobi or CPLEX dependencies. 
+   `(HOPE) pkg> add Gurobi` or `(HOPE) pkg> add CPLEX`
+3. Uncomment the `using Gurobi` or `using CPLEX` in the file `HOPE/src/HOPE.jl`
+4. Set the solver you want to use in the `HOPE_model_settings.yml` file
 
 # Documentation
 
-[Documentation](https://swang22.github.io/HOPE/dev/) for HOPE.
+Check online [Documentation](https://swang22.github.io/HOPE/dev/) for HOPE.
 
 
 # Program Sponsors
