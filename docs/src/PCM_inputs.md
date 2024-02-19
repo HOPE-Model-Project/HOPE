@@ -135,8 +135,8 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|From_state | The state that |
-|To_state | The state that |
-|RPS | State RPS requirement for state in column "From_state"|
+|From_state | State that trading the renewable credits from |
+|To_state | State that trading the renewable credits to |
+|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
 ---
 
