@@ -24,7 +24,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 
 # Preparation Phase
 ## 1. Install Julia
-Install [Julia](http://julialang.org/) language.
+Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
 Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". 
@@ -39,7 +39,7 @@ In your `HOPE` project, the files should be something like below:
 
 # Run a Case in HOPE
 ## Using VScode to Run a Case (Recommend)
-Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it.
+Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VScode and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` 
 
