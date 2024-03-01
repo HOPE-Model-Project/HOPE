@@ -19,6 +19,10 @@ pages = OrderedDict(
         "GTEP Inputs" => "GTEP_inputs.md",
         "PCM Inputs" => "PCM_inputs.md",
     ]
+    "Model Settings" => [
+        "HOPE Settings" => "hope_model_settings.md",
+        "Solver Settings" => "solver_settings.md",
+    ]
 )  
 
 makedocs(;
