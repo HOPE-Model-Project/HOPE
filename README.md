@@ -103,6 +103,11 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
   
 #### Mac users
 
+# Run your case
+Follow these steps:
+![image](https://github.com/swang22/HOPE/assets/125523842/bc0ef4d9-b9b1-468a-a9a0-a0b2aa3d4340)
+
+
 # Solvers
 ## Free Solvers
 **Cbc**
