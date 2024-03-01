@@ -3,140 +3,25 @@
 CurrentModule = HOPE
 ```
 
-# PCM Inputs Explanation
+# HOPE Model Settings Explanation
 
-The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used. 
+The `Hope_model_settings.yml` file configures system-level settings for running a HOPE case, including scenario settings (folder names), model mode settings, technology aggregation or not, using representative day or 8760 hourly time steps, integer or continuous for decision investment decisions, periods for setting representative days, planning reserve margin, value of loss of load, solver, debug flag, etc.   
+
+There are two columns: 1) the first column contains the names of setting parameters; 2) the second column contains the setting values. The explanation for setting parameters is also provided in the `Hope_model_settings.yml` file.   
       
-
-## zonedata
-
-This is the input dataset for zone-relevant information (e.g., demand, mapping with state, etc.).
-
 ---
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone_id | Name of each zone (should be unique)|
-|Demand (MW) | Peak demand of the zone in MW|
-|State | The state that the zone is belonging to|
-|Area | The area that the zone is belonging to|
-|Flag_MD | 1 if the zone belongs to a desired state (e.g., Maryland), and 0 otherwise|
----
-
-## gendata
-
-This is the input dataset for existing generators. 
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to| 
-|Type |The technology type of the generator|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|**Parameter Name** | **Parameter Value (examples)**| **Description**|
+| :------------ | :-----------|:-----------|
+|`DataCase:` | `Data_100RPS/`| #String, the folder name of data, default Data/ GTEP example: `Data_100RPS/`; PCM example: `Data_PCM2035/`|
+|`model_mode:`| `GTEP` | #String, HOPE model mode: `GTEP` or `PCM` or ...|
+|`aggregated!:`| `1` | #Binary, `1` aggregate technology resource; `0` Does Not|
+|`representative_day!:`| `1` |  #Binary, `1` use representative days (need to set time_periods); `0` Does Not|
+|`inv_dcs_bin:`| `0` | #Binary, `1` use integer variable for investment decisions; `0` Does Not|
+|`time_periods:`| `1 : (3, 20, 6, 20)` <br> `2 : (6, 21, 9, 21)` <br> `3 : (9, 22, 12, 20)` <br> `4 : (12, 21, 3, 19)` | # `1: spring, March 20th to June 20th`;  <br> #  `2: summer, June 21st to September 21st`;  <br> #  `3: fall, September 22nd to December 20th`;  <br> # `4: winter, December 21st to March 19th`. |
+|`planning_reserve_margin:`| `0.02` |#Float, planning_reserve_margin|
+|`value_of_loss_of_load:`| `100000` | #Float, value of loss of load d, $/MWh|
+|`solver:`| `cbc` | #String, solver: `cbc`, `glpk`, `cplex`, `gurobi`, etc.|
+|`debug:` | `0` | #Binary, flag for turning on the Method of Debug, `0` = not active; `1` = active conflict method (works for `gurobi` and `cplex`); `2` = active penalty method|
 ---
 
-## linedata
-
-This is the input dataset for existing transmission lines (e.g., transmission capacity limit for each inter-zonal transmission line).
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_zone | Starting zone of the inter-zonal transmission line|
-|From_zone | Ending zone of the inter-zonal transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
----
-
-## storagedata
-
-This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower). 
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
----
-
-## solar_timeseries_regional
-
-This is the input dataset for the annual hourly solar PV generation profile in each zone. Each zone has 8760 data points and the values are per unit.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Month | Months of the year, ranging from 1 to 12|
-|Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
-|Zone 1 | Solar power generation data in zone 1 on a specific period, day, and month|
-|Zone 2 | Solar power generation data in zone 2 on a specific period, day, and month|
-|... |...|
----
-
-## wind_timeseries_regional
-
-This is the input dataset for the annual hourly wind generation profile in each zone. Each zone has 8760 data points and the values are per unit.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Month | Months of the year, ranging from 1 to 12|
-|Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
-|Zone 1 | Wind power generation data in zone 1 on a specific period, day, and month|
-|Zone 2 | Wind power generation data in zone 2 on a specific period, day, and month|
-|... |...|
----
-
-## load_timeseries_regional
-
-This is the input dataset for the annual hourly load profile in each zone. Each zone has 8760 data points and the values are per unit.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Month | Months of the year, ranging from 1 to 12|
-|Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
-|Zone 1 | Load data in zone 1 on a specific period, day, and month|
-|Zone 2 | Load data in zone 2 on a specific period, day, and month|
-|... |...|
-|NI | Net load import on a specific period, day, and month|
----
-
-## carbonpolicies
-
-This is the input dataset for carbon policies.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|State | Name of the state|
-|Time Period | Time periods for carbon allowance (can be yearly or quarterly, set by users)|
-|Allowance (tons) | Carbon emission allowance for each state in tons|
----
-
-## rpspolicies
-
-This is the input dataset for renewable portfolio standard (RPS) policies. It defines renewable credits trading relationship between different states (i.e., the states must be neighboring states) and the renewable credit requirement for each state.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_state | State that trading the renewable credits from |
-|To_state | State that trading the renewable credits to |
-|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
----
 
