@@ -31,7 +31,7 @@ Clone OR download the **HOPE** repository to your local directory - click the gr
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 Then save the `HOPE-master` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
 >[!NOTE]
->remember to change the folder name `HOPE-master` to `HOPE` after you decompress the zip file.
+>Remember to change the folder name `HOPE-master` to `HOPE` after you decompress the zip file.
 
 In your `HOPE` project, the files should be something like below:
 ![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
@@ -117,7 +117,9 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 1. You need to get the licenses from these solvers. [Gurobi](https://www.gurobi.com/solutions/licensing/?campaignid=2027425882&adgroupid=138872525680&creative=596136109143&keyword=gurobi%20license&matchtype=e&_bn=g&gad_source=1&gclid=CjwKCAiAlcyuBhBnEiwAOGZ2S58i-V4O5NOhUBGcfMmqsbiM1jWYudIrbNsfUYIozsGvJDUu_lE05hoCJMAQAvD_BwE) or [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio/cplex-optimizer)
 2. In the `(HOPE) pkg>` project package mode (type `]` in the Julia package mode), install the Gurobi or CPLEX dependencies `(HOPE) pkg> add Gurobi` or `(HOPE) pkg> add CPLEX`
 3. Uncomment the `using Gurobi` or `using CPLEX` in the file `HOPE/src/HOPE.jl`
-4. Set the solver you want to use in the file `ModelCases/<the case folder you want to run>/Settings/HOPE_model_settings.yml` 
+4. Set the solver you want to use in the file `ModelCases/<the case folder you want to run>/Settings/HOPE_model_settings.yml`
+>[!NOTE]
+>You may need to re-activate HOPE if you have made modifications as above.
 
 # Documentation
 
