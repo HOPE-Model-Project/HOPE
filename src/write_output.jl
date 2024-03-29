@@ -26,7 +26,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Calculate number of elements of input data
         Num_Egen=size(Gendata,1)
         Num_bus=size(Zonedata,1)
-        Num_load=count(!iszero, Zonedata[:,3])
+        Num_load=size(Zonedata,1)
         Num_Eline=size(Linedata,1)
         Num_zone=length(Zonedata[:,"Zone_id"])
         Num_sto=size(Storagedata,1)

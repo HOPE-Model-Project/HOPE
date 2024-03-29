@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "e:/OneDrive - Johns Hopkins/MAE/"
-outpath = "e:/OneDrive - Johns Hopkins/MAE/Output/"
+input_dir = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_GTEP_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_GTEP_case\\Output\\"
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -20,28 +20,30 @@ color_map = Dict(
     "Hydro_pump"=>"LightPurple",
     "Hydro_pump_c"=>"LightPurple",
     "Hydro_pump_dis"=>"LightPurple",
-    "Nuc"=>"Orange",
+    "NuC"=>"Orange",
     "MSW"=>"Saddlebrown",
     "Bio" =>"LightGreen",
     "Landfill_NG"=> "Gold",
     "NGCC"=>"LightSteelBlue",
+    "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
     "SolarPV"=>"Yellow",
     "Battery" => "Purple",
     "Battery_dis" => "Purple",
-    "Battery_c" => "Purple"
+    "Battery_c" => "Purple",
+    "Other" => "Pink"
 )
 #Technology ordered
 
-ordered_tech = ["NGCC","Nuc","Coal","NGCT","Landfill_NG","Hydro","Oil","MSW","Bio","WindOn","SolarPV","Battery"]
+ordered_tech = ["NGCC","NuC","Coal","NGCT","Landfill_NG", "NG", "Hydro","Oil","MSW","Bio","WindOn","SolarPV","Battery","Other"]
 
 #read output data#
 #capacity
-Output_capacity=CSV.read("output/capacity.csv",DataFrame)
-Output_es_capacity=CSV.read("output/es_capacity.csv",DataFrame)
+Output_capacity=CSV.read(input_dir*"capacity.csv",DataFrame)
+Output_es_capacity=CSV.read(input_dir*"es_capacity.csv",DataFrame)
 #power
-Output_power= CSV.read("output/power_hourly.csv",DataFrame)
-Output_es_power =  CSV.read("output/es_power_hourly.csv",DataFrame)
+#Output_power= CSV.read(input_dir*"power_hourly.csv",DataFrame) ###
+#Output_es_power =  CSV.read(input_dir*"es_power_hourly.csv",DataFrame) ###
 #Existing 
 Exist_capacity = filter(row -> row.EC_Category  == "Existing", Output_capacity)
 Exist_es_capacity = filter(row -> row.EC_Category  == "Existing", Output_es_capacity)
@@ -96,22 +98,22 @@ plot_gen_mix(fill_gendf_zero(Exist_agg_cap_df), ordered_tech, color_map,  "Gener
 #plot power output --------------------------------------------------------#
 #aggregrated 
 
-agg_zone_data = combine(groupby(Output_power, [:Technology]), names(Output_power, r"h\d+") .=> sum)
-agg_es_dc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"dc_h\d+") .=> sum)
-agg_es_soc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"soc_h\d+") .=> sum)
-agg_es_c_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"^c_h\d+") .=> sum)
+#agg_zone_data = combine(groupby(Output_power, [:Technology]), names(Output_power, r"h\d+") .=> sum) ###
+#agg_es_dc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"dc_h\d+") .=> sum) ###
+#agg_es_soc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"soc_h\d+") .=> sum) ###
+#agg_es_c_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"^c_h\d+") .=> sum) ###
 
-power_output_data_df = Dict(
+```power_output_data_df = Dict(
     "agg_zone_data" =>agg_zone_data ,
     "agg_es_dc_zone_data"=>agg_es_dc_zone_data,
     "agg_es_soc_zone_data"=>agg_es_soc_zone_data,
     "agg_es_c_zone_data" => agg_es_c_zone_data 
-)
+)```
 
 hours=1:168
-ordered_tech_power = ["Nuc","Coal","NGCC","NGCT","NGST","Hydro","Oil","MSW","Bio","WindOn","WindOff","SolarPV","Hydro_pump","Battery"]
+ordered_tech_power = ["NuC","Coal","NGCC","NGCT","NG","Hydro","Oil","MSW","Bio","WindOn","WindOff","SolarPV","Hydro_pump","Battery","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
-function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
+```function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
     agg_es_dc_zone_data=data["agg_es_dc_zone_data"]
     agg_es_c_zone_data=data["agg_es_c_zone_data"]
     agg_zone_data=data["agg_zone_data"]
@@ -141,7 +143,7 @@ function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tec
                 showlegend=true,
                 barmode="stack")
                 )
-end
+end```
 
 plot_power_output(power_output_data_df, ordered_tech_power, ordered_es_tech, color_map, hours)
 

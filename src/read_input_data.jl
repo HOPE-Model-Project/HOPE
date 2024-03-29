@@ -7,7 +7,9 @@ function aggregate_gendata_gtep(df)
 	:EF => mean,
 	:CC => mean)
 	rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC] )
-	return agg_df
+	#Note: below line and the derived file is just for developer use
+    #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
+    return agg_df
 end
 
 function aggregate_gendata_pcm(df)

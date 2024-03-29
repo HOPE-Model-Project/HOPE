@@ -1,4 +1,4 @@
-function debug(config_set::Dict, model::Model)
+function debug(outpath::AbstractString, config_set::Dict, model::Model)
 	model_mode = config_set["model_mode"]
 	
 
@@ -22,11 +22,12 @@ function debug(config_set::Dict, model::Model)
 		println("Debugging with 'Penalty' method")
 		map = relax_with_penalty!(model)
 		optimize!(model)
-		for (con, penalty) in map
-			violation = value(penalty)
-			if violation > 0
-				open(joinpath(outpath,"debug_report.txt"), "w") do f
+		open(joinpath(outpath,"debug_report.txt"), "w") do f
+			for (con, penalty) in map
+				violation = value(penalty)
+				if violation > 0
 					println(f,"Constraint `$(name(con))` is violated by $violation")
+					flush(f)
 				end
 			end
 		end
@@ -34,11 +35,12 @@ function debug(config_set::Dict, model::Model)
 	elseif config_set["debug"]!=0
 		println("Wrong debug method, please set debug =0, 1 or 2 in HOPE_model_settings.yml")
 	end
+	return model
 end
 
 function run_debug(case::AbstractString)
 	path = case
-	outpath = path*"/output/"
+	outpath = path*"/debug_report/"
 	mkdir_overwrite(outpath)
 	config_set = YAML.load(open(case*"/Settings/HOPE_model_settings.yml"))
 
@@ -57,7 +59,9 @@ function run_debug(case::AbstractString)
 		println("ModeError: Please check the model mode, it should be 'GTEP' or 'PCM', the 'OPF' and 'DART' are currently not availiable!" ) 
 	end
 	#debug model
-	my_debug_model = debug(config_set, my_model)
-	return my_debug_model
-
+	println("Debugging...")
+	my_debug_model = debug(outpath, config_set, my_model)
+	#output
+	#my_output = write_output(outpath, config_set, input_data,my_debug_model)
+	return my_debug_model 
 end
