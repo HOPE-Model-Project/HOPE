@@ -107,7 +107,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		L=[l for l=1:Num_Eline+Num_Cline]						#Set of transmission corridors, index l
 		W=unique(Zonedata[:,"State"])							#Set of states, index w/w’
 		W_prime = W												#Set of states, index w/w’
-
+		# W_RPS=unique(vcat(RPSdata[:, "From_state"],RPSdata[:, "To_state"]))    #Set of states participate in RPS trading, not needed
 
 		#SubSets------------------------------------------------
 		D_i=[[d] for d in D]											#Set of demand connected to zone i, a subset of D
@@ -139,7 +139,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
 		WER_w=Dict(zip(unique(RPSdata[:, :From_state]),[RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"] for i in unique(RPSdata[:, :From_state])]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
-		WIR_w=Dict(zip(unique(RPSdata[:, :From_state]), push!(RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"], i) for i in unique(RPSdata[:, :From_state])))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
+		WIR_w=Dict(zip(unique(RPSdata[:, :From_state]), unique(push!(RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"], i)) for i in unique(RPSdata[:, :From_state])))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
@@ -235,7 +235,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(3) Transmission line investment budget:∑_(l∈L^+) INV_l ∙x_l ≤IBL
 		IBL_con = @constraint(model,  [l in L_new], unit_converter*INV_l[l]*y[l] <=IBL, base_name = "IBL_con")
 
-		#(4) Storages line investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
+		#(4) Storages investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
 		IBS_con = @constraint(model,  [s in S_new], unit_converter*INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
@@ -278,7 +278,6 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		###Storages###
 		##############
 		#(13) Storage charging rate limit for existing units
-		
 		ChLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], c[s,t,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
 		
 		#(14) Storage discharging rate limit for existing units
@@ -336,6 +335,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 									- sum(pwi[g,w_prime,w] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 									+ pt_rps[w] 
 									>= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
+		# RPS_con_selfmeet = @constraint(model, [w in setdiff(W,W_RPS)], sum(N[t]*sum(p[g,t,h] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) for h in H_t[t]) for t in T) + pt_rps[w] >= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con_selfmeet")
 		
 		###############
 		#CarbonPolicies#				

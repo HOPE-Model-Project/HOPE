@@ -15,7 +15,7 @@ using Statistics
 
 ##using solver#
 
-#using Gurobi
+using Gurobi
 #using CPLEX
 using Cbc
 #using HiGHS

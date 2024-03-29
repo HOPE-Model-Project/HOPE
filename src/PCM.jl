@@ -60,7 +60,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Calculate number of elements of input data
 		Num_bus=size(Zonedata,1);
 		Num_gen=size(Gendata,1);
-		Num_load=count(!iszero, Zonedata[:,3]);
+		Num_load=size(Zonedata,1);
 		Num_Eline=size(Linedata,1);
 		Num_zone=length(Zonedata[:,"Zone_id"]);
 		Num_sto=size(Storagedata,1);
@@ -130,9 +130,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		LR_i=[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]) for i in I]		#Set of receiving transmission corridors of zone i， subset of L
 		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
-		WIR_w=Dict(zip(["MD","NMD"],[["MD","NMD"],["MD","NMD"]]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
-		WER_w=Dict(zip(["MD","NMD"],[["NMD"],["MD"]]))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
-		#WER_w=Dict(zip(["MD","NMD"],[["MD","NMD"],["MD","NMD"]]))		#Set of states that state w can export renewable credits to (includes w itself), subset of W
+		WER_w=Dict(zip(unique(RPSdata[:, :From_state]),[RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"] for i in unique(RPSdata[:, :From_state])]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
+		WIR_w=Dict(zip(unique(RPSdata[:, :From_state]), unique(push!(RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"], i)) for i in unique(RPSdata[:, :From_state])))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
@@ -226,7 +225,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		
 		#(3) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 			PB_con = @constraint(model, [i in I, h in H], sum(p[g,h] for g in G_i[i]) 
-			#+ sum(dc[s,h] - c[s,h] for s in S_i[i])
+			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 			- sum(f[l,h] for l in LS_i[i])#LS
 			+ sum(f[l,h] for l in LR_i[i])#LR
 			+ ni[h,i]
