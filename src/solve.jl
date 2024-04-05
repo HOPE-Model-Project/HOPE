@@ -9,6 +9,8 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 
 	##read input for print	
 	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
+	H=[h for h=1:8760]
+	PT_rps = 10^9
 	RPSdata = input_data["RPSdata"]
 	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
@@ -23,6 +25,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
 		print("RPS_requirement ",RPS,"\n\n");
 		print("RPSPenalty= ",value.(model[:RPSPenalty]),"\n\n");
+		print("RPS:state:Pen",[(w,sum(PT_rps*value.(model[:pt_rps][w]))) for w in W ],"\n\n");
 		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
 		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
 		
