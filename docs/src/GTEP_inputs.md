@@ -17,8 +17,6 @@ This is the input dataset for zone-relevant information (e.g., demand, mapping w
 |Zone_id | Name of each zone (should be unique)|
 |Demand (MW) | Peak demand of the zone in MW|
 |State | The state that the zone is belonging to|
-|Area | The area that the zone is belonging to|
-|Flag_MD | 1 if the zone belongs to a desired state (e.g., Maryland), and 0 otherwise|
 ---
 
 ## gendata
