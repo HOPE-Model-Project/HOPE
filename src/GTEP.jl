@@ -138,8 +138,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		LR_i=[[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"To_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]		#Set of receiving transmission corridors of zone i， subset of L
 		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
-		WER_w=Dict(zip(unique(RPSdata[:, :From_state]),[RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"] for i in unique(RPSdata[:, :From_state])]))		#Set of states that state w can import renewable credits from (includes w itself), subset of W
-		WIR_w=Dict(zip(unique(RPSdata[:, :From_state]), unique(push!(RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"], i)) for i in unique(RPSdata[:, :From_state])))					#Set of states that state w can export renewable credits to (excludes w itself), subset of W
+		WER_w=Dict(zip(unique(RPSdata[:, :From_state]),[RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"] for i in unique(RPSdata[:, :From_state])]))		#Set of states that state w can export renewable credits to (excludes w itself), subset of W
+		[WER_w[w] = [] for w in unique(RPSdata[:, :From_state]) if [w] == WER_w[w]]
+		WIR_w=Dict(zip(unique(RPSdata[:, :From_state]), unique(push!(RPSdata[findall(RPSdata[:,"From_state"].==i),"To_state"], i)) for i in unique(RPSdata[:, :From_state]))) #Set of states that state w can import renewable credits from (includes w itself), subset of W
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
