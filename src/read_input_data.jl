@@ -1,12 +1,16 @@
 #Function use for aggregrating generation data:
 function aggregate_gendata_gtep(df)
 	agg_df = combine(groupby(df, [:Zone,:Type]),
-	Symbol("Pmax (MW)") => sum,
-	Symbol("Pmin (MW)") => sum,
-	Symbol("Cost (\$/MWh)")=> mean,
-	:EF => mean,
-	:CC => mean)
-	rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC] )
+	Symbol("Pmax (MW)") .=> sum,
+	Symbol("Pmin (MW)") .=> sum,
+	Symbol("Cost (\$/MWh)") .=> mean,
+	:EF .=> mean,
+	:CC .=> mean,
+    :Flag_thermal .=> mean,
+    :Flag_VRE .=> mean)
+    agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
+    agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+	#rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC] )
 	#Note: below line and the derived file is just for developer use
     #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
     return agg_df
@@ -14,17 +18,21 @@ end
 
 function aggregate_gendata_pcm(df)
 	agg_df = combine(groupby(df, [:Zone,:Type]),
-	Symbol("Pmax (MW)") => sum,
-	Symbol("Pmin (MW)") => sum,
-	Symbol("Cost (\$/MWh)")=> mean,
-	:EF => mean,
-	:CC => mean,
-	:FOR => mean,
-	:RM_SPIN => mean,
-	:RU => mean,
-	:RD => mean)
-	rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean] 
-	.=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD])
+	Symbol("Pmax (MW)") .=> sum,
+	Symbol("Pmin (MW)") .=> sum,
+	Symbol("Cost (\$/MWh)") .=> mean,
+	:EF .=> mean,
+	:CC .=> mean,
+	:FOR .=> mean,
+	:RM_SPIN .=> mean,
+	:RU .=> mean,
+	:RD .=> mean,
+    :Flag_thermal .=> mean,
+    :Flag_VRE .=> mean)
+    agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
+    agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+	#rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean] 
+	#.=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD])
 	return agg_df
 end
 
@@ -35,7 +43,7 @@ function load_data(config_set::Dict,path::AbstractString)
     if model_mode == "GTEP"                 #read data for generation and transmission expansion model
         input_data = Dict()
         println("Reading Input_Data Files for GTEP mode")
-        input_data["VOLL"] = config_set["value_of_loss_load"]
+        #input_data["VOLL"] = config_set["value_of_loss_load"]
         folderpath = joinpath(path,Data_case)
         files = readdir(folderpath)
         if any(endswith.(files, ".xlsx"))
@@ -63,15 +71,19 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             #candidate
-            println("Reading resourc candidate")
+            println("Reading resource candidate")
             input_data["Estoragedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Estoragedata_candidate"))
             input_data["Linedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"linedata_candidate"))
             input_data["Gendata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata_candidate"))
             #policies
             println("Reading polices")
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"carbonpolicies"))
-            #rpspolicydata=
+            #rpspolicydata
             input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"rpspolicies"))
+            #penalty_cost, investment budgets, planning reserve margins etc. single parameters
+            println("Reading single parameters")
+            input_data["Singlepar"]=DataFrame(XLSX.readtable(joinpath(folderpath, "GTEP_input_total.xlsx"),"single_parameter"))
+
             println("xlsx Files Successfully Load From $folderpath")
 
         else
@@ -108,6 +120,10 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolicies.csv"),DataFrame)
             #rpspolicydata=
             input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
+            #penalty_cost, investment budgets, planning reserve margins etc. single parameters
+            println("Reading single parameters")
+            input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv"),DataFrame)
+
             println("CSV Files Successfully Load From $folderpath")
         end
 
@@ -118,7 +134,7 @@ function load_data(config_set::Dict,path::AbstractString)
         println("Reading Input_Data Files for PCM mode")
         folderpath = joinpath(path*"/"*Data_case)
         files = readdir(folderpath)
-        input_data["VOLL"] = config_set["value_of_loss_load"]
+        #input_data["VOLL"] = config_set["value_of_loss_load"]
         if any(endswith.(files, ".xlsx"))
             println("The directory $folderpath contains .xlsx file, then try to read input data from PCM_input_total.xlsx")
             #xlsx_file = XLSX.readxlsx(path*Data_case*"PCM_input_total.xlsx")
@@ -151,7 +167,12 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"carbonpolicies"))
             #rpspolicydata=
             input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"rpspolicies"))
+            #penalty_cost, investment budgets, planning reserve margins etc. single parameters
+            println("Reading single parameters")
+            input_data["Singlepar"]=DataFrame(XLSX.readtable(joinpath(folderpath, "PCM_input_total.xlsx"),"single_parameter"))
+
             println("xlsx Files Successfully Load From $folderpath")
+
         else
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
             
@@ -182,6 +203,10 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolicies.csv"),DataFrame)
             #rpspolicydata=
             input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
+            #penalty_cost, investment budgets, planning reserve margins etc. single parameters
+            println("Reading single parameters")
+            input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv",DataFrame))
+
             println("CSV Files Successfully Load From $folderpath")
         end   
     end

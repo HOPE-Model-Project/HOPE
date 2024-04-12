@@ -56,6 +56,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		CBP_state_data = combine(groupby(CBPdata, :State), Symbol("Allowance (tons)") => sum)
 		#rpspolicydata=
 		RPSdata = input_data["RPSdata"]
+		##penalty_cost, investment budgets, planning reserve margins etc. single parameters
+		SinglePardata = input_data["Singlepar"]
 
 		#Calculate number of elements of input data
 		Num_bus=size(Zonedata,1);
@@ -112,7 +114,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		G_PV=[G_PV_E;]											#Set of all solar, subsets of G
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
 		G_W=[G_W_E;]                                               #Set of all wind, subsets of G
-		G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
+		#G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
+		G_F_E=findall(x -> x in [1], Gendata[:,"Flag_thermal"])
 		G_F=[G_F_E;]
 		G_RPS_E = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata[:,"Type"])
 		G_RPS = [G_RPS_E;]
@@ -143,7 +146,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_PV])
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
-		BM = 10^12;														#big M penalty
+		BM = SinglePardata[1,"BigM"];														#big M penalty
 		CC_g = [Gendata[:,"CC"];]#g       		#Capacity credit of generating units, unitless
 		CC_s = [Storagedata[:,"CC"];]#s  #Capacity credit of storage units, unitless
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
@@ -157,8 +160,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Loaddata_ordered
 		PK=Zonedata[:,"Demand (MW)"]#i						#Peak power demand, MW
-		PT_rps=10^9											#RPS volitation penalty, $/MWh
-		PT_emis=10^9										#Carbon emission volitation penalty, $/t
+		PT_rps=SinglePardata[1, "PT_RPS"]											#RPS volitation penalty, $/MWh
+		PT_emis=SinglePardata[1, "PT_emis"]										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];]#g						#Maximum power generation of unit g, MW
 		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))							#w						#Renewable portfolio standard in state w,  unitless
@@ -172,7 +175,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		SD=[Storagedata[:,"Discharging Rate"];]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
-		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
+		VOLL=SinglePardata[1, "VOLL"]#d										#Value of loss of load d, $/MWh
 		e_ch=[Storagedata[:,"Charging efficiency"];]#s				#Charging efficiency of storage unit s, unitless
 		e_dis=[Storagedata[:,"Discharging efficiency"];]#s		#Discharging efficiency of storage unit s, unitless
 			

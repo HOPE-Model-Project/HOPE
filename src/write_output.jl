@@ -22,7 +22,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Zonedata = input_data["Zonedata"]
         Linedata_candidate = input_data["Linedata_candidate"]
         Loaddata = input_data["Loaddata"]
-        VOLL = input_data["VOLL"]
+        VOLL = input_data["Singlepar"][1,"VOLL"]
         #Calculate number of elements of input data
         Num_Egen=size(Gendata,1)
         Num_bus=size(Zonedata,1)
@@ -235,7 +235,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Linedata = input_data["Linedata"]
         Zonedata = input_data["Zonedata"]
         Loaddata = input_data["Loaddata"]
-        VOLL = input_data["VOLL"]
+        VOLL = input_data["Singlepar"][1,"VOLL"]
         
         #Calculate number of elements of input data
         Num_bus=size(Zonedata,1);
