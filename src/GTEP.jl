@@ -93,6 +93,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			Load_rep = get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
 			Wind_rep = get_representative_ts(Winddata,time_periods,Ordered_zone_nm)[1]
 			Solar_rep = get_representative_ts(Solardata,time_periods,Ordered_zone_nm)[1]
+		else
+			Load_rep = Loaddata
 		end
 
 		#Sets--------------------------------------------------
@@ -100,7 +102,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G=[g for g=1:Num_gen+Num_Cgen]							#Set of all types of generating units, index g
 		K=unique(Gendata[:,"Type"]) 							#Set of technology types, index k
 		H=[h for h=1:8760]										#Set of hours, index h
-		T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+		if config_set["representative_day!"]==1
+			T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+		else
+			T=[1]
+		end
 		S=[s for s=1:Num_sto+Num_Csto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
 		J=I														#Set of zones, index j
@@ -153,7 +159,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
 		BM = 10^12;														#big M penalty
 		CC_g = [Gendata[:,"CC"];Gendata_candidate[:,"CC"]]#g       		#Capacity credit of generating units, unitless
-		CC_s = [Storagedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s  #Capacity credit of storage units, unitless
+		CC_s = [Storagedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s   #Capacity credit of storage units, unitless
 		#CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];Gendata_candidate[:,"EF"]]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
@@ -164,8 +170,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		IBG=10^15														#Total investment budget for generators
 		IBL=10^15														#Total investment budget for transmission lines
 		IBS=10^15														#Total investment budget for storages
-		N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
-		NI=Dict([(i,h) =>-NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
+		
+		NI=Dict([(h,i) =>-NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
 		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Load_rep
@@ -187,11 +193,21 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		e_dis=[Storagedata[:,"Discharging efficiency"];Estoragedata_candidate[:,"Discharging efficiency"]]#s			#Discharging efficiency of storage unit s, unitless
 			
 		#for multiple time period, we need to use following TS parameters
-		NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
-		P_t = Load_rep #thi
-		AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for i in I for h in H_t[t] ]) for t in T for g in G_PV])
-		AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
-		AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
+		if config_set["representative_day!"]==1
+			N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t	  #Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
+			NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
+			P_t = Load_rep #thi
+			AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for i in I for h in H_t[t] ]) for t in T for g in G_PV])
+			AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
+			AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
+		else
+			N=[1]
+			NI_t = Dict(1=> NI)
+			P_t = Dict(1 => Loaddata[:,4:3+Num_zone])
+			AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solardata[:,4:end][:,Idx_zone_dict[i]][h] for i in I for h in H]) for t in T for g in G_PV])
+			AFREW_tg = Dict([(t,g) => Dict([(h, i) => Winddata[:,4:end][:,Idx_zone_dict[i]][h] for h in H for i in I]) for t in T for g in G_W])
+			AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
+		end
 		unit_converter = 10^6
 
 		#Relax of integer variable:

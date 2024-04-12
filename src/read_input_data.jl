@@ -35,7 +35,7 @@ function load_data(config_set::Dict,path::AbstractString)
     if model_mode == "GTEP"                 #read data for generation and transmission expansion model
         input_data = Dict()
         println("Reading Input_Data Files for GTEP mode")
-        input_data["VOLL"] = config_set["value_of_loss_of_load"]
+        input_data["VOLL"] = config_set["value_of_loss_load"]
         folderpath = joinpath(path,Data_case)
         files = readdir(folderpath)
         if any(endswith.(files, ".xlsx"))
@@ -118,7 +118,7 @@ function load_data(config_set::Dict,path::AbstractString)
         println("Reading Input_Data Files for PCM mode")
         folderpath = joinpath(path*"/"*Data_case)
         files = readdir(folderpath)
-        input_data["VOLL"] = config_set["value_of_loss_of_load"]
+        input_data["VOLL"] = config_set["value_of_loss_load"]
         if any(endswith.(files, ".xlsx"))
             println("The directory $folderpath contains .xlsx file, then try to read input data from PCM_input_total.xlsx")
             #xlsx_file = XLSX.readxlsx(path*Data_case*"PCM_input_total.xlsx")
