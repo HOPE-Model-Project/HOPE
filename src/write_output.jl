@@ -74,8 +74,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         		#representative day clustering
 		if config_set["representative_day!"]==1
 			time_periods = config_set["time_periods"]
+            N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]
+        else
+            N=[1]
+            T=[1]
 		end
-        N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]
+        
         ##Generator-----------------------------------------------------------------------------------------------------------
         			#Investment cost of storage unit s, M$
         #Power OutputDF
@@ -264,11 +268,25 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         VCG=[Gencostdata]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")]]#s		
         unit_converter = 10^6
+
+        ##Load shedding
+        P_ls_df = DataFrame(
+          load_area = vcat(Zonedata[:, "Zone_id"]), 
+          AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
+        )
+        P_ls_df.AnnTol .= [sum(value.(model[:p_LS][d,h]) for h in H) for d in D]
+        power_ls = value.(model[:p_LS])
+        power_ls_h = hcat([Array(power_ls[:,h]) for h in H]...)
+        power_ls_h_df = DataFrame(power_ls_h, [Symbol("h$h") for h in H])
+        P_ls_df = hcat(P_ls_df, power_ls_h_df)
+
+        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+        
         #Power OutputDF
         P_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"]),
             Zone = vcat(Gendata[:,"Zone"]),
-            EC_Category = repeat(["Existing"],Num_Egen),
+            EC_Category = repeat(["Existing"],Num_Egen), # existing capacity
             AnnSum = Array{Union{Missing,Float64}}(undef, Num_Egen)  #Annual generation output
         )
         P_gen_df.AnnSum .= [sum(value.(model[:p][g,h]) for h in H) for g in G]
@@ -282,6 +300,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, writeheader=true)
         
+
+
+
         ##Transmission line-----------------------------------------------------------------------------------------------------------
         #Power flow OutputDF
         P_flow_df = DataFrame(
