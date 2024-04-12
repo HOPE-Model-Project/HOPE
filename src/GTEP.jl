@@ -68,6 +68,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		CBP_state_data = combine(groupby(CBPdata, :State), Symbol("Allowance (tons)") => sum)
 		#rpspolicydata=
 		RPSdata = input_data["RPSdata"]
+		#penalty_cost, investment budgets, planning reserve margins etc. single parameters
+		SinglePardata = input_data["Singlepar"]
 
 		#Calculate number of elements of input data
 		Num_bus=size(Zonedata,1)
@@ -123,8 +125,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
 		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_gen#Set of candidate wind, subsets of G
 		G_W=[G_W_E;G_W_C]                                               #Set of all wind, subsets of G
-		G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
-		G_F_C=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata_candidate[:,"Type"]).+Num_gen	
+		#G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
+		#G_F_C=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata_candidate[:,"Type"]).+Num_gen	
+		G_F_E=findall(x -> x in [1], Gendata[:,"Flag_thermal"])
+		G_F_C=findall(x -> x in [1], Gendata_candidate[:,"Flag_thermal"]).+Num_gen	
+
 		G_F=[G_F_E;G_F_C]												#Set of dispatchable generators, subsets of G
 		G_RPS_E = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata[:,"Type"])
 		G_RPS_C = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata_candidate[:,"Type"]).+Num_gen
@@ -157,7 +162,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_PV])
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
-		BM = 10^12;														#big M penalty
+		BM = SinglePardata[1,"BigM"];														#big M penalty
 		CC_g = [Gendata[:,"CC"];Gendata_candidate[:,"CC"]]#g       		#Capacity credit of generating units, unitless
 		CC_s = [Storagedata[:,"CC"];Estoragedata_candidate[:,"CC"]]#s   #Capacity credit of storage units, unitless
 		#CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
@@ -167,28 +172,28 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
 		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s				#Investment cost of storage unit s, M$
-		IBG=10^15														#Total investment budget for generators
-		IBL=10^15														#Total investment budget for transmission lines
-		IBS=10^15														#Total investment budget for storages
+		IBG=SinglePardata[1, "Inv_bugt_gen"]														#Total investment budget for generators
+		IBL=SinglePardata[1, "Inv_bugt_line"]														#Total investment budget for transmission lines
+		IBS=SinglePardata[1, "Inv_bugt_storage"]													#Total investment budget for storages
 		
 		NI=Dict([(h,i) =>-NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
 		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Load_rep
 		PK=Zonedata[:,"Demand (MW)"]#i						#Peak power demand, MW
-		PT_rps=10^9											#RPS volitation penalty, $/MWh
-		PT_emis=10^9										#Carbon emission volitation penalty, $/t
+		PT_rps=SinglePardata[1, "PT_RPS"]											#RPS volitation penalty, $/MWh
+		PT_emis=SinglePardata[1, "PT_emis"]										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];Gendata_candidate[:,"Pmin (MW)"]]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
 		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
-		RM=config_set["planning_reserve_margin"]#												#Planning reserve margin, unitless
+		RM=SinglePardata[1,"planning _reserve_margin"]#												#Planning reserve margin, unitless
 		SECAP=[Storagedata[:,"Capacity (MWh)"];Estoragedata_candidate[:,"Capacity (MWh)"]]#s		#Maximum energy capacity of storage unit s, MWh
 		SCAP=[Storagedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
 		SC=[Storagedata[:,"Charging Rate"]; Estoragedata_candidate[:, "Charging Rate"]]#s									#The maximum rates of charging, unitless
 		SD=[Storagedata[:,"Discharging Rate"]; Estoragedata_candidate[:, "Discharging Rate"]]#s									#The maximum rates of discharging, unitless
 		VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s						#Variable (degradation) cost of storage unit s, $/MWh
-		VOLL=input_data["VOLL"]#d										#Value of loss of load d, $/MWh
+		VOLL=SinglePardata[1, "VOLL"]#d										#Value of loss of load d, $/MWh
 		e_ch=[Storagedata[:,"Charging efficiency"];Estoragedata_candidate[:,"Charging efficiency"]]#s				#Charging efficiency of storage unit s, unitless
 		e_dis=[Storagedata[:,"Discharging efficiency"];Estoragedata_candidate[:,"Discharging efficiency"]]#s			#Discharging efficiency of storage unit s, unitless
 			
