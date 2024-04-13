@@ -48,7 +48,13 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		L_new=[l for l=Num_Eline+1:Num_Eline+Num_Cline]					#Set of candidate transmission corridors
         #Time period
         T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
-        H_t=[collect(1:24) for t in T]                          #Set of hours in time period (day) t, index h, subset of H
+		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
+			H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
+			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+		else
+			H_t=[collect(1:8760) for t in [1]]									#Set of hours in time period (day) t, index h, subset of H
+			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+		end
         I=[i for i=1:Num_zone]
         I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W])) #Set of zones in state w, subset of I
         HD = [h for h in 1:24]
