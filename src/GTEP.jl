@@ -137,9 +137,15 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
 		G_new=[g for g=Num_gen+1:Num_gen+Num_Cgen]						#Set of candidate generation units, index g, subset of G 
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
-		HD = [h for h in 1:24]														#Set of hours in one day, index h, subset of H
-		H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
-		H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+		HD = [h for h in 1:24]
+		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
+			H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
+			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+		else
+			H_t=[collect(1:8760) for t in [1]]									#Set of hours in time period (day) t, index h, subset of H
+			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+		end
+	
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
 		S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]				#Set of storage units connected to zone i, subset of S  
