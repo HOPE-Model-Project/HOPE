@@ -8,9 +8,9 @@ function aggregate_gendata_gtep(df)
 	:CC .=> mean,
     :Flag_thermal .=> mean,
     :Flag_VRE .=> mean)
+    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:Flag_thermal_mean,:Flag_VRE_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:Flag_thermal,:Flag_VRE] )
     agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
     agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
-	#rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC] )
 	#Note: below line and the derived file is just for developer use
     #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
     return agg_df
@@ -29,10 +29,11 @@ function aggregate_gendata_pcm(df)
 	:RD .=> mean,
     :Flag_thermal .=> mean,
     :Flag_VRE .=> mean)
+    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Flag_thermal_mean,:Flag_VRE_mean] 
+	.=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE])
     agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
     agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
-	#rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean] 
-	#.=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD])
+	
 	return agg_df
 end
 
@@ -205,7 +206,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["RPSdata"]=CSV.read(joinpath(folderpath,"rpspolicies.csv"),DataFrame)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv",DataFrame))
+            input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv"),DataFrame)
 
             println("CSV Files Successfully Load From $folderpath")
         end   
