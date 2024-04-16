@@ -48,6 +48,9 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("\n\n","Model mode: PCM","\n\n");
 		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
 		#print("Investment_cost= ",value.(INVCost),"\n\n");
+		if config_set["unit_commitment"]!=0
+			print("Startup_cost= ",value.(model[:STCost]),"\n\n");
+		end
 		print("Operation_cost= ",value.(model[:OPCost]),"\n\n");
 		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
 		print("RPS_requirement ",RPS,"\n\n");
