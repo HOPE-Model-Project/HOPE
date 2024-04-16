@@ -32,6 +32,52 @@ function get_TPmatched_ts(df, time_periods, ordered_zone)
     return (rep_dat_dict,ndays_dict)
 end
 
+function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
+	Gendata = input_data["Gendata"]
+	Num_gen=size(Gendata,1)
+	#UC sets
+	G = [g for g=1:Num_gen]									#Set of all types of generating units, index g
+	G_UC = findall(x -> x in [1], Gendata[:,"Flag_UC"])
+	H=[h for h=1:8760]										#Set of hours, index h
+	#UC parameters
+	FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g			#Forced outage rate
+	P_max=[Gendata[:,"Pmax (MW)"];]							#Maximum power generation of unit g, MW
+	P_min=[Gendata[:,"Pmin (MW)"];]							#Maximum power generation of unit g, MW
+	DT_g = Gendata[:,"Min_down_time"]					#Minimum down time
+	UT_g = Gendata[:,"Min_up_time"]						#Minimum up time
+	STC_g = [Gendata[:,Symbol("Start_up_cost (\$/MW)")];]	#Start up cost
+	#UC variables
+	if config_set["unit_commitment"] == 1
+		@variable(model, pmin[G_UC,H]>=0)						#Minimum-run capacity online  generator g into grid in hour h, MW
+		@variable(model, o[G_UC,H],Bin)						#Online state variable of g that is on-line in h, Bin
+		@variable(model, sd[G_UC,H],Bin)						#Shut-down action for g at the beginning of h, Bin
+		@variable(model, su[G_UC,H],Bin)						#Start-up action for g at the beginning of h, Bin
+	elseif config_set["unit_commitment"] == 2
+		@variable(model, pmin[G_UC,H]>=0)						#Minimum-run capacity online  generator g into grid in hour h, MW
+		@variable(model, 0<= o[G_UC,H] <=1)					#Online state variable of g that is on-line in h, 0-1
+		@variable(model, 0<= sd[G_UC,H]<=1)					#Shut-down action for g at the beginning of h, 0-1
+		@variable(model, 0<= su[G_UC,H]<=1)					#Start-up action for g at the beginning of h, 0-1
+	end
+	#UC constraints
+	#(24) Minimum run limit
+	MRL_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= (1-FOR_g[g])*P_min[g]*o[g,h],base_name = "MRL_con")
+		
+	#(25) State transition constraint
+	STT_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])], o[g,h] - o[g,h-1] == su[g,h] - sd[g,h],base_name = "STT_con")
+		
+	#(26) Minimum up time constraint 
+	MUT_con = @constraint(model, [g in G_UC, h in  Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
+		
+	#(27) Minimum down time constraint
+	MDT_con = @constraint(model, [g in G_UC, h in  Int.(DT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
+		
+	#(28) pmin variable bound
+	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
+	#Obj expression
+	@expression(model, STCost, sum(STC_g[g]*sum(su[g,h]*P_max[g] for h in H) for g in G_UC)
+	)
+end
+
 function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.OptimizerWithAttributes)
 	model_mode = config_set["model_mode"]
 	if model_mode == "GTEP"
@@ -122,6 +168,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Set of dispatchable generators, subsets of G
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
 		G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]						#Set of generating units connected to zone i, subset of G  
+		if config_set["unit_commitment"] !=0
+			G_UC = findall(x -> x in [1], Gendata[:,"Flag_UC"])
+		end
 		HD = [h for h in 1:24]											#Set of hours in one day, index h, subset of H
 		H_D = [h for h in 0:24:8760]
 		H_t=[Load_tp_match[t].Hour for t in T]							#Set of hours in time period (day) t, index h, subset of H
@@ -224,7 +273,12 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#@constraint(model, [l in L_new], y[l]==0);
 		#@constraint(model, [s in S_new], z[s]==0);
 
-
+		if config_set["unit_commitment"]!=0
+			unit_commitment!(config_set, input_data, model)
+		elseif config_set["unit_commitment"]>2
+			uc_set = config_set["unit_commitment"]
+			print("Invalid settings $uc_set for unit_commitment! Please set it tobe '0' or '1' or '2'!")
+		end
 		#Constraints--------------------------------------------
 		
 		#(3) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
@@ -242,19 +296,37 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#(4) Transissim power flow limit for existing lines	
 		TLe_con = @constraint(model, [l in L_exist,h in H], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
 
+		if config_set["unit_commitment"] == 0
+			#(5) Maximum capacity limits for existing power generator
+			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
 		
-		#(5) Maximum capacity limits for existing power generator
-		CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g]*1.5,base_name = "CLe_con")
+			#(6) Spining reserve
+			SPIN_con = @constraint(model, [g in G_exist, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
 		
-		#(6) Spining reserve
-		SPIN_con = @constraint(model, [g in G_exist, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
+			#(7) Ramp up limits
+			RP_UP_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]<= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
 		
-		#(7) Ramp up limits
-		RP_UP_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]<= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
+			#(8) Ramp down limits
+			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
+		else
+			#(5) Maximum capacity limits for existing power generator
+			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			CLeL_con = @constraint(model, [g in G_UC, h in H], P_min[g] <= p[g,h] +r_G[g,h] ,base_name = "CLeL_con")
+			CLeU_con = @constraint(model, [g in G_UC, h in H], p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
+			#(6) Spining reserve
+			SPIN_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
+			SPINUC_con = @constraint(model, [g in G_UC, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "SPINUC_con")
+	
+			#(7) Ramp up limits
+			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]<= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
+			RP_UP_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  p[g,h] +r_G[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1])<= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
 		
-		#(8) Ramp down limits
-		RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
-		
+			#(8) Ramp down limits
+			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
+			RP_DN_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  (p[g,h]-model[:pmin][g,h]) - (r_G[g,h]+p[g,h-1] - model[:pmin][g,h-1])>= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
+			
+		end
+
 		#(9) Load shedding limit	
 		LS_con = @constraint(model, [i in I, d in D_i[i], h in H], 0 <= p_LS[d,h]<= P_t[h,i]*PK[i],base_name = "LS_con")
 		
@@ -323,13 +395,13 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		
 		#=
 		##Cap & Trade##
-		#(28) State carbon allowance cap
+		#(22) State carbon allowance cap
 		SCAL_con = @constraint(model, [w in W, t in T], sum(a[g,t] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) - em_emis[w] <= ALW[t,w],base_name = "SCAL_con")
 
-		#(29) Balance between allowances and write_emissions
+		#(23) Balance between allowances and write_emissions
 		BAL_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...), G_F), t in setdiff(T,[1])], sum(EF[g]*p[g,h] for h in H_t[t]) == a[g,t]+b[g,t-1]-b[g,t],base_name = "BAL_con")
 
-		#(30) No cross-year banking
+		#(24) No cross-year banking
 		NCrY_in_con = @constraint(model, [g in G_F], b[g,1] == b[g,end],base_name="NCrY_in_con")
 		NCrY_end_con = @constraint(model, [g in G_F], b[g,end] == 0, base_name="NCrY_end_con")
 		=#
@@ -357,64 +429,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#@expression(model, SlackPenalty, BM *sum(slack_pos[h,i]+slack_neg[h,i] for h in H for i in I))
 
 		#Minmize objective fuction: INVCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
-		@objective(model,Min, OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+		if config_set["unit_commitment"] == 0
+			@objective(model,Min, OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+		else
+			@objective(model,Min, model[:STCost] + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
+		end
 		return model
 	end
 end 
-
-#=
-function solve_model(config_set::Dict, input_data::Dict, model::Model)# same as the function in GTEP
-    model_mode = config_set["model_mode"]
-	## Start solve timer
-	solver_start_time = time()
-	solver_time = time()
-	optimize!(model)
-	## Record solver time
-	solver_time = time() - solver_start_time
-
-	##read input for print	
-	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
-	RPSdata = input_data["RPSdata"]
-	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
-	if model_mode == "GTEP"
-		Estoragedata_candidate = input_data["Estoragedata_candidate"]
-		Linedata_candidate = input_data["Linedata_candidate"]
-		Gendata_candidate = input_data["Gendata_candidate"]
-		#Printing results for debugging purpose-------------------------
-		print("\n\n","Model mode: GTEP","\n\n");
-		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
-		print("Investment_cost= ",value.(model[:INVCost]),"\n\n");
-		print("Operation_cost= ",value.(model[:OPCost]),"\n\n");
-		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
-		print("RPS_requirement ",RPS,"\n\n");
-		print("RPSPenalty= ",value.(model[:RPSPenalty]),"\n\n");
-		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
-		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
-		
-		print("Selected_lines= ",value.(model[:y]),"\n\n");
-		Linedata_candidate[:,"Capacity (MW)"] .= [v for (i,v) in enumerate(Linedata_candidate[:,"Capacity (MW)"] .*value.(model[:y]))]
-		print("Selected_lines_table",Linedata_candidate[[i for (i, v) in enumerate(value.(model[:y])) if v > 0],:],"\n\n");
-		print("Selected_units= ",value.(model[:x]),"\n\n");
-		Gendata_candidate[:,"Pmax (MW)"] .= [v for (i,v) in enumerate(Gendata_candidate[:,"Pmax (MW)"] .*value.(model[:x]))]
-		print("Selected_units_table",Gendata_candidate[[i for (i, v) in enumerate(value.(model[:x])) if v > 0],:],"\n\n");
-		print("Selected_storage= ",value.(model[:z]),"\n\n");
-		Estoragedata_candidate[:,"Capacity (MWh)"] .= [v for (i,v) in enumerate(Estoragedata_candidate[:,"Capacity (MWh)"] .*value.(model[:z]))]
-		Estoragedata_candidate[:,"Max Power (MW)"] .= [v for (i,v) in enumerate(Estoragedata_candidate[:,"Max Power (MW)"] .*value.(model[:z]))]
-		print("Selected_storage_table",Estoragedata_candidate[[i for (i, v) in enumerate(value.(model[:z])) if v > 0],:],"\n\n")
-		#-----------------------------------------------------------
-		print("Solving time:", solver_time)
-	elseif model_mode == "PCM"
-		#Printing results for debugging purpose-------------------------
-		print("\n\n","Model mode: PCM","\n\n");
-		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
-		#print("Investment_cost= ",value.(INVCost),"\n\n");
-		print("Operation_cost= ",value.(model[:OPCost]),"\n\n");
-		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
-		print("RPS_requirement ",RPS,"\n\n");
-		print("RPSPenalty= ",value.(model[:RPSPenalty]),"\n\n");
-		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
-		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
-	end
-	return  model
-end
-=#
