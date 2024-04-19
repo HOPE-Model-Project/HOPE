@@ -107,7 +107,20 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_gen_df = hcat(P_gen_df, power_t_h_df )
         
         CSV.write(joinpath(outpath, "power.csv"), P_gen_df, writeheader=true)
-        
+
+        ##Load shedding
+        P_ls_df = DataFrame(
+          load_area = vcat(Zonedata[:, "Zone_id"]), 
+          AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
+        )
+        P_ls_df.AnnTol .= [sum(value.(model[:p_LS][d,t,h]) for t in T for h in H_t[t]) for d in D]
+        power_ls = value.(model[:p_LS])
+        power_ls_t_h = hcat([Array(power_ls[:,t,h]) for t in T for h in H_t[t]]...)
+        power_ls_t_h_df = DataFrame(power_ls_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
+        P_ls_df = hcat(P_ls_df, power_ls_t_h_df)
+
+        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+
         #Capacity OutputDF
         C_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"],Gendata_candidate[:,"Type"]),
