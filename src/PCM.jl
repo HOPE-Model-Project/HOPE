@@ -282,7 +282,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Constraints--------------------------------------------
 		
 		#(3) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
-			PB_con = @constraint(model, [i in I, h in H], sum(p[g,h] for g in G_i[i]) 
+		PB_con = @constraint(model, [i in I, h in H], sum(p[g,h] for g in G_i[i]) 
 			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 			- sum(f[l,h] for l in LS_i[i])#LS
 			+ sum(f[l,h] for l in LR_i[i])#LR
@@ -290,8 +290,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			#+ slack_pos[h,i]-slack_neg[h,i]
 			== sum(P_t[h,i]*PK[i] - p_LS[d,h] for d in D_i[i]),base_name = "PB_con"); 
 		
-			#TC_con =  @constraint(model, [i in I, t in T, h in H_t[t]], - sum(f[l,t,h] for l in LS_i[i]) == sum(f[l,t,h] for l in LR_i[i]),base_name = "TC_con" )
-			NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
+		#TC_con =  @constraint(model, [i in I, t in T, h in H_t[t]], - sum(f[l,t,h] for l in LS_i[i]) == sum(f[l,t,h] for l in LR_i[i]),base_name = "TC_con" )
+		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
 		
 		#(4) Transissim power flow limit for existing lines	
 		TLe_con = @constraint(model, [l in L_exist,h in H], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
@@ -414,7 +414,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Operation cost of generator and storages
 		@expression(model, OPCost, sum(VCG[g]*sum(p[g,h] for h in H) for g in G)
 					+ sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H) for s in S)
-					)	
+					)
+		@expression(model, OPCost_gen, sum(VCG[g]*sum(p[g,h] for h in H) for g in G)
+					)
+		@expression(model, OPCost_es, sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H) for s in S)
+					)								
 
 		#Loss of load penalty
 		@expression(model, LoadShedding, sum(VOLL*sum(p_LS[d,h] for h in H) for d in D))
