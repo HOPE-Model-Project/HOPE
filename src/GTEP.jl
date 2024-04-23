@@ -175,9 +175,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		EF=[Gendata[:,"EF"];Gendata_candidate[:,"EF"]]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		F_max=[Linedata[!,"Capacity (MW)"];Linedata_candidate[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
-		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
+		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost ((\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s				#Investment cost of storage unit s, M$
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s				#Investment cost of storage unit s, M$
 		IBG=SinglePardata[1, "Inv_bugt_gen"]														#Total investment budget for generators
 		IBL=SinglePardata[1, "Inv_bugt_line"]														#Total investment budget for transmission lines
 		IBS=SinglePardata[1, "Inv_bugt_storage"]													#Total investment budget for storages
@@ -258,13 +258,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Constraints--------------------------------------------
 		#(2) Generator investment budget:∑_(g∈G^+) INV_g ∙x_g ≤IBG
-		IBG_con = @constraint(model,  [g in G_new], unit_converter*INV_g[g]*x[g] <=IBG, base_name = "IBG_con")
+		IBG_con = @constraint(model,  [g in G_new], INV_g[g]*x[g] <=IBG, base_name = "IBG_con")
 
 		#(3) Transmission line investment budget:∑_(l∈L^+) INV_l ∙x_l ≤IBL
 		IBL_con = @constraint(model,  [l in L_new], unit_converter*INV_l[l]*y[l] <=IBL, base_name = "IBL_con")
 
 		#(4) Storages investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
-		IBS_con = @constraint(model,  [s in S_new], unit_converter*INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
+		IBS_con = @constraint(model,  [s in S_new], INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 		PB_con = @constraint(model, [i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
@@ -386,7 +386,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
-		@expression(model, INVCost, sum(INV_g[g]*unit_converter*x[g] for g in G_new)+sum(INV_l[l]*unit_converter*y[l] for l in L_new)+sum(INV_s[s]*unit_converter*z[s] for s in S_new))			
+		@expression(model, INVCost, sum(INV_g[g]*x[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l] for l in L_new)+sum(INV_s[s]*z[s] for s in S_new))			
 		
 
 		#Operation cost of generator and storages
