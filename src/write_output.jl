@@ -69,9 +69,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
         LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
         #Param
-        INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
+        INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s	
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s	
         Gencostdata = input_data["Gencostdata"]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
@@ -236,7 +236,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         dc = value.(model[:dc])
         p_LS = value.(model[:p_LS])
         for i in  1:Num_zone
-            Inv_c = sum(INV_g[g]*unit_converter*x[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*unit_converter*z[s] for s in intersect(S_new,S_i[i]); init=0)
+            Inv_c = sum(INV_g[g]*x[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*z[s] for s in intersect(S_new,S_i[i]); init=0)
             Opr_c = sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in intersect(G,G_i[i]) for t in T; init=0) + sum(VCS[s]*N[t]*sum(c[s,t,h]+dc[s,t,h] for h in H_t[t]; init=0) for s in intersect(S,S_i[i]) for t in T; init=0)
             #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
             #Cb_p = PT_emis*sum(em_emis[w] for w in W)
