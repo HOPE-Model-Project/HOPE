@@ -1,9 +1,18 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "D:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\PJM_MD100_GTEP_case\\output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath =  "D:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\PJM_MD100_GTEP_case\\"
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\" #choose by user
 
 #Function use for aggregrating generation data:
+function aggregate_capdata(df)
+	agg_df = combine(groupby(df, [:Technology,:Zone]),
+	Symbol("Capacity_INI (MW)") => sum,
+    Symbol("Capacity_RET (MW)") => sum,
+    Symbol("Capacity_FIN (MW)") => sum,
+    )
+	rename!(agg_df, [Symbol("Capacity_INI (MW)_sum"),Symbol("Capacity_RET (MW)_sum"),Symbol("Capacity_FIN (MW)_sum")] .=>  [Symbol("Capacity_INI (MW)"),Symbol("Capacity_RET (MW)"), Symbol("Capacity_FIN (MW)")] )
+	return agg_df
+end
 function aggregate_capdata(df)
 	agg_df = combine(groupby(df, [:Technology,:Zone]),
 	Symbol("Capacity (MW)") => sum,
@@ -27,7 +36,7 @@ color_map = Dict(
     "NGCC"=>"LightSteelBlue",
     "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
-    "WindOff"=>"LightSlateBlue",
+    "WindOff"=>"Blue",
     "SolarPV"=>"Yellow",
     "Battery" => "Purple",
     "Battery_dc" => "Purple",
@@ -91,7 +100,7 @@ power_output_data_df = Dict(
     "agg_es_c_zone_data" => agg_es_c_zone_data 
 )
 
-hours=3625:3792
+hours=3625:3792 #8401:8568 #3625:3792
 ordered_tech_power = ["Nuc","Coal","NGCC","NGCT","Hydro","Oil","Bio","WindOn","WindOff","SolarPV","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
 function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
