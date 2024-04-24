@@ -135,6 +135,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_RPS_C = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata_candidate[:,"Type"]).+Num_gen
 		G_RPS = [G_RPS_E;G_RPS_C]										#Set of generation units providing RPS credits, index g, subset of G  
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
+		G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])			#Set of existing generation units availiabile for retirement, index g, subset of G 
 		G_new=[g for g=Num_gen+1:Num_gen+Num_Cgen]						#Set of candidate generation units, index g, subset of G 
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
 		HD = [h for h in 1:24]
@@ -239,10 +240,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, x[G_new], Bin)							#Decision variable for candidate generator g, binary
 			@variable(model, y[L_new], Bin)							#Decision variable for candidate line l, binary
 			@variable(model, z[S_new], Bin)							#Decision variable for candidate storage s, binary
+			@variable(model, x_RET[G_RET], Bin)						#Decision variable for generator g eligible for retirement, binary
 		elseif inv_dcs_bin == 0
 			@variable(model, 0 <= x[G_new] <= 1)					#Decision variable for candidate generator g, relax to scale 0-1
 			@variable(model, 0 <= y[L_new] <= 1)					#Decision variable for candidate line l, relax to scale 0-1
 			@variable(model, 0 <= z[S_new] <= 1)					#Decision variable for candidate storage s, relax to scale 0-1
+			@variable(model, 0 <=x_RET[G_RET]<= 1)					#Decision variable for generator g eligible for retirement, relax to scale 0-1
 		end
 		@variable(model, soc[S,T,H_T]>=0)							#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,T,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
@@ -283,8 +286,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,t,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
 		
 		#(8) Maximum capacity limits for existing power generator
-		CLe_con = @constraint(model, [g in G_exist,t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
-
+		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
+		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
+		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,t,h] <= P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
+		
 		#(9) Maximum capacity limits for new power generator
 		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h],base_name = "CLn_LB_con")
 		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,t,h] <=P_max[g]*x[g],base_name = "CLn_UB_con")
