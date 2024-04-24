@@ -62,6 +62,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G=[g for g=1:Num_Egen+Num_Cgen]
         G_exist=[g for g=1:Num_Egen]
         G_new=[g for g=Num_Egen+1:Num_Egen+Num_Cgen]
+        G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
         S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
         S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
@@ -69,9 +70,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
         LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
         #Param
-        INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
+        INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s	
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s	
         Gencostdata = input_data["Gencostdata"]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
@@ -98,6 +99,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         )
         P_gen_df.AnnSum .= [sum(value.(model[:p][g,t,h]) for t in T for h in H_t[t] ) for g in G]
         New_built_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
+        #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
         P_gen_df[!,:New_Build] .= 0
         P_gen_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
@@ -127,11 +129,22 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Zone = vcat(Gendata[:,"Zone"],Gendata_candidate[:,"Zone"]),
             EC_Category = [repeat(["Existing"],Num_Egen);repeat(["Candidate"],Num_Cgen)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(G)[1]),
+            Capacity_IN = vcat(Gendata[:,"Pmax (MW)"],zeros(size(G_new)[1])),
+            Capacity_RET = Array{Union{Missing,Float64,Int64}}(undef, size(G)[1]),
             Capacity = vcat(Gendata[:,"Pmax (MW)"],Gendata_candidate[:,"Pmax (MW)"])
         )
         C_gen_df[!,:New_Build] .= 0
         C_gen_df[New_built_idx,:New_Build] .= 1
-        rename!(C_gen_df, :Capacity => Symbol("Capacity (MW)"))
+
+        C_gen_df[!,:Capacity_RET] .= 0.0
+        Retirement_idx = map(x -> G_RET[x], [i for (i, v) in enumerate(value.(model[:x_RET])) if v > 0])
+        C_gen_df[Retirement_idx,:Capacity_RET] .= [v for (i,v) in enumerate(Gendata[G_RET,"Pmax (MW)"] .*value.(model[:x_RET]))]
+
+        C_gen_df[!,:Capacity] .=  C_gen_df[!,:Capacity] .- C_gen_df[!,:Capacity_RET]
+
+        rename!(C_gen_df, :Capacity_IN => Symbol("Capacity_INI (MW)"))
+        rename!(C_gen_df, :Capacity_RET => Symbol("Capacity_RET (MW)"))
+        rename!(C_gen_df, :Capacity => Symbol("Capacity_FIN (MW)"))
 
         CSV.write(joinpath(outpath, "capacity.csv"), C_gen_df, writeheader=true)
         ##Transmission line-----------------------------------------------------------------------------------------------------------
@@ -236,7 +249,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         dc = value.(model[:dc])
         p_LS = value.(model[:p_LS])
         for i in  1:Num_zone
-            Inv_c = sum(INV_g[g]*unit_converter*x[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*unit_converter*z[s] for s in intersect(S_new,S_i[i]); init=0)
+            Inv_c = sum(INV_g[g]*x[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*z[s] for s in intersect(S_new,S_i[i]); init=0)
             Opr_c = sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in intersect(G,G_i[i]) for t in T; init=0) + sum(VCS[s]*N[t]*sum(c[s,t,h]+dc[s,t,h] for h in H_t[t]; init=0) for s in intersect(S,S_i[i]) for t in T; init=0)
             #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
             #Cb_p = PT_emis*sum(em_emis[w] for w in W)
@@ -244,6 +257,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Tot = sum([Inv_c,Opr_c,Lol_p])
             Cost_df[i,2:end] = [Inv_c,Opr_c,Lol_p,Tot]
         end
+        rename!(Cost_df, :Inv_cost => Symbol("Inv_cost (\$)"))
+        rename!(Cost_df, :Opr_cost => Symbol("Opr_cost (\$)"))
+        rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
+        rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
     
     

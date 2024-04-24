@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_PCM_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_PCM_case\\"
+input_dir = "D:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\PJM_MD100_GTEP_case\\output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath =  "D:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\PJM_MD100_GTEP_case\\"
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -27,15 +27,25 @@ color_map = Dict(
     "NGCC"=>"LightSteelBlue",
     "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
+    "WindOff"=>"DarkSkyBlue",
     "SolarPV"=>"Yellow",
     "Battery" => "Purple",
-    "Battery_dis" => "Purple",
+    "Battery_dc" => "Purple",
     "Battery_c" => "Purple",
     "Other" => "Pink"
 )
 #Technology ordered
+tech_acromy_map_dict = Dict(
+    "Batteries" => "Battery",
+    "Biomass" => "Bio",
+    "HPS" => "Hydro_pump",
+    "BES" => "Battery",
+    "MSW" =>"Bio",
+    "Landfill_NG" => "Bio",
+    "NG" => "NGCC",
+    "Nuc" => "NuC"
+)
 
-ordered_tech = ["NGCC","NuC","Coal","NGCT","Landfill_NG", "NG", "Hydro","Oil","MSW","Bio","WindOn","SolarPV","Battery","Other"]
 
 #read output data#
 
@@ -43,10 +53,9 @@ ordered_tech = ["NGCC","NuC","Coal","NGCT","Landfill_NG", "NG", "Hydro","Oil","M
 Output_power= CSV.read(input_dir*"power_hourly.csv",DataFrame) 
 Output_es_power =  CSV.read(input_dir*"es_power_hourly.csv",DataFrame) 
 
+Output_power.Technology = map(x -> get(tech_acromy_map_dict, x, x), Output_power.Technology)
+Output_es_power.Technology =  map(x -> get(tech_acromy_map_dict, x, x), Output_es_power.Technology)
 
-#Aggregrate by technology
-All_agg_cap_df = aggregate_capdata(vcat(aggregate_capdata(Exist_capacity),aggregate_capdata(Exist_es_capacity),aggregate_capdata(New_capacity),aggregate_capdata(New_es_capacity)))
-Exist_agg_cap_df = aggregate_capdata(vcat(aggregate_capdata(Exist_capacity),aggregate_capdata(Exist_es_capacity)))
 
 #Fill the missing ones:
 function fill_gendf_zero(df)
@@ -63,9 +72,6 @@ function fill_gendf_zero(df)
     return df_combined
 end
 
-
-All_agg_cap_df.Color =  map(x -> get(color_map, x, missing), All_agg_cap_df.Technology)
-Exist_agg_cap_df.Color =  map(x -> get(color_map, x, missing), Exist_agg_cap_df.Technology)
 
 #re-order (not in use for now)
 #indices = sortperm([findfirst(x -> x == y, ordered_tech) for y in All_agg_cap_df.Technology])
@@ -87,30 +93,34 @@ power_output_data_df = Dict(
     "agg_es_c_zone_data" => agg_es_c_zone_data 
 )
 
-hours=1:168
-ordered_tech_power = ["NuC","Coal","NGCC","NGCT","NG","Hydro","Oil","MSW","Bio","WindOn","WindOff","SolarPV","Hydro_pump","Battery","Other"]
+hours=3625:3792
+ordered_tech_power = ["NuC","Coal","NGCC","NGCT","Hydro","Oil","Bio","WindOn","WindOff","SolarPV","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
 function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
     agg_es_dc_zone_data=data["agg_es_dc_zone_data"]
     agg_es_c_zone_data=data["agg_es_c_zone_data"]
     agg_zone_data=data["agg_zone_data"]
     agg_es_soc_zone_data=data["agg_es_soc_zone_data"]
-    data= [[if (isempty(agg_es_soc_zone_data[agg_es_soc_zone_data[!,:Technology] .==tech,:])) filter!(!=(tech), ordered_es_tech )
-            elseif (tech == "Battery") scatter(x=hours, y=-Vector(agg_es_c_zone_data[agg_es_c_zone_data[!,:Technology] .==tech,:][1,2:end]),mode="lines",  line=attr(dash="dash"), line_color=color_map[tech],stackgroup="two", hoverinfo="x+y",name=tech*"_c")
-            elseif (tech == "Hydro_pump") scatter(x=hours, y=-Vector(agg_es_c_zone_data[agg_es_c_zone_data[!,:Technology] .==tech,:][1,2:end]),mode="lines", line=attr(dash="dash"), line_color=color_map[tech],stackgroup="two", hoverinfo="x+y",name=tech*"_c")end 
+    plot_data= [[if (isempty(agg_es_soc_zone_data[agg_es_soc_zone_data[!,:Technology] .==tech,:])) filter!(!=(tech), ordered_es_tech )
+            elseif (tech == "Battery") scatter(x=hours, y=-Vector(agg_es_c_zone_data[agg_es_c_zone_data[!,:Technology] .==tech,:][1,broadcast(x -> x + 1, collect(hours))]),mode="lines",  line=attr(dash="dash"), line_color=color_map[tech],stackgroup="two", hoverinfo="x+y",name=tech*"_c")
+            elseif (tech == "Hydro_pump") scatter(x=hours, y=-Vector(agg_es_c_zone_data[agg_es_c_zone_data[!,:Technology] .==tech,:][1,broadcast(x -> x + 1, collect(hours))]),mode="lines", line=attr(dash="dash"), line_color=color_map[tech],stackgroup="two", hoverinfo="x+y",name=tech*"_c")end 
             for tech in ordered_es_tech];
             [if (isempty(agg_zone_data[agg_zone_data[!,:Technology] .==tech,:])) filter!(!=(tech), ordered_tech_power)
-            else scatter(x=hours, y=Vector(agg_zone_data[agg_zone_data[!,:Technology] .==tech,:][1,2:end]), mode="lines",line_color=color_map[tech], stackgroup="one", hoverinfo="x+y",name=tech)end 
+            else scatter(x=hours, y=Vector(agg_zone_data[agg_zone_data[!,:Technology] .==tech,:][1,broadcast(x -> x + 1, collect(hours))]), mode="lines",line_color=color_map[tech], stackgroup="one", hoverinfo="x+y",name=tech)end 
             for tech in ordered_tech_power];
             [if (isempty(agg_es_dc_zone_data[agg_es_dc_zone_data[!,:Technology] .==tech,:])) filter!(!=(tech), ordered_es_tech )
-            elseif (tech == "Battery") scatter(x=hours, y=Vector(agg_es_dc_zone_data[agg_es_dc_zone_data[!,:Technology] .==tech,:][1,2:end]),mode="lines", line_color=color_map[tech],stackgroup="one", hoverinfo="x+y",name=tech*"_dis")
-            elseif (tech == "Hydro_pump") scatter(x=hours, y=Vector(agg_es_dc_zone_data[agg_es_dc_zone_data[!,:Technology] .==tech,:][1,2:end]),mode="lines", line_color=color_map[tech],stackgroup="one", hoverinfo="x+y",name=tech*"_dis")end 
+            elseif (tech == "Battery") scatter(x=hours, y=Vector(agg_es_dc_zone_data[agg_es_dc_zone_data[!,:Technology] .==tech,:][1,broadcast(x -> x + 1, collect(hours))]),mode="lines", line_color=color_map[tech],stackgroup="one", hoverinfo="x+y",name=tech*"_dc")
+            elseif (tech == "Hydro_pump") scatter(x=hours, y=Vector(agg_es_dc_zone_data[agg_es_dc_zone_data[!,:Technology] .==tech,:][1,broadcast(x -> x + 1, collect(hours))]),mode="lines", line_color=color_map[tech],stackgroup="one", hoverinfo="x+y",name=tech*"_dc")end 
             for tech in ordered_es_tech]
             ]
 
     max_y_cap = maximum(sum, eachcol(agg_zone_data[:,2:end]))
     min_y_cap = maximum(sum, eachcol(agg_es_c_zone_data[:,2:end]))
-    return plot(data, 
+    traces = GenericTrace[]
+    for trace in plot_data
+        push!(traces,trace)
+    end
+    return plot(traces, 
                 Layout(
                 title="Power Generation from Different Sources",
                 xaxis_title="Time (Hours)",
