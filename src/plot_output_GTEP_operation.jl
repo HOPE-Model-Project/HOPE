@@ -29,7 +29,7 @@ color_map = Dict(
     "Hydro_pump"=>"LightPurple",
     "Hydro_pump_c"=>"LightPurple",
     "Hydro_pump_dc"=>"LightPurple",
-    "NuC"=>"Orange",
+    "Nuc"=>"Orange",
     "MSW"=>"Saddlebrown",
     "Bio" =>"LightGreen",
     "Landfill_NG"=> "Gold",
@@ -133,7 +133,7 @@ function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tec
                 xaxis_title="Time (Hours)",
                 yaxis_title="Power Generation (MW)",
                 yaxis_type="linear",
-                yaxis_range=[-1*min_y_cap-1000,1.1*max_y_cap],
+                yaxis_range=[-9000,32000],
                 showlegend=true,
                 barmode="stack")
                 )
