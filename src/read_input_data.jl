@@ -7,10 +7,12 @@ function aggregate_gendata_gtep(df)
 	:EF .=> mean,
 	:CC .=> mean,
     :Flag_thermal .=> mean,
-    :Flag_VRE .=> mean)
-    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:Flag_thermal_mean,:Flag_VRE_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:Flag_thermal,:Flag_VRE] )
+    :Flag_VRE .=> mean,
+    :Flag_RET .=> mean,)
+    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:Flag_thermal,:Flag_VRE,:Flag_RET] )
     agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
     agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+    agg_df[agg_df.Flag_RET .> 0, :Flag_RET] .=1
 	#Note: below line and the derived file is just for developer use
     #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
     return agg_df

@@ -135,6 +135,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_RPS_C = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata_candidate[:,"Type"]).+Num_gen
 		G_RPS = [G_RPS_E;G_RPS_C]										#Set of generation units providing RPS credits, index g, subset of G  
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
+		G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])			#Set of existing generation units availiabile for retirement, index g, subset of G 
 		G_new=[g for g=Num_gen+1:Num_gen+Num_Cgen]						#Set of candidate generation units, index g, subset of G 
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
 		HD = [h for h in 1:24]
@@ -175,9 +176,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		EF=[Gendata[:,"EF"];Gendata_candidate[:,"EF"]]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		F_max=[Linedata[!,"Capacity (MW)"];Linedata_candidate[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
-		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (M\$)")])) #g						#Investment cost of candidate generator g, M$
+		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (M\$)")])) #s				#Investment cost of storage unit s, M$
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s				#Investment cost of storage unit s, M$
 		IBG=SinglePardata[1, "Inv_bugt_gen"]														#Total investment budget for generators
 		IBL=SinglePardata[1, "Inv_bugt_line"]														#Total investment budget for transmission lines
 		IBS=SinglePardata[1, "Inv_bugt_storage"]													#Total investment budget for storages
@@ -239,10 +240,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, x[G_new], Bin)							#Decision variable for candidate generator g, binary
 			@variable(model, y[L_new], Bin)							#Decision variable for candidate line l, binary
 			@variable(model, z[S_new], Bin)							#Decision variable for candidate storage s, binary
+			@variable(model, x_RET[G_RET], Bin)						#Decision variable for generator g eligible for retirement, binary
 		elseif inv_dcs_bin == 0
 			@variable(model, 0 <= x[G_new] <= 1)					#Decision variable for candidate generator g, relax to scale 0-1
 			@variable(model, 0 <= y[L_new] <= 1)					#Decision variable for candidate line l, relax to scale 0-1
 			@variable(model, 0 <= z[S_new] <= 1)					#Decision variable for candidate storage s, relax to scale 0-1
+			@variable(model, 0 <=x_RET[G_RET]<= 1)					#Decision variable for generator g eligible for retirement, relax to scale 0-1
 		end
 		@variable(model, soc[S,T,H_T]>=0)							#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,T,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
@@ -258,13 +261,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Constraints--------------------------------------------
 		#(2) Generator investment budget:∑_(g∈G^+) INV_g ∙x_g ≤IBG
-		IBG_con = @constraint(model,  [g in G_new], unit_converter*INV_g[g]*x[g] <=IBG, base_name = "IBG_con")
+		IBG_con = @constraint(model,  [g in G_new], INV_g[g]*x[g] <=IBG, base_name = "IBG_con")
 
 		#(3) Transmission line investment budget:∑_(l∈L^+) INV_l ∙x_l ≤IBL
 		IBL_con = @constraint(model,  [l in L_new], unit_converter*INV_l[l]*y[l] <=IBL, base_name = "IBL_con")
 
 		#(4) Storages investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
-		IBS_con = @constraint(model,  [s in S_new], unit_converter*INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
+		IBS_con = @constraint(model,  [s in S_new], INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 		PB_con = @constraint(model, [i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
@@ -283,8 +286,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,t,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
 		
 		#(8) Maximum capacity limits for existing power generator
-		CLe_con = @constraint(model, [g in G_exist,t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
-
+		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
+		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
+		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,t,h] <= P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
+		
 		#(9) Maximum capacity limits for new power generator
 		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h],base_name = "CLn_LB_con")
 		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,t,h] <=P_max[g]*x[g],base_name = "CLn_UB_con")
@@ -386,7 +391,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
-		@expression(model, INVCost, sum(INV_g[g]*unit_converter*x[g] for g in G_new)+sum(INV_l[l]*unit_converter*y[l] for l in L_new)+sum(INV_s[s]*unit_converter*z[s] for s in S_new))			
+		@expression(model, INVCost, sum(INV_g[g]*x[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l] for l in L_new)+sum(INV_s[s]*z[s] for s in S_new))			
 		
 
 		#Operation cost of generator and storages
