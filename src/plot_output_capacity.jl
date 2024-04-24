@@ -1,10 +1,20 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_GTEP_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_GTEP_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
+	agg_df = combine(groupby(df, [:Technology,:Zone]),
+	Symbol("Capacity_INI (MW)") => sum,
+    Symbol("Capacity_RET (MW)") => sum,
+    Symbol("Capacity_FIN (MW)") => sum,
+    )
+	rename!(agg_df, [Symbol("Capacity_INI (MW)_sum"),Symbol("Capacity_RET (MW)_sum"),Symbol("Capacity_FIN (MW)_sum")] .=>  [Symbol("Capacity_INI (MW)"),Symbol("Capacity_RET (MW)"), Symbol("Capacity_FIN (MW)")] )
+	return agg_df
+end
+
+function aggregate_es_capdata(df)
 	agg_df = combine(groupby(df, [:Technology,:Zone]),
 	Symbol("Capacity (MW)") => sum,
     )
@@ -20,39 +30,65 @@ color_map = Dict(
     "Hydro_pump"=>"LightPurple",
     "Hydro_pump_c"=>"LightPurple",
     "Hydro_pump_dis"=>"LightPurple",
-    "NuC"=>"Orange",
+    "Nuc"=>"Orange",
     "MSW"=>"Saddlebrown",
     "Bio" =>"LightGreen",
     "Landfill_NG"=> "Gold",
     "NGCC"=>"LightSteelBlue",
     "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
+    "WindOff"=>"Blue",
     "SolarPV"=>"Yellow",
     "Battery" => "Purple",
     "Battery_dis" => "Purple",
     "Battery_c" => "Purple",
     "Other" => "Pink"
 )
-#Technology ordered
 
-ordered_tech = ["NGCC","NuC","Coal","NGCT","Landfill_NG", "NG", "Hydro","Oil","MSW","Bio","WindOn","SolarPV","Battery","Other"]
+tech_acromy_map_dict = Dict(
+    "Batteries" => "Battery",
+    "Biomass" => "Bio",
+    "HPS" => "Hydro_pump",
+    "BES" => "Battery",
+    "MSW" =>"Bio",
+    "Landfill_NG" => "Bio",
+    "NG" => "NGCC",
+    "NuC" => "Nuc"
+)
+#Technology ordered
+ordered_tech =  ["Nuc","Coal","NGCC","NGCT","Hydro","Oil","Bio","WindOff","WindOn","SolarPV"]
 
 #read output data#
 #capacity
 Output_capacity=CSV.read(input_dir*"capacity.csv",DataFrame)
 Output_es_capacity=CSV.read(input_dir*"es_capacity.csv",DataFrame)
 
+Output_capacity.Technology = map(x -> get(tech_acromy_map_dict, x, x), Output_capacity.Technology)
+Output_es_capacity.Technology = map(x -> get(tech_acromy_map_dict, x, x), Output_es_capacity.Technology)
 #Existing 
 Exist_capacity = filter(row -> row.EC_Category  == "Existing", Output_capacity)
 Exist_es_capacity = filter(row -> row.EC_Category  == "Existing", Output_es_capacity)
+
+Exist_capacity.Technology = map(x -> get(tech_acromy_map_dict, x, x), Exist_capacity.Technology)
+Exist_es_capacity.Technology = map(x -> get(tech_acromy_map_dict, x, x),Exist_es_capacity.Technology)
 
 #New_Build
 New_capacity = filter(row -> row.New_Build == 1, Output_capacity)
 New_es_capacity = filter(row -> row.New_Build == 1, Output_es_capacity)
 
 #Aggregrate by technology
-All_agg_cap_df = aggregate_capdata(vcat(aggregate_capdata(Exist_capacity),aggregate_capdata(Exist_es_capacity),aggregate_capdata(New_capacity),aggregate_capdata(New_es_capacity)))
-Exist_agg_cap_df = aggregate_capdata(vcat(aggregate_capdata(Exist_capacity),aggregate_capdata(Exist_es_capacity)))
+All_agg_cap_df = aggregate_capdata(Output_capacity)
+Fin_agg_cap_df = All_agg_cap_df[:,["Technology","Zone","Capacity_FIN (MW)"]]
+rename!(Fin_agg_cap_df,[Symbol("Capacity_FIN (MW)")] .=>  [Symbol("Capacity (MW)")])
+Fin_agg_es_cap_df = aggregate_es_capdata(Output_es_capacity)
+Fin_agg_all_df = vcat(Fin_agg_cap_df,Fin_agg_es_cap_df)
+
+
+Initial_agg_cap_df = All_agg_cap_df[:,["Technology","Zone","Capacity_INI (MW)"]]
+rename!(Initial_agg_cap_df,[Symbol("Capacity_INI (MW)")] .=>  [Symbol("Capacity (MW)")])
+Initial_agg_es_cap_df = aggregate_es_capdata(Exist_es_capacity)
+Initial_agg_all_df = vcat(Initial_agg_cap_df,Initial_agg_es_cap_df)
+
 
 #Fill the missing ones:
 function fill_gendf_zero(df)
@@ -70,8 +106,8 @@ function fill_gendf_zero(df)
 end
 
 
-All_agg_cap_df.Color =  map(x -> get(color_map, x, missing), All_agg_cap_df.Technology)
-Exist_agg_cap_df.Color =  map(x -> get(color_map, x, missing), Exist_agg_cap_df.Technology)
+Fin_agg_all_df.Color =  map(x -> get(color_map, x, missing), Fin_agg_all_df.Technology)
+Initial_agg_all_df.Color =  map(x -> get(color_map, x, missing), Initial_agg_all_df.Technology)
 
 #re-order (not in use)
 #indices = sortperm([findfirst(x -> x == y, ordered_tech) for y in All_agg_cap_df.Technology])
@@ -87,9 +123,9 @@ function plot_gen_mix(df::DataFrame, ordered_tech::Vector, color_map::Dict,tt::S
     return plot([bar(x=sort(unique(df[:,:Zone])), y= sort(filter(row -> row.Technology == ordered_tech[i],df), :Zone)[:,"Capacity (MW)"], marker_color=color_map[ordered_tech[i]], name=ordered_tech[i] ) for i in 1:size(ordered_tech)[1]], 
     Layout(title=tt, barmode="stack", 
     xaxis_categoryorder="category ascending", xaxis_title_text="Regions",
-    yaxis_title_text="Capacity (MW)", yaxis_range=[0,1.1*max_zone_cap]))
+    yaxis_title_text="Capacity (MW)", yaxis_range=[0,14000]))
 end
-plot_gen_mix(fill_gendf_zero(All_agg_cap_df), ordered_tech, color_map,  "Generation Capacity Mix at 2030")
-plot_gen_mix(fill_gendf_zero(Exist_agg_cap_df), ordered_tech, color_map,  "Generation Capacity Mix at 2022")
+plot_gen_mix(fill_gendf_zero(Fin_agg_cap_df), ordered_tech, color_map,  "Generation Capacity Mix at 2035")
+plot_gen_mix(fill_gendf_zero(Initial_agg_cap_df), ordered_tech, color_map,  "Generation Capacity Mix at 2022")
 #plot capacity--------------------------------------------------------#
 
