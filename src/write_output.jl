@@ -65,10 +65,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
-		G_PV_C=findall(Gendata_candidate[:,"Type"].=="SolarPV").+Num_gen#Set of candidate solar, subsets of G
+		G_PV_C=findall(Gendata_candidate[:,"Type"].=="SolarPV").+Num_Egen#Set of candidate solar, subsets of G
 		G_PV=[G_PV_E;G_PV_C]											#Set of all solar, subsets of G
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
-		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_gen#Set of candidate wind, subsets of G
+		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_Egen#Set of candidate wind, subsets of G
 		G_W=[G_W_E;G_W_C]
         G_VRE_E = [G_PV_E;G_W_E]
         G_VRE_C = [G_PV_C;G_W_C]

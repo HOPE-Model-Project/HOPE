@@ -130,7 +130,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_F_E=findall(x -> x in [1], Gendata[:,"Flag_thermal"])
 		G_F_C=findall(x -> x in [1], Gendata_candidate[:,"Flag_thermal"]).+Num_gen	
 		G_MR_E=findall(x -> x in [1], Gendata[:,"Flag_mustrun"])
-		G_MR_C=findall(x -> x in [1], _candidate[:,"Flag_mustrun"]).+Num_gen	
+		G_MR_C=findall(x -> x in [1], Gendata_candidate[:,"Flag_mustrun"]).+Num_gen	
 		G_F=[G_F_E;G_F_C]												#Set of dispatchable generators, subsets of G
 		G_MR = [G_MR_E;G_MR_C]
 		G_RPS_E = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG","Nuc", "WindOn","WindOff","SolarPV"], Gendata[:,"Type"])
