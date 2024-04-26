@@ -270,4 +270,3 @@ Pmax (MW),Pmin (MW),Zone,Type,Flag_RET,Flag_thermal,Flag_VRE,Flag_mustrun,Cost (
 2,0,PEPCO,SolarPV,0,0,1,0,5,0,0.35
 2,0,APS_MD,SolarPV,0,0,1,0,5,0,0.35
 1.9,0,PEPCO,SolarPV,0,0,1,0,5,0,0.35
-,,,,,,,,0,,
