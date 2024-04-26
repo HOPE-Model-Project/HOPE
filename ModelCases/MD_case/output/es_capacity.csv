@@ -1,6 +1,6 @@
 Technology,Zone,EC_Category,New_Build,EnergyCapacity (MWh),Capacity (MW)
 Battery,APS_MD,Existing,0,44.0,11.0
-Battery,APS_MD,Candidate,0,0.0,0.0
-Battery,DPL_MD,Candidate,0,0.0,0.0
-Battery,BGE,Candidate,0,0.0,0.0
-Battery,PEPCO,Candidate,0,0.0,0.0
+Battery,APS_MD,Candidate,1,1956.9658768270833,489.24146920677083
+Battery,DPL_MD,Candidate,1,3843.6486047386793,960.9121511846698
+Battery,BGE,Candidate,1,905.5880970644515,226.39702426611288
+Battery,PEPCO,Candidate,1,937.0907487552778,234.27268718881945
