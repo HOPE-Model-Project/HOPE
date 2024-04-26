@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -123,7 +123,7 @@ function plot_gen_mix(df::DataFrame, ordered_tech::Vector, color_map::Dict,tt::S
     return plot([bar(x=sort(unique(df[:,:Zone])), y= sort(filter(row -> row.Technology == ordered_tech[i],df), :Zone)[:,"Capacity (MW)"], marker_color=color_map[ordered_tech[i]], name=ordered_tech[i] ) for i in 1:size(ordered_tech)[1]], 
     Layout(title=tt, barmode="stack", 
     xaxis_categoryorder="category ascending", xaxis_title_text="Regions",
-    yaxis_title_text="Capacity (MW)", yaxis_range=[0,40000]))
+    yaxis_title_text="Capacity (MW)", yaxis_range=[0,20000]))
 end
 plot_gen_mix(fill_gendf_zero(Fin_agg_all_df), ordered_tech, color_map,  "Generation Capacity Mix at 2035")
 plot_gen_mix(fill_gendf_zero(Initial_agg_all_df), ordered_tech, color_map,  "Generation Capacity Mix at 2022")
