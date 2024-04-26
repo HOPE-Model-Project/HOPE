@@ -1,4 +1,4 @@
-Pmax (MW),Pmin (MW),Type,Flag_thermal,Flat_RET,Flag_VRE,Flag_mustrun,Cost ($/MWh),EF,CC,Zone
+Pmax (MW),Pmin (MW),Type,Flag_thermal,Flag_RET,Flag_VRE,Flag_mustrun,Cost ($/MWh),EF,CC,Zone
 149,0,NGCT,1,0,0,0,33.65,0.59,0.98,EKPC_KY
 98,0,NGCT,1,0,0,0,33.65,0.59,0.98,EKPC_KY
 149,0,NGCT,1,0,0,0,33.65,0.59,0.98,EKPC_KY
