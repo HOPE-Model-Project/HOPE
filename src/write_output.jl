@@ -64,6 +64,15 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G_new=[g for g=Num_Egen+1:Num_Egen+Num_Cgen]
         G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
+        G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
+		G_PV_C=findall(Gendata_candidate[:,"Type"].=="SolarPV").+Num_gen#Set of candidate solar, subsets of G
+		G_PV=[G_PV_E;G_PV_C]											#Set of all solar, subsets of G
+		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
+		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_gen#Set of candidate wind, subsets of G
+		G_W=[G_W_E;G_W_C]
+        G_VRE_E = [G_PV_E;G_W_E]
+        G_VRE_C = [G_PV_C;G_W_C]
+        G_VRE = [G_VRE_E;G_VRE_C]
         S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
         S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
@@ -109,6 +118,19 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_gen_df = hcat(P_gen_df, power_t_h_df )
         
         CSV.write(joinpath(outpath, "power.csv"), P_gen_df, writeheader=true)
+        
+        ##Renewable curtailments
+        #P_ctl_df = DataFrame(
+        #    Technology = vcat(Gendata[G_VRE_E,"Type"],Gendata_candidate[ G_VRE_C,"Type"]),
+        ##    Zone = vcat(Gendata[G_VRE_E,"Zone"],Gendata_candidate[G_VRE_C,"Zone"]),
+        #    EC_Category = [repeat(["Existing"],Num_Egen);repeat(["Candidate"],Num_Cgen)],
+        #    New_Build = Array{Union{Missing,Bool}}(undef, size(G_VRE)[1]),
+        #    AnnSum = Array{Union{Missing,Float64}}(undef, size(G_VRE)[1])
+        #)
+        #power = value.(model[:p])
+        #power_VRE_t_h = hcat([Array(power[G_VRE,t,h]) for t in T for h in H_t[t]]...)
+        #power_VRE_max_t_h = hct([Array(AFRE_tg[t,g][h,i]*P_max[g]) for t in T for h in H_t[t]]...)
+        #power_VRE_ctl_t_h =  hcat([Array(power[G_VRE,t,h]) for t in T for h in H_t[t]]...)
 
         ##Load shedding
         P_ls_df = DataFrame(
