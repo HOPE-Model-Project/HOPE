@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_DataCenter_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
