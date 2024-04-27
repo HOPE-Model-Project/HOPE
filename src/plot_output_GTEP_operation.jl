@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -25,6 +25,7 @@ color_map = Dict(
     "Coal" =>"Black",
     "Oil"=>"Bisque",
     "NGCT"=>"LightSlateGray",
+    "NGCT_CCS"=>"LightSlateGray",
     "Hydro"=>"MidnightBlue",
     "Hydro_pump"=>"LightPurple",
     "Hydro_pump_c"=>"LightPurple",
@@ -34,6 +35,7 @@ color_map = Dict(
     "Bio" =>"LightGreen",
     "Landfill_NG"=> "Gold",
     "NGCC"=>"LightSteelBlue",
+    "NGCC_CCS"=>"LightSteelBlue",
     "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
     "WindOff"=>"Blue",
@@ -101,7 +103,7 @@ power_output_data_df = Dict(
 )
 
 hours=3625:3792 #8401:8568 #3625:3792
-ordered_tech_power = ["Nuc","Coal","NGCC","NGCT","Hydro","Oil","Bio","WindOn","WindOff","SolarPV","Other"]
+ordered_tech_power = ["Nuc","Coal","NGCC_CCS","NGCT_CCS","Hydro","Bio","WindOn","WindOff","SolarPV","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
 function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
     agg_es_dc_zone_data=data["agg_es_dc_zone_data"]
@@ -133,7 +135,7 @@ function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tec
                 xaxis_title="Time (Hours)",
                 yaxis_title="Power Generation (MW)",
                 yaxis_type="linear",
-                yaxis_range=[-9000,32000],
+                yaxis_range=[-40000,50000],
                 showlegend=true,
                 barmode="stack")
                 )
