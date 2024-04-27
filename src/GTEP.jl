@@ -265,13 +265,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Constraints--------------------------------------------
 		#(2) Generator investment budget:∑_(g∈G^+) INV_g ∙x_g ≤IBG
-		IBG_con = @constraint(model,  [g in G_new], INV_g[g]*x[g] <=IBG, base_name = "IBG_con")
+		IBG_con = @constraint(model,  [g in G_new], INV_g[g]*x[g]*P_max[g] <=IBG, base_name = "IBG_con")
 
 		#(3) Transmission line investment budget:∑_(l∈L^+) INV_l ∙x_l ≤IBL
 		IBL_con = @constraint(model,  [l in L_new], unit_converter*INV_l[l]*y[l] <=IBL, base_name = "IBL_con")
 
 		#(4) Storages investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
-		IBS_con = @constraint(model,  [s in S_new], INV_s[s]*z[s] <=IBS, base_name = "IBS_con")
+		IBS_con = @constraint(model,  [s in S_new], INV_s[s]*z[s]*SCAP[s] <=IBS, base_name = "IBS_con")
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 		PB_con = @constraint(model, [i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
@@ -321,13 +321,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		ChLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], c[s,t,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
 		
 		#(14) Storage discharging rate limit for existing units
-		DChLe_con=@constraint(model, [t in T, h in H_t[t],  s in S_exist], dc[s,t,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
+		DChLe_con=@constraint(model, [t in T, h in H_t[t],  s in S_exist], c[s,t,h]/SC[s] + dc[s,t,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
 		
 		#(15) Storage charging rate limit for new installed units
 		ChLn_con=@constraint(model, [t in T, h in H_t[t], s in S_new], c[s,t,h]/SC[s] <= z[s]*SCAP[s],base_name = "ChLn_con")
 		
 		#(16) Storage discharging rate limit for new installed units
-		DChLn_con=@constraint(model, [t in T, h in H_t[t] , s in S_new], dc[s,t,h]/SD[s] <= z[s]*SCAP[s],base_name = "DChLn_con")
+		DChLn_con=@constraint(model, [t in T, h in H_t[t] , s in S_new], c[s,t,h]/SC[s]+ dc[s,t,h]/SD[s] <= z[s]*SCAP[s],base_name = "DChLn_con")
 		
 		#(17) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
 		SoCLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], 0 <= soc[s,t,h] <= SECAP[s], base_name = "SoCLe_con")
@@ -402,7 +402,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
-		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l]*F_max[l] for l in L_new)+sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))			
+		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l] for l in L_new)+sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))			
 		
 
 		#Operation cost of generator and storages

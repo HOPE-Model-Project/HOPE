@@ -26,14 +26,14 @@ WindOn,APS_MD,Candidate,1,0.0,0.0,6000.0
 SolarPV,APS_MD,Candidate,1,0.0,0.0,6000.0
 NGCT_CCS,DPL_MD,Candidate,0,0.0,0.0,0.0
 NGCC_CCS,DPL_MD,Candidate,0,0.0,0.0,0.0
-WindOn,DPL_MD,Candidate,1,0.0,0.0,1839.5845718420658
+WindOn,DPL_MD,Candidate,1,0.0,0.0,360.13514613991794
 WindOff,DPL_MD,Candidate,0,0.0,0.0,0.0
 SolarPV,DPL_MD,Candidate,1,0.0,0.0,6000.0
 NGCT_CCS,BGE,Candidate,0,0.0,0.0,0.0
 NGCC_CCS,BGE,Candidate,0,0.0,0.0,0.0
-WindOn,BGE,Candidate,1,0.0,0.0,4707.708853301419
+WindOn,BGE,Candidate,1,0.0,0.0,2815.507185666277
 SolarPV,BGE,Candidate,1,0.0,0.0,6000.0
 NGCT_CCS,PEPCO,Candidate,0,0.0,0.0,0.0
 NGCC_CCS,PEPCO,Candidate,0,0.0,0.0,0.0
-WindOn,PEPCO,Candidate,1,0.0,0.0,4105.010212047577
+WindOn,PEPCO,Candidate,1,0.0,0.0,2146.591647140158
 SolarPV,PEPCO,Candidate,1,0.0,0.0,6000.0
