@@ -152,6 +152,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
 		S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]				#Set of storage units connected to zone i, subset of S  
+		S_new_i=[(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto) for i in I]				#Set of storage units connected to zone i, subset of S  
 		L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
 		L_new=[l for l=Num_Eline+1:Num_Eline+Num_Cline]					#Set of candidate transmission corridors
 		LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]	#Set of sending transmission corridors of zone i, subset of L
@@ -289,7 +290,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		
 		#(8) Maximum capacity limits for existing power generator
 		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
-		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], Pmin[g] - P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
+		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g] - P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
 		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,t,h] <= P_max[g]- P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
 		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g], base_name = "CLe_MR_con")
 		#(9) Maximum capacity limits for new power generator
@@ -333,7 +334,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		SoCLn_ub_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  soc[s,t,h] <= z[s]*SECAP[s],base_name = "SoCLn_ub_con")
 		SoCLn_lb_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  0 <= soc[s,t,h], base_name = "SoCLn_lb_con")
 		#Stroage investment lower bound
-		S_lb_con = @constraint(model, [w in ["MD"]], sum(z[s]*SCAP[s] for s in S_i[i] for i in I_w[w])>= 3000, base_name="S_lb_con")
+		S_lb_con = @constraint(model, [w in ["MD"]], sum(sum(z[s]*SCAP[s] for s in S_new_i[i]) for i in I_w[w])>= 3000, base_name="S_lb_con")
+
 		#(19) Storage operation constraints
 		SoC_con=@constraint(model, [t in T, h in setdiff(H_t[t], [1]),s in S], soc[s,t,h] == soc[s,t,h-1] + e_ch[s]*c[s,t,h] - dc[s,t,h]/e_dis[s],base_name = "SoC_con")
 		

@@ -108,6 +108,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         )
         P_gen_df.AnnSum .= [sum(value.(model[:p][g,t,h]) for t in T for h in H_t[t] ) for g in G]
         New_built_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
+        #print(New_built_idx)
         #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
         P_gen_df[!,:New_Build] .= 0
         P_gen_df[New_built_idx,:New_Build] .= 1
@@ -160,7 +161,15 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         C_gen_df[!,:Capacity_RET] .= 0.0
         Retirement_idx = map(x -> G_RET[x], [i for (i, v) in enumerate(value.(model[:x_RET])) if v > 0])
-        C_gen_df[Retirement_idx,:Capacity_RET] .= [v for (i,v) in enumerate(Gendata[G_RET,"Pmax (MW)"] .*value.(model[:x_RET]))]
+        #Retirement_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x_RET])) if v > 0])
+        #print(G_RET)
+        #print(value.(model[:x_RET]))
+        #print(Retirement_idx)
+        if isempty(Retirement_idx)
+            C_gen_df[:,:Capacity_RET] .= [0.0 for g in 1:size(G)[1]]
+        else
+            C_gen_df[Retirement_idx,:Capacity_RET] .= [v for (i,v) in enumerate(Gendata[G_RET,"Pmax (MW)"] .*value.(model[:x_RET]))]
+        end
 
         C_gen_df[!,:Capacity] .=  C_gen_df[!,:Capacity] .- C_gen_df[!,:Capacity_RET]
 
