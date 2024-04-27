@@ -201,6 +201,7 @@ Pmax (MW),Pmin (MW),Type,Flag_thermal,Flag_RET,Flag_VRE,Flag_mustrun,Cost ($/MWh
 2.9,0,Oil,1,1,0,0,40,0.82,0.98,1,DPL_MD
 18.6,0,Oil,1,1,0,0,40,0.82,0.98,1,DPL_MD
 162,0,Oil,1,1,0,0,40,0.82,0.98,1,DPL_MD
+2000.0,0,WindOff,0,0,1,0,0,0,0.28,1,DPL_MD
 10,0,Hydro,0,0,1,0,0,0,0.5,0.4,AP_MD
 10,0,Hydro,0,0,1,0,0,0,0.5,0.4,AP_MD
 19,0,Oil,1,1,0,0,40,0.82,0.98,1,BC_MD
