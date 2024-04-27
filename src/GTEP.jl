@@ -402,7 +402,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
-		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l]*F_max[l] for l in L_new)+sum(INV_s[s]*z[s]*SECAP[s] for s in S_new))			
+		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l]*F_max[l] for l in L_new)+sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))			
 		
 
 		#Operation cost of generator and storages
