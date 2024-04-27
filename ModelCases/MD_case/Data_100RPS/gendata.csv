@@ -1,8 +1,5 @@
 Pmax (MW),Pmin (MW),Zone,Type,Flag_RET,Flag_thermal,Flag_VRE,Flag_mustrun,Cost ($/MWh),EF,CC
-685.1,0,BGE,Coal,1,1,0,0,23.57,1.01,0.95
-685.1,0,BGE,Coal,1,1,0,0,23.57,1.01,0.95
 132.8,0,BGE,Oil,1,1,0,0,40,0.82,0.98
-359,0,BGE,Coal,1,1,0,0,23.57,1.01,0.95
 414.7,0,BGE,Oil,1,1,0,0,40,0.82,0.98
 16,0,BGE,Oil,1,1,0,0,40,0.82,0.98
 53.1,0,BGE,Oil,1,1,0,0,40,0.82,0.98
@@ -38,8 +35,6 @@ Pmax (MW),Pmin (MW),Zone,Type,Flag_RET,Flag_thermal,Flag_VRE,Flag_mustrun,Cost (
 65,0,PEPCO,Oil,1,1,0,0,40,0.82,0.98
 18,0,PEPCO,Oil,1,1,0,0,40,0.82,0.98
 18,0,PEPCO,Oil,1,1,0,0,40,0.82,0.98
-626,0,PEPCO,Coal,1,1,0,0,23.57,1.01,0.95
-626,0,PEPCO,Coal,1,1,0,0,23.57,1.01,0.95
 45,0,BGE,Hydro,0,0,1,0,0,0,0.5
 55.6,0,BGE,Hydro,0,0,1,0,0,0,0.5
 55.6,0,BGE,Hydro,0,0,1,0,0,0,0.5
@@ -82,7 +77,6 @@ Pmax (MW),Pmin (MW),Zone,Type,Flag_RET,Flag_thermal,Flag_VRE,Flag_mustrun,Cost (
 198.9,0,DPL_MD,NGCT,0,1,0,0,33.65,0.59,0.98
 60.2,0,BGE,MSW,0,1,0,0,15,1.49,0.43
 4.3,0,BGE,MSW,0,1,0,0,15,1.49,0.43
-229,0,APS_MD,Coal,1,1,0,0,23.57,1.01,0.95
 1.9,0,DPL_MD,Bio,0,1,0,0,20,0.99,0.43
 1.9,0,DPL_MD,Bio,0,1,0,0,20,0.99,0.43
 1,0,DPL_MD,Oil,1,1,0,0,40,0.82,0.98
