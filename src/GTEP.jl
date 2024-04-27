@@ -386,7 +386,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		###############
 		#(27) State carbon emission limit
 		CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,t,h] for g in intersect(G_F,G_i[i]) for h in H[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
-		=#
+		
 
 		##Cap & Trade##
 		#(28) State carbon allowance cap
