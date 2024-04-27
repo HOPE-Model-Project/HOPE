@@ -287,19 +287,20 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(7) Transissim power flow limit for new lines
 		TLn_LB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]], -F_max[l] * y[l] <= f[l,t,h],base_name = "TLn_LB_con")
 		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,t,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
-		
+	
 		#(8) Maximum capacity limits for existing power generator
 		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g],base_name = "CLe_con")
 		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g] - P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
 		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,t,h] <= P_max[g]- P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
 		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g], base_name = "CLe_MR_con")
+	
 		#(9) Maximum capacity limits for new power generator
 		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h],base_name = "CLn_LB_con")
 		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,t,h] <=P_max[g]*x[g],base_name = "CLn_UB_con")
 		CLn_MR_con =  @constraint(model, [g in intersect(G_new,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g]*x[g], base_name = "CLn_MR_con")
 		#(10) Load shedding limit	
 		LS_con = @constraint(model, [i in I, d in D_i[i], t in T, h in H[t]], 0 <= p_LS[d,t,h]<= P_t[t][h,i]*PK[i],base_name = "LS_con")
-		
+	
 		##############
 		##Renewbales##
 		##############
@@ -311,7 +312,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(12) Renewables generation availability for new installed plants: p_(g,h)≤AFRE_(g,h)∙P_g^max ∙x_g; ∀h∈H_t,g∈G^+∩(G^PV∪G^W)  
 		ReAn_con=@constraint(model, [i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h]<= x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_con")
 		ReAn_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_new,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] == x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_MR_con")
-
+	
 		##############
 		###Storages###
 		##############
@@ -333,7 +334,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(18) State of charge limit for new installed units
 		SoCLn_ub_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  soc[s,t,h] <= z[s]*SECAP[s],base_name = "SoCLn_ub_con")
 		SoCLn_lb_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  0 <= soc[s,t,h], base_name = "SoCLn_lb_con")
-		#Stroage investment lower bound
+		#Stroage investment lower bound for MD
 		S_lb_con = @constraint(model, [w in ["MD"]], sum(sum(z[s]*SCAP[s] for s in S_new_i[i]) for i in I_w[w])>= 3000, base_name="S_lb_con")
 
 		#(19) Storage operation constraints
@@ -352,10 +353,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#Planning Rsv#
 		##############
 		#(22) Resource adequacy
+		#RA_con = @constraint(model, sum(CC_g[g]*P_max[g] for g in G_exist)+ sum(CC_g[g]*P_max[g]*x[g] for g in G_new)
+		#						+sum(CC_s[s]*SCAP[s] for s in S_exist)+sum(CC_s[s]*SCAP[s]*z[s] for s in S_new)
+		#							>= (1+RM)*sum(PK[i] for i in I_w["MD"]), base_name = "RA_con")
 		RA_con = @constraint(model, sum(CC_g[g]*P_max[g] for g in G_exist)+ sum(CC_g[g]*P_max[g]*x[g] for g in G_new)
 								+sum(CC_s[s]*SCAP[s] for s in S_exist)+sum(CC_s[s]*SCAP[s]*z[s] for s in S_new)
-								>= (1+RM)*sum(PK[i] for i in I_w["MD"]), base_name = "RA_con")
-
+								>= (1+RM)*sum(PK[i] for i in I), base_name = "RA_con")
 		##############
 		##RPSPolicies##
 		##############
@@ -382,7 +385,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		###############
 		#(27) State carbon emission limit
 		CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,t,h] for g in intersect(G_F,G_i[i]) for h in H[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
-
+		=#
 
 		##Cap & Trade##
 		#(28) State carbon allowance cap
