@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -26,6 +26,7 @@ color_map = Dict(
     "Coal" =>"Black",
     "Oil"=>"Bisque",
     "NGCT"=>"LightSlateGray",
+    "NGCT_CCS"=>"LightSlateGray",
     "Hydro"=>"MidnightBlue",
     "Hydro_pump"=>"LightPurple",
     "Hydro_pump_c"=>"LightPurple",
@@ -35,6 +36,7 @@ color_map = Dict(
     "Bio" =>"LightGreen",
     "Landfill_NG"=> "Gold",
     "NGCC"=>"LightSteelBlue",
+    "NGCC_CCS"=>"LightSteelBlue",
     "NG" =>"LightSteelBlue",
     "WindOn"=>"LightSkyBlue",
     "WindOff"=>"Blue",
@@ -56,7 +58,7 @@ tech_acromy_map_dict = Dict(
     "NuC" => "Nuc"
 )
 #Technology ordered
-ordered_tech =  ["Nuc","Coal","NGCC","NGCT","Hydro","Oil","Bio","WindOff","WindOn","SolarPV","Battery"]
+ordered_tech =  ["Nuc","Coal","NGCC","NGCC_CCS","NGCT","NGCT_CCS","Hydro","Bio","WindOff","WindOn","SolarPV","Battery"]
 
 #read output data#
 #capacity
