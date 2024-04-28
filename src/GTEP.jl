@@ -141,6 +141,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_new=[g for g=Num_gen+1:Num_gen+Num_Cgen]						#Set of candidate generation units, index g, subset of G 
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
 		HD = [h for h in 1:24]
+		H_D = [h for h in 0:24:8760]
 		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
 			H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
 			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
@@ -342,12 +343,26 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		SoC_con=@constraint(model, [t in T, h in setdiff(H_t[t], [1]),s in S], soc[s,t,h] == soc[s,t,h-1] + e_ch[s]*c[s,t,h] - dc[s,t,h]/e_dis[s],base_name = "SoC_con")
 		
 		#(20) Daily 50% of storage level balancing for existing units
-		#SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
-		#SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+		if T == [1]
+			SDBe_st_con=@constraint(model, [t in T,s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
+			SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
+			SDBe_ed_con=@constraint(model, [t in T,s in S_exist], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+		else
+			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
+			SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")	
+		end
+		
 		
 		#(21) Daily 50% of storage level balancing for new units
-		#SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
-		#SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,t,end] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
+		if T== [1]
+			SDBn_st_con=@constraint(model, [t in T,s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con")
+			SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
+			SDBn_ed_con=@constraint(model, [t in T,s in S_new], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
+		else
+			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
+			SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,t,end] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
+		end
+
 		
 		
 		##############
