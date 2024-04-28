@@ -62,10 +62,16 @@ tech_acromy_map_dict = Dict(
 #Output_power= CSV.read(input_dir*"power_hourly.csv",DataFrame) 
 #Output_es_power =  CSV.read(input_dir*"es_power_hourly.csv",DataFrame) 
 Output_power= CSV.read(input_dir*"power.csv",DataFrame) 
-Output_es_power =  CSV.read(input_dir*"es_power.csv",DataFrame) 
+Output_es_c_power =  CSV.read(input_dir*"es_power_charge.csv",DataFrame)
+Output_es_dc_power =  CSV.read(input_dir*"es_power_discharge.csv",DataFrame) 
+Output_es_soc_power =  CSV.read(input_dir*"es_power_soc.csv",DataFrame)  
+
 
 Output_power.Technology = map(x -> get(tech_acromy_map_dict, x, x), Output_power.Technology)
-Output_es_power.Technology =  map(x -> get(tech_acromy_map_dict, x, x), Output_es_power.Technology)
+Output_es_c_power.Technology =  map(x -> get(tech_acromy_map_dict, x, x), Output_es_c_power.Technology)
+Output_es_dc_power.Technology =  map(x -> get(tech_acromy_map_dict, x, x), Output_es_dc_power.Technology)
+Output_es_soc_power.Technology =  map(x -> get(tech_acromy_map_dict, x, x), Output_es_soc_power.Technology)
+
 #Fill the missing ones:
 function fill_gendf_zero(df)
     combins= DataFrame(Zone = repeat(unique(df[:,:Zone]), inner = length(unique(df[:,:Technology]))),
@@ -91,9 +97,9 @@ end
 #aggregrated 
 
 agg_zone_data = combine(groupby(Output_power, [:Technology]), names(Output_power, r"h\d+") .=> sum) 
-agg_es_dc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"dc_t\d+") .=> sum) 
-agg_es_soc_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"soc_t\d+") .=> sum) 
-agg_es_c_zone_data = combine(groupby(Output_es_power,[:Technology]), names(Output_es_power, r"^c_t\d+") .=> sum) 
+agg_es_dc_zone_data = combine(groupby(Output_es_dc_power,[:Technology]), names(Output_es_power, r"dc_t\d+") .=> sum) 
+agg_es_soc_zone_data = combine(groupby(Output_es_soc_power,[:Technology]), names(Output_es_power, r"soc_t\d+") .=> sum) 
+agg_es_c_zone_data = combine(groupby(Output_es_c_power,[:Technology]), names(Output_es_power, r"^c_t\d+") .=> sum) 
 
 power_output_data_df = Dict(
     "agg_zone_data" =>agg_zone_data ,
