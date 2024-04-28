@@ -229,37 +229,67 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
 
         ##Storage---------------------------------------------------------------------------------------------------------------------
-        P_es_df = DataFrame(
+        #c
+        P_es_c_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
             Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
-            DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
         )
-        P_es_df.ChAnnSum .= [sum(value.(model[:c][s,t,h]) for t in T for h in H_t[t] ) for s in S]
-        P_es_df.DisAnnSum .= [sum(value.(model[:dc][s,t,h]) for t in T for h in H_t[t] ) for s in S]
+        P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,t,h]) for t in T for h in H_t[t] ) for s in S]
         
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
-        P_es_df[!,:New_Build] .= 0
-        P_es_df[New_built_idx,:New_Build] .= 1
+        P_es_c_df[!,:New_Build] .= 0
+        P_es_c_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
         power_c = value.(model[:c])
-        power_dc = value.(model[:dc])
-        power_soc = value.(model[:soc])
 
         power_c_t_h = hcat([Array(power_c[:,t,h]) for t in T for h in H_t[t]]...)
         power_c_t_h_df = DataFrame(power_c_t_h, [Symbol("c_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
+        P_es_c_df = hcat(P_es_c_df, power_c_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, writeheader=true)
+        #dc
+        P_es_dc_df = DataFrame(
+            Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
+            EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
+            New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
+            DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
+        )
+        P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,t,h]) for t in T for h in H_t[t] ) for s in S]
+        
+        New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
+        P_es_dc_df[!,:New_Build] .= 0
+        P_es_dc_df[New_built_idx,:New_Build] .= 1
+        #Retreive power data from solved model
+        power_dc = value.(model[:dc])
+
         power_dc_t_h = hcat([Array(power_dc[:,t,h]) for t in T for h in H_t[t]]...)
         power_dc_t_h_df = DataFrame(power_dc_t_h, [Symbol("dc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
+
+        P_es_dc_df = hcat(P_es_dc_df,  power_dc_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, writeheader=true)
+        #soc
+        P_es_soc_df = DataFrame(
+            Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
+            EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
+            New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
+        )
+        
+        New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
+        P_es_soc_df[!,:New_Build] .= 0
+        P_es_soc_df[New_built_idx,:New_Build] .= 1
+        #Retreive power data from solved model
+        power_soc = value.(model[:soc])
 
         power_soc_t_h = hcat([Array(power_soc[:,t,h]) for t in T for h in H_t[t]]...)
         power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
-        P_es_df = hcat(P_es_df, power_c_t_h_df, power_dc_t_h_df, power_soc_t_h_df)
-        CSV.write(joinpath(outpath, "es_power.csv"), P_es_df, writeheader=true)
-
+        P_es_soc_df = hcat(P_es_df, power_soc_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         #Storage Capacity OutputDF
         C_es_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
