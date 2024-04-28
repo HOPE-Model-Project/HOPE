@@ -278,7 +278,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		IBS_con = @constraint(model,  [s in S_new], INV_s[s]*z[s]*SCAP[s] <=IBS, base_name = "IBS_con")
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
-		PB_con = @constraint(model, [i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
+		@constraint(model, PB_con[i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
 			+ sum(dc[s,t,h] - c[s,t,h] for s in S_i[i])
 			- sum(f[l,t,h] for l in LS_i[i])#LS
 			+ sum(f[l,t,h] for l in LR_i[i])#LR
@@ -300,7 +300,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g], base_name = "CLe_MR_con")
 	
 		#(9) Maximum capacity limits for new power generator
-		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h],base_name = "CLn_LB_con")
+		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h], base_name = "CLn_LB_con")
 		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,t,h] <=P_max[g]*x[g]*AF_g[g],base_name = "CLn_UB_con")
 		CLn_MR_con =  @constraint(model, [g in intersect(G_new,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g]*x[g]*AF_g[g], base_name = "CLn_MR_con")
 		#(10) Load shedding limit	
@@ -349,7 +349,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if T == [1]
 			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
 			SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
-			SDBe_ed_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+			SDBe_ed_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		else
 			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
 			SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")	
@@ -360,7 +360,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if T== [1]
 			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con")
 			SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
-			SDBn_ed_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
+			SDBn_ed_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
 		else
 			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
 			SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,t,end] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
@@ -421,7 +421,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
 		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l] for l in L_new)+sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))			
-		
+		@expression(model, INVCost_gen, sum(INV_g[g]*x[g]*P_max[g] for g in G_new))
+		@expression(model, INVCost_line, sum(unit_converter*INV_l[l]*y[l] for l in L_new))
+		@expression(model, INVCost_storage, sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))
 
 		#Operation cost of generator and storages
 		@expression(model, OPCost, sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in G for t in T)
@@ -434,7 +436,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#RPS volitation penalty
 		@expression(model, RPSPenalty, PT_rps*sum(pt_rps[w] for w in W))
 		#VRE curtailments
-		VRE_CT = @expression(model, [g in G_VRE, t in T, h in H_t[t]], sum(AFRE_tg[t,g][h,i]*P_max[g] - p[g,t,h] i in I))			
+		VRE_CT = @expression(model, [g in G_VRE, t in T, h in H_t[t]], sum(AFRE_tg[t,g][h,i]*P_max[g] - p[g,t,h]) for i in I)			
 		
 		#Carbon cap volitation penalty
 		@expression(model, CarbonCapPenalty, PT_emis*sum(em_emis[w] for w in W))
