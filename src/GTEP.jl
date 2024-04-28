@@ -348,7 +348,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(20) Daily 50% of storage level balancing for existing units
 		if T == [1]
 			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
-			SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
+			#SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
 			SDBe_ed_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		else
 			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
@@ -359,7 +359,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#(21) Daily 50% of storage level balancing for new units
 		if T== [1]
 			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con")
-			SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
+			#SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
 			SDBn_ed_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
 		else
 			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
