@@ -85,6 +85,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Gencostdata = input_data["Gencostdata"]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
+        P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
+        SCAP=[Storagedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
         unit_converter = 10^6
 
         		#representative day clustering
@@ -115,6 +117,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Retreive power data from solved model
         power = value.(model[:p])
         power_t_h = hcat([Array(power[:,t,h]) for t in T for h in H_t[t]]...)
+        #print(power_t_h)
         power_t_h_df = DataFrame(power_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_gen_df = hcat(P_gen_df, power_t_h_df )
         
@@ -124,8 +127,11 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         # Obtain hourly power price, utilize power balance constraint's shadow price
         price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
         dual_matrix = dual.(model[:PB_con])
-        dual_t_h = hcat([Array(dual_matrix[:,t,h]) for t in T for h in H_t[t]]...)
-        price_df = hcat(price_df, dual_t_h)
+        dual_t_h = [[dual_matrix[i,t,h] for t in T for h in H_t[t]] for i in I]
+        #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
+        dual_t_h = transpose(hcat(dual_t_h...))
+        dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
+        price_df = hcat(price_df,dual_t_h_df)
         CSV.write(joinpath(outpath, "power_price.csv"), price_df, writeheader=true)
 
         
@@ -289,7 +295,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         dc = value.(model[:dc])
         p_LS = value.(model[:p_LS])
         for i in  1:Num_zone
-            Inv_c = sum(INV_g[g]*x[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*z[s] for s in intersect(S_new,S_i[i]); init=0)
+            Inv_c = sum(INV_g[g]*x[g]*P_max[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*z[s]*SCAP[s] for s in intersect(S_new,S_i[i]); init=0)
             Opr_c = sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in intersect(G,G_i[i]) for t in T; init=0) + sum(VCS[s]*N[t]*sum(c[s,t,h]+dc[s,t,h] for h in H_t[t]; init=0) for s in intersect(S,S_i[i]) for t in T; init=0)
             #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
             #Cb_p = PT_emis*sum(em_emis[w] for w in W)
