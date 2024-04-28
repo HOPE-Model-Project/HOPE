@@ -1,7 +1,7 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_case\\" #choose by user
+input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)
@@ -108,7 +108,7 @@ power_output_data_df = Dict(
     "agg_es_c_zone_data" => agg_es_c_zone_data 
 )
 
-hours=3625:3792 #8401:8568 #3625:3792
+hours=8401:8568 #8401:8568 #3625:3792
 ordered_tech_power = ["Nuc","Coal","NGCC_CCS","NGCT_CCS","Hydro","Bio","WindOn","WindOff","SolarPV","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
 function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)
@@ -141,7 +141,7 @@ function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tec
                 xaxis_title="Time (Hours)",
                 yaxis_title="Power Generation (MW)",
                 yaxis_type="linear",
-                yaxis_range=[-40000,50000],
+                yaxis_range=[-8000,18000],
                 showlegend=true,
                 barmode="stack")
                 )
