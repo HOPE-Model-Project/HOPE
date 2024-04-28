@@ -125,6 +125,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
 		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_gen#Set of candidate wind, subsets of G
 		G_W=[G_W_E;G_W_C]                                               #Set of all wind, subsets of G
+		G_VRE_E = [G_PV_E;G_W_E]
+        G_VRE_C = [G_PV_C;G_W_C]
+        G_VRE = [G_VRE_E;G_VRE_C]
 		#G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
 		#G_F_C=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata_candidate[:,"Type"]).+Num_gen	
 		G_F_E=findall(x -> x in [1], Gendata[:,"Flag_thermal"])
@@ -310,7 +313,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] <= AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_con")
 		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] == AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_MR_con")
 
-
+		
 		#(12) Renewables generation availability for new installed plants: p_(g,h)≤AFRE_(g,h)∙P_g^max ∙x_g; ∀h∈H_t,g∈G^+∩(G^PV∪G^W)  
 		ReAn_con=@constraint(model, [i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h]<= x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_con")
 		ReAn_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_new,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] == x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_MR_con")
@@ -344,9 +347,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		
 		#(20) Daily 50% of storage level balancing for existing units
 		if T == [1]
-			SDBe_st_con=@constraint(model, [t in T,s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
+			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
 			SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
-			SDBe_ed_con=@constraint(model, [t in T,s in S_exist], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+			SDBe_ed_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		else
 			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
 			SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")	
@@ -355,9 +358,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		
 		#(21) Daily 50% of storage level balancing for new units
 		if T== [1]
-			SDBn_st_con=@constraint(model, [t in T,s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con")
+			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con")
 			SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
-			SDBn_ed_con=@constraint(model, [t in T,s in S_new], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
+			SDBn_ed_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
 		else
 			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
 			SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,t,end] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
@@ -430,7 +433,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#RPS volitation penalty
 		@expression(model, RPSPenalty, PT_rps*sum(pt_rps[w] for w in W))
-
+		#VRE curtailments
+		VRE_CT = @expression(model, [g in G_VRE, t in T, h in H_t[t]], sum(AFRE_tg[t,g][h,i]*P_max[g] - p[g,t,h] i in I))			
+		
 		#Carbon cap volitation penalty
 		@expression(model, CarbonCapPenalty, PT_emis*sum(em_emis[w] for w in W))
 		@expression(model, CarbonEmission[w in W], sum(N[t]*EF[g]*p[g,t,h] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F) for t in T for h in H_t[t] ))
