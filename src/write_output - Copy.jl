@@ -114,12 +114,11 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_gen_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
         power = value.(model[:p])
-        power_t_h = hcat([Array(power[:,t,h]) for t in T for h in H_t[t]]...)
+        power_t_h = hcat([Array(power[:,t,h]) for t in T for h in H_t[t]]...) # for all gen in each t_h
         power_t_h_df = DataFrame(power_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_gen_df = hcat(P_gen_df, power_t_h_df )
-        
         CSV.write(joinpath(outpath, "power.csv"), P_gen_df, writeheader=true)
-        
+
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
         price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
@@ -127,7 +126,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         dual_t_h = hcat([Array(dual_matrix[:,t,h]) for t in T for h in H_t[t]]...)
         price_df = hcat(price_df, dual_t_h)
         CSV.write(joinpath(outpath, "power_price.csv"), price_df, writeheader=true)
-
+        
+        
         
         ##Renewable curtailments
         #P_ctl_df = DataFrame(
