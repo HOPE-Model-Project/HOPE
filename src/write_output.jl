@@ -288,7 +288,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_soc_t_h = hcat([Array(power_soc[:,t,h]) for t in T for h in H_t[t]]...)
         power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
-        P_es_soc_df = hcat(P_es_df, power_soc_t_h_df)
+        P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
         CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         #Storage Capacity OutputDF
         C_es_df = DataFrame(
