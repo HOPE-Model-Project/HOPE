@@ -32,9 +32,14 @@ This is the input dataset for existing generators.
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
 |Type |The technology type of the generator|
+|Flag_RET | 1 if the generator is eligible for retirement, and 0 otherwise|
+|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
 |Cost ($/MWh) |Operating cost of the generator in $/MWh|
 |EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|CC |The capacity credit for the generator |
+|AF |The avaliability factor for the generator (it is the fraction of the installed/nameplate capacity of a generator, default = 1)|
 ---
 
 ## gendata_candidate
@@ -48,10 +53,14 @@ This is the input dataset for candidate generators (a set of all generators that
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
 |Type |The technology type of the generator|
-|Cost (M$) |Investment cost for the generator in million dollars (M$)|
+|Cost ($/MW/yr) |Annualized investment cost for the generator in $/MW/yr|
 |Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
 |EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|CC |The capacity credit for the generator|
+|AF |The avaliability factor for the generator (it is the fraction of the installed/nameplate capacity of a generator, default = 1)|
 ---
 
 ## linedata
@@ -87,15 +96,15 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
+|Zone |The zone that the storage is belonging to|
+|Type |The technology type of the storage|
 |Capacity (MWh) |Maximun energy capacity of the storage in MWh|
 |Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Cost ($/MWh) |Operating cost of the storage in $/MWh|
+|EF |The CO2 emission factor for the storage in tons/MWh|
+|CC |The capacity credit for the storage|
 |Charging Rate |The maximum rates of charging, unitless|
 |Discharging Rate |The maximum rates of discharging, unitless|
 ---
@@ -108,15 +117,15 @@ This is the input dataset for candidate energy storage units (a set of all stora
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |Zone |The zone that the storage is belonging to|
-|Type |The technology type of the generator|
+|Type |The technology type of the storage|
 |Capacity (MWh) |Maximun energy capacity of the storage in MWh|
 |Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (M$) |Investment cost for the new storage in million dollars (M$)|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Cost ($/MW/yr) |Annualized investment cost for the storage in $/MW/yr|
+|Cost ($/MWh) |Operating cost of the storage in $/MWh|
+|EF |The CO2 emission factor for the storage in tons/MWh|
+|CC |The capacity credit for the storage|
 |Charging Rate |The maximum rates of charging, unitless|
 |Discharging Rate |The maximum rates of discharging, unitless|
 ---
