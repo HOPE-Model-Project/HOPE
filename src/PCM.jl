@@ -163,6 +163,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#G_F_E=findall(x -> x in ["Coal", "Oil", "NGCT", "NuC", "MSW", "Bio", "Landfill_NG", "NGCC"], Gendata[:,"Type"])
 		G_F_E=findall(x -> x in [1], Gendata[:,"Flag_thermal"])
 		G_F=[G_F_E;]
+		G_MR_E=findall(x -> x in [1], Gendata[:,"Flag_mustrun"])
+		G_MR = [G_MR_E;]
 		G_RPS_E = findall(x -> x in ["Hydro", "MSW", "Bio", "Landfill_NG", "WindOn","WindOff","SolarPV"], Gendata[:,"Type"])
 		G_RPS = [G_RPS_E;]
 		#Set of dispatchable generators, subsets of G
@@ -204,7 +206,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		F_max=[Linedata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
 		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
 		#N=get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
-		NI=Dict([(i,h) =>-NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
+		NI=Dict([(i,h) =>NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
 		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Loaddata_ordered
@@ -230,7 +232,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			
 		#for multiple time period, we need to use following TS parameters
 		#NI_t = Dict([t => Dict([(h,i) =>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
-		NI_h = Dict([(h,i)=>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])
+		NI_h = Dict([(h,i)=>Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])
 		P_t = Loaddata_ordered  #hi
 		
 		#For T
@@ -282,7 +284,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Constraints--------------------------------------------
 		
 		#(3) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
-		PB_con = @constraint(model, [i in I, h in H], sum(p[g,h] for g in G_i[i]) 
+		@constraint(model, PB_con[i in I, h in H], sum(p[g,h] for g in G_i[i]) 
 			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 			- sum(f[l,h] for l in LS_i[i])#LS
 			+ sum(f[l,h] for l in LR_i[i])#LR
@@ -299,7 +301,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if config_set["unit_commitment"] == 0
 			#(5) Maximum capacity limits for existing power generator
 			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
-		
+			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
+	
 			#(6) Spining reserve
 			SPIN_con = @constraint(model, [g in G_exist, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
 		
@@ -311,8 +314,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		else
 			#(5) Maximum capacity limits for existing power generator
 			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
-			CLeL_con = @constraint(model, [g in G_UC, h in H], P_min[g] <= p[g,h] +r_G[g,h] ,base_name = "CLeL_con")
-			CLeU_con = @constraint(model, [g in G_UC, h in H], p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
+			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
+			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] +r_G[g,h] ,base_name = "CLeL_con")
+			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
 			#(6) Spining reserve
 			SPIN_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
 			SPINUC_con = @constraint(model, [g in G_UC, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "SPINUC_con")
@@ -336,6 +340,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		#(10) Renewables generation availability for the existing plants: p_(g,h)≤AFRE_(g,h)∙P_g^max; ∀h∈H_t,g∈G^E∩(G^PV∪G^W)  
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_con")
+		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_tg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
 
 		
 		

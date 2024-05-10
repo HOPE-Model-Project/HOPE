@@ -412,6 +412,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, writeheader=true)
         
+        ##Power price
+        # Obtain hourly power price, utilize power balance constraint's shadow price
+        price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+        dual_matrix = dual.(model[:PB_con])
+        dual_h = [[dual_matrix[i,h] for h in H] for i in I]
+        #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
+        dual_h = transpose(hcat(dual_h...))
+        dual_h_df = DataFrame(dual_h, [Symbol("h$h")  for h in H])
+        price_df = hcat(price_df,dual_h_df)
+        CSV.write(joinpath(outpath, "power_price.csv"), price_df, writeheader=true)
 
 
 
@@ -433,7 +443,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
         
         ##Storage---------------------------------------------------------------------------------------------------------------------
-        
+        #=
         P_es_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"]),
             Zone = vcat(Storagedata[:,"Zone"]),
@@ -443,10 +453,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         )
         P_es_df.ChAnnSum .= [sum(value.(model[:c][s,h])  for h in H ) for s in S]
         P_es_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for h in H) for s in S]
-        
-        #New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
-        #P_es_df[!,:New_Build] .= 0
-        #P_es_df[New_built_idx,:New_Build] .= 1
+
         #Retreive power data from solved model
         power_c = value.(model[:c])
         power_dc = value.(model[:dc])
@@ -463,6 +470,56 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         P_es_df = hcat(P_es_df, power_c_h_df, power_dc_h_df, power_soc_h_df)
         CSV.write(joinpath(outpath, "es_power_hourly.csv"), P_es_df, writeheader=true)
+        =#
+        #c
+        P_es_c_df = DataFrame(
+            Technology = vcat(Storagedata[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"]),
+            EC_Category = repeat(["Existing"],Num_sto),
+            ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
+        )
+        P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,h]) for h in H) for s in S]
+    
+        #Retreive power data from solved model
+        power_c = value.(model[:c])
+
+        power_c_t_h = hcat([Array(power_c[:,h]) for h in H]...)
+        power_c_t_h_df = DataFrame(power_c_t_h, [Symbol("c_"*"h$h") for h in H])
+
+        P_es_c_df = hcat(P_es_c_df, power_c_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, writeheader=true)
+        #dc
+        P_es_dc_df = DataFrame(
+            Technology = vcat(Storagedata[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"]),
+            EC_Category = repeat(["Existing"],Num_sto),
+            DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
+        )
+        P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for h in H) for s in S]
+        
+        #Retreive power data from solved model
+        power_dc = value.(model[:dc])
+
+        power_dc_t_h = hcat([Array(power_dc[:,h]) for h in H]...)
+        power_dc_t_h_df = DataFrame(power_dc_t_h, [Symbol("dc_"*"h$h") for h in H])
+
+        P_es_dc_df = hcat(P_es_dc_df,  power_dc_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, writeheader=true)
+        #soc
+        P_es_soc_df = DataFrame(
+            Technology = vcat(Storagedata[:,"Type"]),
+            Zone = vcat(Storagedata[:,"Zone"]),
+            EC_Category = repeat(["Existing"],Num_sto),
+        )
+        
+        #Retreive power data from solved model
+        power_soc = value.(model[:soc])
+
+        power_soc_t_h = hcat([Array(power_soc[:,h]) for h in H]...)
+        power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"h$h") for h in H])
+
+        P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
+        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         ##System Cost-----------------------------------------------------------------------------------------------------------
         Cost_df = DataFrame(
             Zone = vcat(Ordered_zone_nm),
