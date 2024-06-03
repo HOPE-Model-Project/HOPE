@@ -99,7 +99,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		end
         
         ##Generator-----------------------------------------------------------------------------------------------------------
-        			#Investment cost of storage unit s, M$
+        #Investment cost of storage unit s, M$
         #Power OutputDF
         P_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"],Gendata_candidate[:,"Type"]),
@@ -160,7 +160,35 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_ls_df = hcat(P_ls_df, power_ls_t_h_df)
 
         CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+        
+        ##Renewable curtailments
+        P_ct_df = DataFrame(
+            Technology = vcat(Gendata[[g for g in intersect(G_exist,union(G_PV,G_W))],"Type"],Gendata_candidate[[g for g in intersect(G_new,union(G_PV,G_W))] .- Num_Egen,"Type"]),
+            Zone = vcat(Gendata[[g for g in intersect(G_exist,union(G_PV,G_W))],"Zone"],Gendata_candidate[[g for g in intersect(G_new,union(G_PV,G_W))] .- Num_Egen,"Zone"]),
+            EC_Category = [repeat(["Existing"],size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]);repeat(["Candidate"],size([g for g in intersect(G_new,union(G_PV,G_W))])[1])], # existing capacity
+            New_Build = Array{Union{Missing,Bool}}(undef, size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]+size([g for g in intersect(G_new,union(G_PV,G_W))])[1]),
+            AnnSum = Array{Union{Missing,Float64}}(undef, size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]+size([g for g in intersect(G_new,union(G_PV,G_W))])[1])  #Annual generation output
+        )
+        P_ct_df.AnnSum .= [[sum(value.(model[:RenewableCurtailExist][Zone_idx_dict[Gendata[g,"Zone"]],g,t,h]) for t in T for h in H_t[t];init=0) for g in intersect(G_exist,union(G_PV,G_W))];[sum(value.(model[:RenewableCurtailNew][Zone_idx_dict[Gendata_candidate[g - Num_Egen,"Zone"]],g,t,h]) for t in T for h in H_t[t];init=0) for g in intersect(G_new,union(G_PV,G_W))]]
+        New_built_vre_idx = intersect(New_built_idx,G_VRE_C)
+        New_built_matched_vre_idx = findall(x->x in New_built_vre_idx, [[g for g in intersect(G_exist,union(G_PV,G_W))];[g for g in intersect(G_new,union(G_PV,G_W))]])
 
+        #print(New_built_idx)
+        #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
+        P_ct_df[!,:New_Build] .= 0
+        P_ct_df[New_built_matched_vre_idx ,:New_Build] .= 1
+        #Retreive power data from solved model
+        power_e = value.(model[:RenewableCurtailExist])
+        power_n = value.(model[:RenewableCurtailNew])
+        power_h =[[[power_e[Zone_idx_dict[Gendata[g,"Zone"]],g,t,h] for t in T for h in H_t[t]] for g in intersect(G_exist,union(G_PV,G_W))];[[power_n[Zone_idx_dict[Gendata_candidate[g - Num_Egen,"Zone"]],g,t,h] for t in T for h in H_t[t]] for g in intersect(G_new,union(G_PV,G_W))]]
+        power_h_df = DataFrame([[] for t in T for h in H_t[t]],[Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
+        for r in 1:size(power_h)[1]
+            push!(power_h_df,power_h[r])
+        end
+        #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
+        P_ct_df = hcat(P_ct_df, power_h_df )
+        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , writeheader=true)
+        
         #Capacity OutputDF
         C_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"],Gendata_candidate[:,"Type"]),
@@ -369,6 +397,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
         I=[i for i=1:Num_zone]									#Set of zones, index i
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i])] for i in I]	
+        G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
+		G_PV=[G_PV_E;]											#Set of all solar, subsets of G
+		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
+		G_W=[G_W_E;]                                               #Set of all wind, subsets of G
         S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i])] for i in I]
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
         LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
@@ -389,10 +421,33 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_ls_df.AnnTol .= [sum(value.(model[:p_LS][d,h]) for h in H) for d in D]
         power_ls = value.(model[:p_LS])
         power_ls_h = hcat([Array(power_ls[:,h]) for h in H]...)
+        #print(size(power_ls_h))
+        #print(power_ls_h)
         power_ls_h_df = DataFrame(power_ls_h, [Symbol("h$h") for h in H])
         P_ls_df = hcat(P_ls_df, power_ls_h_df)
 
         CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+
+        ##Renewable curtailments
+        P_ct_df = DataFrame(
+            Technology = vcat(Gendata[[g for g in intersect(G,union(G_PV,G_W))],"Type"]),
+            Zone = vcat(Gendata[[g for g in intersect(G,union(G_PV,G_W))],"Zone"]),
+            EC_Category = repeat(["Existing"],size([g for g in intersect(G,union(G_PV,G_W))])[1]), # existing capacity
+            AnnSum = Array{Union{Missing,Float64}}(undef, size([g for g in intersect(G,union(G_PV,G_W))])[1])  #Annual generation output
+        )
+        P_ct_df.AnnSum .= [sum(value.(model[:RenewableCurtailExist][Zone_idx_dict[Gendata[g,"Zone"]],g,h]) for h in H;init=0) for g in intersect(G,union(G_PV,G_W))]
+        #[sum(value.(model[:dc][s,t,h]) for t in T for h in H_t[t] ) for s in S]
+        #Retreive power data from solved model
+        power = value.(model[:RenewableCurtailExist])
+        #print(size([[power[Zone_idx_dict[Gendata[g,"Zone"]],g,h] for h in H] for g in intersect(G,union(G_PV,G_W))]))
+        power_h =[[power[Zone_idx_dict[Gendata[g,"Zone"]],g,h] for h in H] for g in intersect(G,union(G_PV,G_W))]
+        power_h_df = DataFrame([[] for h in H],[Symbol("h$h") for h in H])
+        for r in 1:size(power_h)[1]
+            push!(power_h_df,power_h[r])
+        end
+        #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
+        P_ct_df = hcat(P_ct_df, power_h_df )
+        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , writeheader=true)
         
         #Power OutputDF
         P_gen_df = DataFrame(
@@ -408,7 +463,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power = value.(model[:p])
         power_h = hcat([Array(power[:,h]) for h in H]...)
         power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
-        P_gen_df = hcat(P_gen_df, power_h_df )
+        P_gen_df = hcat(P_gen_df, power_h_df)
         
         CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, writeheader=true)
         

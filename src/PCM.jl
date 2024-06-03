@@ -179,6 +179,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]				#Set of storage units connected to zone i, subset of S  
+		#print(S_exist)
 		L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
 		LS_i=[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]) for i in I]	#Set of sending transmission corridors of zone i, subset of L
 		LR_i=[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]) for i in I]		#Set of receiving transmission corridors of zone i， subset of L
@@ -264,8 +265,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, r_G[G,H]>=0)							#Spining reserve for g in h				#r_(g,h)^G
 		@variable(model, r_S[S,H]>=0)							#Spining reserve for s in h				#r_(s,h)^S
 		@variable(model, soc[S,H]>=0)						#State of charge level of storage s in hour h, MWh
-		@variable(model, c[S,H]==0)							#Charging power of storage s from grid in hour h, MW
-		@variable(model, dc[S,H]==0)						#Discharging power of storage s into grid in hour h, MW
+		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
+		@variable(model, dc[S,H]>=0)						#Discharging power of storage s into grid in hour h, MW
 		#@variable(model, slack_pos[H,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[H,I]>=0)					#Slack varbale for debuging
 		#unregister(model, :p)
@@ -288,7 +289,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 			- sum(f[l,h] for l in LS_i[i])#LS
 			+ sum(f[l,h] for l in LR_i[i])#LR
-			+ ni[h,i]
+			+ NI_h[h,i]
 			#+ slack_pos[h,i]-slack_neg[h,i]
 			== sum(P_t[h,i]*PK[i] - p_LS[d,h] for d in D_i[i]),base_name = "PB_con"); 
 		
@@ -341,7 +342,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#(10) Renewables generation availability for the existing plants: p_(g,h)≤AFRE_(g,h)∙P_g^max; ∀h∈H_t,g∈G^E∩(G^PV∪G^W)  
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_con")
 		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_tg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
-
+		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AFRE_hg[g][h,i]*P_max[g]-p[g,h])
+		
 		
 		
 		
@@ -352,21 +354,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		ChLe_con=@constraint(model, [ h in H, s in S_exist], c[s,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
 		
 		#(12) Storage discharging rate limit for existing units
-		DChLe_con=@constraint(model, [ h in H,  s in S_exist], dc[s,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
+		DChLe_con=@constraint(model, [ h in H,  s in S_exist], c[s,h]/SC[s] + dc[s,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
 		
 		#(13) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
 		SoCLe_con=@constraint(model, [ h in H, s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
 		#(14) Spining reserve provided by storage 〖dc〗_(s,h)+r_(s,h)^S  ≤〖SD〗_s∙〖SCAP〗_s;   ∀ h∈H
-		#SR_ES_con = @constraint(model, [h in H, s in S_exist], dc[s,h] + r_S[s,h] <= SD[s]* SCAP[s],base_name = "SR_ES_con")
+		SR_ES_con = @constraint(model, [h in H, s in S_exist], dc[s,h] + r_S[s,h] <= SD[s]* SCAP[s],base_name = "SR_ES_con")
 		#(15) Storage operation constraints
-		SoC_con=@constraint(model, [t in T, h in setdiff(H, [1]),s in S_exist], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
-		#Ch_1_con=@constraint(model, [t in T, s in S], c[s,t,1] ==0)
-		#DCh_1_con=@constraint(model, [t in T, s in S], dc[s,t,1] ==0)
+		SoC_con=@constraint(model, [h in setdiff(H, [1]),s in S_exist], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
+		#Ch_1_con=@constraint(model, [s in S], c[s,1] ==0)
+		#DCh_1_con=@constraint(model, [s in S], dc[s,1] ==0)
 		
 		#(16) Daily 50% of storage level balancing for existing units
-		SDBe_st_con=@constraint(model, [s in S_exist], soc[s,1] == soc[s,end],base_name = "SDBe_st_con")
-		SDBe_ps_con=@constraint(model, [s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,1]==soc[s,h],base_name="SDBe_ps_con")
-		SDBe_ed_con=@constraint(model, [s in S_exist], soc[s,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+		SDBe_st_con=@constraint(model, [s in S_exist], soc[s,1] == soc[s,8760],base_name = "SDBe_st_con")
+		#SDBe_ps_con=@constraint(model, [s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,1]==soc[s,h],base_name="SDBe_ps_con")
+		SDBe_ed_con=@constraint(model, [s in S_exist], soc[s,8760] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		
 		
 
@@ -394,7 +396,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#CarbonPolices#				
 		###############
 		#(21) State carbon emission limit
-		CL_con = @constraint(model, [w in W], sum(sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
+		CL_con = @constraint(model, [w in W], sum(sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H)) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
 
 
 		
