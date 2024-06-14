@@ -90,7 +90,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#technology
 		Gendata = input_data["Gendata"]
 		Storagedata = input_data["Storagedata"]
-		Gencostdata = input_data["Gencostdata"]
+		Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
 		#reservedata=
 		#time series
 		Winddata = input_data["Winddata"]

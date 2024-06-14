@@ -100,7 +100,6 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
-            input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
             #time series
             println("Reading time series")
             input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"wind_timeseries_regional"))
@@ -140,7 +139,6 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
-            input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
             #time series
             println("Reading time series")
             input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
@@ -189,7 +187,6 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"storagedata"))
-            input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
 
         
             #time series
@@ -225,7 +222,6 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
-            input_data["Gencostdata"]=input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
 
         
             #time series
