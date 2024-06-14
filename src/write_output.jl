@@ -82,7 +82,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
 		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s	
-        Gencostdata = input_data["Gencostdata"]
+        Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
         P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
@@ -125,14 +125,14 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
-        price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+        P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
         dual_matrix = dual.(model[:PB_con])
         dual_t_h = [[dual_matrix[i,t,h] for t in T for h in H_t[t]] for i in I]
         #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
         dual_t_h = transpose(hcat(dual_t_h...))
         dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
-        price_df = hcat(price_df,dual_t_h_df)
-        CSV.write(joinpath(outpath, "power_price.csv"), price_df, writeheader=true)
+        P_price_df = hcat(P_price_df,dual_t_h_df)
+        CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
 
         
         ##Renewable curtailments
@@ -366,8 +366,20 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
         rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
-    
-    
+        Results_dict = Dict(
+            "power" => P_gen_df,
+            "power_loadshedding" => P_ls_df,
+            "power_renewable_curtailment" =>P_ct_df,
+            "power_price" => P_price_df,
+            "capacity" => C_gen_df,
+            "line" => C_line_df,
+            "power_flow" => P_flow_df,
+            "es_power_charge" => P_es_c_df,
+            "es_power_discharge" => P_es_dc_df,
+            "es_power_soc" => P_es_soc_df,
+            "es_capacity" => C_es_df,
+            "system_cost" => Cost_df
+        )
     
     elseif model_mode == "PCM" 
         Gendata = input_data["Gendata"]
@@ -408,7 +420,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         #Param
-        Gencostdata = input_data["Gencostdata"]
+        Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
         VCG=[Gencostdata]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")]]#s		
         unit_converter = 10^6
@@ -469,14 +481,14 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
-        price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+        P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
         dual_matrix = dual.(model[:PB_con])
         dual_h = [[dual_matrix[i,h] for h in H] for i in I]
         #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
         dual_h = transpose(hcat(dual_h...))
         dual_h_df = DataFrame(dual_h, [Symbol("h$h")  for h in H])
-        price_df = hcat(price_df,dual_h_df)
-        CSV.write(joinpath(outpath, "power_price.csv"), price_df, writeheader=true)
+        P_price_df = hcat(P_price_df,dual_h_df)
+        CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
 
 
 
@@ -597,7 +609,18 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Cost_df[i,2:end] = [Opr_c,Lol_p,Tot]
         end
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
-
+        Results_dict = Dict(
+            "power_loadshedding" => P_ls_df,
+            "power_renewable_curtailment" =>P_ct_df,
+            "power_hourly" => P_gen_df,
+            "power_price" => P_price_df,
+            "power_flow" => P_flow_df,
+            "es_power_charge" => P_es_c_df,
+            "es_power_discharge" => P_es_dc_df,
+            "es_power_soc" => P_es_soc_df,
+            "system_cost" => Cost_df)
     end
-	println("Write solved results in the folder 'output' DONE!")
+	println("Write solved results in the folder $outpath 'output' DONE!")
+
+    return Results_dict
 end

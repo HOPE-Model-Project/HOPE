@@ -11,7 +11,7 @@ function run_hope(case::AbstractString)
 
 	#read in data
 	input_data = load_data(config_set,path)
-
+	my_input = input_data
 	#create model
 	if config_set["model_mode"] == "GTEP"
 		my_model = create_GTEP_model(config_set,input_data,optimizer)
@@ -25,7 +25,7 @@ function run_hope(case::AbstractString)
 
 	#write outputs
 	my_output = write_output(outpath, config_set, input_data, my_sovled_model)
-	return (my_sovled_model, my_output)
+	return (my_sovled_model, my_output, my_input)
 end
 
 function write_hope(case::AbstractString,solved_case::Model)
