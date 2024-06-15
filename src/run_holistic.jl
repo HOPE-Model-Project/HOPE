@@ -42,7 +42,7 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
 	println("Run Holistic Assessment: 'GTEP-PCM' mode!")
 	println("First stage: solving 'GTEP' mode!")
 	GTEP_model = HOPE.run_hope(GTEP_case)
-	PCM_model = HOPE.run_hope(PCM_case)
+	#PCM_model = HOPE.run_hope(PCM_case)
 	GTEP_inpath = GTEP_case
 	PCM_inpath = PCM_case
 
@@ -77,7 +77,7 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
 	#update gendata
 	Updated_PCM_Gendata = outerjoin(PCM_Gendata,New_Build_sub, on = [:Zone,:Type,Symbol("Pmax (MW)")])
 	#Fill missing value with group mean
-	if config_set["unit_commitment"] == 1
+	if config_set["unit_commitment"] != 0
 		Updated_PCM_Gendata_fillmean = fill_missing_with_group_mean(Updated_PCM_Gendata,[:Zone, :Type],[Symbol("Pmin (MW)"),Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC,:Min_down_time,:Min_up_time,Symbol("Start_up_cost (\$/MW)")])
 		Updated_PCM_Gendata_fillmean = fill_missing_with_group_mean(Updated_PCM_Gendata,[:Type],[Symbol("Pmin (MW)"),Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC,:Min_down_time,:Min_up_time,Symbol("Start_up_cost (\$/MW)")])
 	else
