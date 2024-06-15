@@ -66,10 +66,10 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	STT_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])], o[g,h] - o[g,h-1] == su[g,h] - sd[g,h],base_name = "STT_con")
 		
 	#(26) Minimum up time constraint 
-	MUT_con = @constraint(model, [g in G_UC, h in  Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
+	MUT_con = @constraint(model, [g in G_UC, h in Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
 		
 	#(27) Minimum down time constraint
-	MDT_con = @constraint(model, [g in G_UC, h in  Int.(DT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
+	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
 		
 	#(28) pmin variable bound
 	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
