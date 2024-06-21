@@ -15,7 +15,7 @@ using Statistics
 
 ##using solver#
 
-#using Gurobi
+using Gurobi
 #using CPLEX
 using Cbc
 #using HiGHS
@@ -31,6 +31,7 @@ include("solver_config.jl");		#setting solver parameters
 include("solve.jl")                 #solve model function
 include("run.jl")                   #run modual
 include("debug.jl")                 #debug function
+include("run_holistic.jl")          #Holistic assessment: GTEP-PCM two stage
 
 #export HOPE functions
 export aggregate_gendata_gtep
@@ -45,6 +46,7 @@ export get_TPmatched_ts
 export load_data
 export run_debug
 export run_hope
+export run_hope_holistic
 export solve_model
 export write_output
 

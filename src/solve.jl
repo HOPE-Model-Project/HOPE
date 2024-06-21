@@ -9,6 +9,8 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 
 	##read input for print	
 	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
+	H=[h for h=1:8760]
+	PT_rps = 10^9
 	RPSdata = input_data["RPSdata"]
 	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))
 	if model_mode == "GTEP"
@@ -23,6 +25,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
 		print("RPS_requirement ",RPS,"\n\n");
 		print("RPSPenalty= ",value.(model[:RPSPenalty]),"\n\n");
+		print("RPS:state:Pen",[(w,sum(PT_rps*value.(model[:pt_rps][w]))) for w in W ],"\n\n");
 		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
 		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
 		
@@ -30,6 +33,8 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		Linedata_candidate[:,"Capacity (MW)"] .= [v for (i,v) in enumerate(Linedata_candidate[:,"Capacity (MW)"] .*value.(model[:y]))]
 		print("Selected_lines_table",Linedata_candidate[[i for (i, v) in enumerate(value.(model[:y])) if v > 0],:],"\n\n");
 		print("Selected_units= ",value.(model[:x]),"\n\n");
+		println(Gendata_candidate[:,"Pmax (MW)"])
+		println(value.(model[:x]))
 		Gendata_candidate[:,"Pmax (MW)"] .= [v for (i,v) in enumerate(Gendata_candidate[:,"Pmax (MW)"] .*value.(model[:x]))]
 		print("Selected_units_table",Gendata_candidate[[i for (i, v) in enumerate(value.(model[:x])) if v > 0],:],"\n\n");
 		print("Selected_storage= ",value.(model[:z]),"\n\n");
@@ -43,6 +48,9 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("\n\n","Model mode: PCM","\n\n");
 		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
 		#print("Investment_cost= ",value.(INVCost),"\n\n");
+		if config_set["unit_commitment"]!=0
+			print("Startup_cost= ",value.(model[:STCost]),"\n\n");
+		end
 		print("Operation_cost= ",value.(model[:OPCost]),"\n\n");
 		print("Load_shedding= ",value.(model[:LoadShedding]),"\n\n");
 		print("RPS_requirement ",RPS,"\n\n");
