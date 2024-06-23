@@ -90,13 +90,14 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
 ![ccf1c53042925fcfb13ee232c13210e](https://github.com/swang22/HOPE/assets/144710777/6efb4646-8c81-4f4b-bcfc-6daabbdeb615)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 100% clean case in `GTEP` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_GTEP_clean_case/")`, you will see the **HOPE** is running:
 
-![image](https://github.com/swang22/HOPE/assets/125523842/c36c6384-7e04-450d-921a-784c3b13f8bd)
+![image](https://github.com/swang22/HOPE/assets/125523842/519de1bf-03d0-4bad-8e69-a8a4fe2ad682)
 
-The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
+The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/output`. 
 
-![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
+![image](https://github.com/swang22/HOPE/assets/125523842/99790827-4337-4991-a320-85ae2bd10be2)
+
 
 **(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.  
 
