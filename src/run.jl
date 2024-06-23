@@ -25,7 +25,12 @@ function run_hope(case::AbstractString)
 
 	#write outputs
 	my_output = write_output(outpath, config_set, input_data, my_sovled_model)
-	return (my_sovled_model, my_output, my_input)
+	Results = Dict(
+		1 => my_sovled_model,
+		2 => my_output,
+		3 => my_input
+		)
+	return Results
 end
 
 function write_hope(case::AbstractString,solved_case::Model)
