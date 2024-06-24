@@ -1,2 +1,0 @@
-Zone,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost ($/MWh),EF,CC,Charging Rate,Discharging Rate
-APS_MD,Battery,44,11,0.85,1,0.15,0,1,1,1
