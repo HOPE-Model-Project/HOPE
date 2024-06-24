@@ -1,8 +1,3 @@
-
-```@meta
-CurrentModule = HOPE
-```
-
 # PCM Inputs Explanation
 
 The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used. 
@@ -19,7 +14,6 @@ This is the input dataset for zone-relevant information (e.g., demand, mapping w
 |Demand (MW) | Peak demand of the zone in MW|
 |State | The state that the zone is belonging to|
 |Area | The area that the zone is belonging to|
-|Flag_MD | 1 if the zone belongs to a desired state (e.g., Maryland), and 0 otherwise|
 ---
 
 ## gendata
@@ -36,10 +30,17 @@ This is the input dataset for existing generators.
 |Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
 |Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
 |Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Flag_UC | 1 if the generator is eligible to unit committment constraints, and 0 otherwise|
+|Flag_UC | 1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
 |Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|Start_up_cost ($/MW)|Start up cost for UC generator in $/MW|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|FOR|Forced outrage rate, unitless|
+|RM_SPIN|Spinning reserve margin, unitless|
+|RU|Ramp up rate, unitless|
+|RD|Ramp down rate, unitless|
+|Min_down_time|Minimum down time for turning off a generator, hour|
+|Min_up_time|Minimum up time for turning on a generator, hour|
 ---
 
 ## linedata
