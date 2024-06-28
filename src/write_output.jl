@@ -125,15 +125,19 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
-        P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
-        dual_matrix = dual.(model[:PB_con])
-        dual_t_h = [[dual_matrix[i,t,h] for t in T for h in H_t[t]] for i in I]
-        #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
-        dual_t_h = transpose(hcat(dual_t_h...))
-        dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
-        P_price_df = hcat(P_price_df,dual_t_h_df)
-        CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
-
+        if config_set["solver"] == "cbc"
+            P_price_df = DataFrame()
+            println("Cbc solver does not support for calaculating electricity price")
+        else
+            P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+            dual_matrix = dual.(model[:PB_con])
+            dual_t_h = [[dual_matrix[i,t,h] for t in T for h in H_t[t]] for i in I]
+            #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
+            dual_t_h = transpose(hcat(dual_t_h...))
+            dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
+            P_price_df = hcat(P_price_df,dual_t_h_df)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+        end
         
         ##Renewable curtailments
         #P_ctl_df = DataFrame(
@@ -481,15 +485,19 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
-        P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
-        dual_matrix = dual.(model[:PB_con])
-        dual_h = [[dual_matrix[i,h] for h in H] for i in I]
-        #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
-        dual_h = transpose(hcat(dual_h...))
-        dual_h_df = DataFrame(dual_h, [Symbol("h$h")  for h in H])
-        P_price_df = hcat(P_price_df,dual_h_df)
-        CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
-
+        if config_set["solver"] == "cbc"
+            P_price_df = DataFrame()
+            println("Cbc solver does not support for calaculating electricity price")
+        else
+            P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+            dual_matrix = dual.(model[:PB_con])
+            dual_h = [[dual_matrix[i,h] for h in H] for i in I]
+            #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
+            dual_h = transpose(hcat(dual_h...))
+            dual_h_df = DataFrame(dual_h, [Symbol("h$h")  for h in H])
+            P_price_df = hcat(P_price_df,dual_h_df)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+        end
 
 
         ##Transmission line-----------------------------------------------------------------------------------------------------------
