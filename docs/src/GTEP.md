@@ -16,7 +16,8 @@ The objective of this model is to minimize total system costs, including fixed i
         &\sum_{s \in S^{+}} \tilde{I}_{s} \times z_{s} + \sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
         &\sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \times \sum_{h \in H_{t}} p_{d,t,h}^{LS} + \\
         & PT^{rps} \times \sum_{w \in W} pt_{w}^{rps} + \\
-        & PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
+        & PT^{emis} \times \sum_{w \in W} em_{w}^{emis} + \\
+        & \sum_{t \in T} DRC \times N_{t} \sum_{i \in I, h \in H_{t}} (dr_{i,t,h}^{UP} + dr_{i,t,h}^{DN}
 \end{aligned}
 ```
 
