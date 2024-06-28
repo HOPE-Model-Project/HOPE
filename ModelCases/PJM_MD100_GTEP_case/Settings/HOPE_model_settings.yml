@@ -9,5 +9,4 @@ time_periods:                     #representative day clustering, could define y
     3 : (9, 22, 12, 20)           # September 22nd to December 20th;  3;fall
     4 : (12, 21, 3, 19)           # December 21st to March 19th;  4;winter
 solver: cbc                       #String, solver: cbc, clp, scip, highs, cplex, gurobi
-debug: 0                          #Flag for turning on the Method of Debug, 0 = not active; 1 = active conflict method; 2 = active penalty method
-#(please refer to https://jump.dev/JuMP.jl/stable/tutorials/getting_started/debugging/, https://jump.dev/JuMP.jl/stable/manual/solutions/#Conflicts for more detal)
+debug: 0                          #Flag for turning on the Method of Debug, 0 = not active; 1 = active conflict method; 2 = active penalty method #(please refer to https://jump.dev/JuMP.jl/stable/tutorials/getting_started/debugging/, https://jump.dev/JuMP.jl/stable/manual/solutions/#Conflicts for more detal)
