@@ -412,12 +412,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         H=[h for h=1:8760]
         L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
         I=[i for i=1:Num_zone]									#Set of zones, index i
-        G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i])] for i in I]	
+        G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]	
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
 		G_PV=[G_PV_E;]											#Set of all solar, subsets of G
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
 		G_W=[G_W_E;]                                               #Set of all wind, subsets of G
-        S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i])] for i in I]
+        S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
         LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
   
@@ -425,8 +425,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         #Param
         Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
-        VCG=[Gencostdata]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")]]#s		
+        VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s		
         unit_converter = 10^6
 
         ##Load shedding
@@ -609,13 +609,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         dc = value.(model[:dc])
         p_LS = value.(model[:p_LS])
         for i in  1:Num_zone
-            Opr_c = sum(VCG[g]*sum(p[g,h] for h in H) for g in intersect(G,G_i[i]); init=0) + sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H; init=0) for s in intersect(S,S_i[i]); init=0)
+            Opr_c = sum(VCG[g]*sum(p[g,h] for h in H; init=0) for g in G_i[i]; init=0) + sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H; init=0) for s in S_i[i]; init=0)
             #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
             #Cb_p = PT_emis*sum(em_emis[w] for w in W)
             Lol_p = sum(VOLL*sum(p_LS[d,h] for h in H; init=0) for d in intersect(D,D_i[i]); init=0)
             Tot = sum([Opr_c,Lol_p])
             Cost_df[i,2:end] = [Opr_c,Lol_p,Tot]
         end
+        rename!(Cost_df, :Opr_cost => Symbol("Opr_cost (\$)"))
+        rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
+        rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
         Results_dict = Dict(
             "power_loadshedding" => P_ls_df,
