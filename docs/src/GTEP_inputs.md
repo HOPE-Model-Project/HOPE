@@ -202,7 +202,7 @@ This is the input dataset for some parameters that can be directly defined based
 | :------------ | :-----------|
 |VOLL | Value of lost load, default = 100000 |
 |planning_reserve_margin | percentage of total capacity that is used for reserve, default = 0.02|
-|Big M | , unitless|
+|Big M | For penalty purpose, unitless|
 |PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
 |PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|
 |Inv_bugt_gen | Budget for newly installed generators, default = 10000000000000000|
