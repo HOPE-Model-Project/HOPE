@@ -193,6 +193,22 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 |RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
 ---
 
+## single parameters
+
+This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values. 
+
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|VOLL | Value of lost load, default = 100000 |
+|planning_reserve_margin | percentage of total capacity that is used for reserve, default = 0.02|
+|Big M | , unitless|
+|PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
+|PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|
+|Inv_bugt_gen | Budget for newly installed generators, default = 10000000000000000|
+|Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
+|Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|
+---
 
 
 
