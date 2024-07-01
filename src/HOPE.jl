@@ -15,10 +15,11 @@ using Statistics
 
 ##using solver#
 
-using Gurobi
+#using Gurobi
 #using CPLEX
 using Cbc
 #using HiGHS
+#using SCIP
 using Clp
 using GLPK
 
