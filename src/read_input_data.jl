@@ -100,12 +100,18 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
+            if config_set["flexible_demand"]==1
+                input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
+            end
             #time series
             println("Reading time series")
             input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"wind_timeseries_regional"))
             input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"solar_timeseries_regional"))
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            if config_set["flexible_demand"]==1
+                input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"dr_timeseries_regional"))
+            end
             #candidate
             println("Reading resource candidate")
             input_data["Estoragedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Estoragedata_candidate"))
@@ -139,12 +145,18 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
+            if config_set["flexible_demand"]==1
+                input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.csv"),DataFrame)
+            end
             #time series
             println("Reading time series")
             input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
             input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            if config_set["flexible_demand"]==1
+                input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
+            end
             #candidate
             println("Reading resource candidate")
             input_data["Estoragedata_candidate"]=CSV.read(joinpath(folderpath,"storagedata_candidate.csv"),DataFrame)
@@ -187,7 +199,9 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"storagedata"))
-
+            if config_set["flexible_demand"]==1
+                input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"flexddata"))
+            end
         
             #time series
             println("Reading time series")
@@ -195,7 +209,9 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"solar_timeseries_regional"))
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath*"PCM_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-
+            if config_set["flexible_demand"]==1
+                input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"dr_timeseries_regional"))
+            end
             #policies
             println("Reading polices")
             input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"carbonpolicies"))
@@ -222,7 +238,9 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
-
+            if config_set["flexible_demand"]==1
+                input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.xlsx"),DataFrame)
+            end
         
             #time series
             println("Reading time series")
@@ -230,7 +248,9 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-
+            if config_set["flexible_demand"]==1
+                input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional"),DataFrame)
+            end
             #policies
             println("Reading policies")
             input_data["CBPdata"]=CSV.read(joinpath(folderpath,"carbonpolicies.csv"),DataFrame)
