@@ -124,7 +124,7 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 
 # Documentation
 
-Check online [Documentation](https://swang22.github.io/HOPE/dev/) for HOPE.
+Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
 
 
 # Program Sponsors
