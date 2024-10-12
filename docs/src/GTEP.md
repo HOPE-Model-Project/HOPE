@@ -16,12 +16,13 @@ The objective of this model is to minimize total system costs, including fixed i
         &\sum_{s \in S^{+}} \tilde{I}_{s} \times z_{s} + \sum_{s \in S, t \in T} VCS \times N_{t} \times \sum_{h \in H_{t}} (c_{s,t,h} + dc_{s,t,h}) + \\
         &\sum_{d \in D, t \in T} VOLL_{d} \times N_{t} \times \sum_{h \in H_{t}} p_{d,t,h}^{LS} + \\
         & PT^{rps} \times \sum_{w \in W} pt_{w}^{rps} + \\
-        & PT^{emis} \times \sum_{w \in W} em_{w}^{emis}  
+        & PT^{emis} \times \sum_{w \in W} em_{w}^{emis} + \\
+        & \sum_{t \in T} DRC \times N_{t} \sum_{i \in I, h \in H_{t}} (dr_{i,t,h}^{UP} + dr_{i,t,h}^{DN})
 \end{aligned}
 ```
 
 ```math
-\Gamma = \Bigl\{ x_{g}, y_{l}, z_{s}, f_{l,h}, p_{g,t,h}, p_{d,t,h}^{LS}, c_{s,t,h}, dc_{s,t,h}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis}_{w}, a_{g,t}, b_{g,t} \Bigr\}
+\Gamma = \Bigl\{ x_{g}, y_{l}, z_{s}, f_{l,h}, p_{g,t,h}, p_{d,t,h}^{LS}, c_{s,t,h}, dc_{s,t,h}, dr_{i,t,h}^{DR}, dr_{i,t,h}^{UP}, dr_{i,t,h}^{DN}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis}_{w}, a_{g,t}, b_{g,t} \Bigr\}
 ```
 ## Constraints
 
@@ -101,12 +102,12 @@ p_{g,h} \le AFRE_{g,t,h,i} \times P_{g}^{max} \times x_{g}; \forall g \in G_{+} 
 \frac{dc_{s,t,h}}{SD_{s}} \le z_{s} \times SCAP_{s};  \forall h \in H_{t}, t \in T, s \in S_{+}
 ```
 
-(17) Sate of charge limit for existing units:
+(17) State of charge limit for existing units:
 ```math
 0 \le soc_{s,t,h} \le SECAP_{s}; \forall h \in H_{t}, t \in T, s \in S_{E}
 ```
 
-(18) Sate of charge limit for new installed units:
+(18) State of charge limit for new installed units:
 ```math
 0 \le soc_{s,t,h} \le z_{s} \times SECAP_{s}; \forall h \in H_{t}, t \in T, s \in S_{+}
 ```
@@ -159,7 +160,7 @@ w \in W
 
 (27) Cap & Trade - State carbon allowance cap:
 ```math
-\sum_{g \in (\bigcup_{i \in I_{w}} G_{i}) \cap G^{F}} a+{g,t} - em_{w}^{emis} \le ALW_{t,w};  w \in W, t \in T
+\sum_{g \in (\bigcup_{i \in I_{w}} G_{i}) \cap G^{F}} a_{g,t} - em_{w}^{emis} \le ALW_{t,w};  w \in W, t \in T
 ```
 
 (28) Cap & Trade - Balance between allowances and emissions:
@@ -181,8 +182,23 @@ z_{s} = \{0,1 \};  \forall s \in S_{+}
 
 (31) Nonnegative variable:
 ```math
-a_{g,t}, b_{g,t}, p_{g,t,h}, p_{d,t,h}^{LS}, c_{s,t,h}, soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis} \\
+a_{g,t}, b_{g,t}, p_{g,t,h}, p_{d,t,h}^{LS}, c_{s,t,h}, dc_{s,t,h}, dr_{i,t,h}^{DR}, dr_{i,t,h}^{UP}, dr_{i,t,h}^{DN},soc_{s,t,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis} \\
 \ge 0
 ```
-
+(32) Demand response (load shifting) constraints - 1:
+```math
+dr_{i,t,h}^{DR} = DR_{i,t,h}^{REF} + dr_{i,t,h}^{UP} - dr_{i,t,h}^{DN}; \forall i \in I, h \in H
+```
+(33) Demand response (load shifting) constraints - 2:
+```math
+\sum_{i=h}^{h+23} dr_{i,t,h}^{UP} = \sum_{i=h}^{h+23} dr_{i,t,h}^{DN}; \forall i \in I, h \in HD \text{{1, 25, 49, T-23}}
+```
+(34) Demand response (load shifting) constraints - 3:
+```math
+DR_{i,t,h}^{REF} + dr_{i,t,h}^{UP} \le DR^{MAX}; \forall i \in I, h \in H
+```
+(35) Demand response (load shifting) constraints - 4:
+```math
+dr_{i,t,h}^{DN} \le DR_{i,t,h}^{REF}; \forall i \in I, h \in H
+```
 

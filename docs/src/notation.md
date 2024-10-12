@@ -45,6 +45,9 @@ CurrentModule = HOPE
 |$AFRE_{g,h,i}$ | Availability factor of renewable energy source $g$ in hour $h$ in zone $i$, $g \in G^{PV} \bigcup G^{W}$|
 |$CC_{g/s}$ | Capacity credit of resource $g/s$, unitless|
 |$CP_{g}$ | Carbon price of generation $g \in\ G^{F}$, M$/t|
+|$DR_{i,t,h}^{ref}$ | Reference demand of demand response aggregator in time-period $t$ in hour $h$, MW|
+|$DR_{i}^{MAX}$ | Maximum capacity limit for demand consumption of DR aggregator in zone $i$, MW|
+|$DRC$| Cost of demand response, unitless|
 |$EF_{g}$ | Carbon emission factor of generator $g$, t/MWh|
 |$ELMT_{w}$ | Carbon emission limits at state $w, t$|
 |$F^{max}_{l}$ | Maximum capacity of transmission corridor/line $l$, MW|
@@ -78,6 +81,8 @@ CurrentModule = HOPE
 | :------------ | :-----------|
 |$a_{g,t}$ | Bidding carbon allowance of unit $g$ in time period $t$, ton|
 |$b_{g,t}$ | Banking of allowance of g in time period $t$, ton|
+|$dr_{i,t,h}^{UP/DN}$ | Upwards/downwards demand change relative to reference demand during $h$ in time period $t$ in zone $i$, MW|
+|$dr_{i,t,h}^{DR}$ | Demand from DR aggregator during $h$ in time period $t$ in zone $i$, MW|
 |$p_{g,t,h}$ | Active power generation of unit $g$ in time period $t$ hour $h$, MW|
 |$pw_{g,w}$ | Total renewable generation of unit $g$ in state $w$, MWh|
 |$p^{LS}_{d,t,h}$ | Load shedding of demand $d$ in time period $t$ in hour $h$, MW|
