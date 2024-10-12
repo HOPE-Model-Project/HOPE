@@ -33,6 +33,10 @@ This is the input dataset for existing generators.
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
 |Type |The technology type of the generator|
+|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|Flag_UC | 1 if the generator is eligible to unit committment constraints, and 0 otherwise|
 |Cost ($/MWh) |Operating cost of the generator in $/MWh|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
