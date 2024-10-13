@@ -119,7 +119,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
 		#Ordered zone
 		Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
-
+		
 		#representative day clustering
 		if config_set["representative_day!"]==1
 			println("Setting representative_day to 1, but it is not support for current PCM mode  ")
@@ -141,6 +141,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		Loaddata_ordered = select(Loaddata, [Ordered_zone_nm;"Hour";"NI"])
 		Solardata_ordered = select(Solardata, [Ordered_zone_nm;"Hour"])
 		Winddata_ordered = select(Winddata, [Ordered_zone_nm;"Hour"])
+		
+		#DR related
+		if config_set["flexible_demand"]==1
+			DRdata = input_data["DRdata"]
+			DRtsdata = input_data["DRtsdata"]
+			#[findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone] #reorder 
+			DRC_d = [DRdata[idx, "Cost (\$/MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+			DR_MAX = [DRdata[idx, "Max Power (MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+			DR_tp_match = get_TPmatched_ts(DRtsdata,time_periods,Ordered_zone_nm)[1]
+			DRdata_ordered = select(DRtsdata, [Ordered_zone_nm;"Hour"])
+			DR_t = DRdata_ordered
+		end
 		#Sets--------------------------------------------------
 		D=[d for d=1:Num_load] 									#Set of demand, index d
 		G=[g for g=1:Num_gen]							#Set of all types of generating units, index g
@@ -211,7 +223,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Loaddata_ordered
-		PK=Zonedata[:,"Demand (MW)"]#i						#Peak power demand, MW
+		PK=Zonedata[:,"Demand (MW)"]#d						#Peak power demand, MW
 		PT_rps=SinglePardata[1, "PT_RPS"]											#RPS volitation penalty, $/MWh
 		PT_emis=SinglePardata[1, "PT_emis"]										#Carbon emission volitation penalty, $/t
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
@@ -259,7 +271,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, ni[H,I])							#net import used in i
 		@variable(model, p[G,H]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
-		@variable(model, p_LS[D,H]>=0)						#Load shedding of demand d in hour h, MW
+		@variable(model, p_LS[I,H]>=0)						#Load shedding of demand in zone i in hour h, MW
 		@variable(model, pt_rps[W,H]>=0)							#Amount of active power violated RPS policy in state w, MW
 		@variable(model, pwi[G,W,W_prime]>=0)					#State w imported renewable credits from state w' annually, MWh	
 		@variable(model, r_G[G,H]>=0)							#Spining reserve for g in h				#r_(g,h)^G
@@ -267,6 +279,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, soc[S,H]>=0)						#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
 		@variable(model, dc[S,H]>=0)						#Discharging power of storage s into grid in hour h, MW
+		if config_set["flexible_demand"] ==1
+			@variable(model, dr[D,H]>=0)						#Demand from DR aggregator during t, h, MW
+			@variable(model, dr_UP[D,H]>=0)						#Demand change up relative to reference demand during t, h, MW
+			@variable(model, dr_DN[D,H]>=0)						#Demand change down relative to reference demand during t, h, MW
+		end
 		#@variable(model, slack_pos[H,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[H,I]>=0)					#Slack varbale for debuging
 		#unregister(model, :p)
@@ -283,7 +300,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			print("Invalid settings $uc_set for unit_commitment! Please set it tobe '0' or '1' or '2'!")
 		end
 		#Constraints--------------------------------------------
-		
+		if config_set["flexible_demand"] !=0
+			@expression(model, DR_OPT[i in I, h in H], sum(dr[d,h]-DR_t[h,d]*DR_MAX[d] for d in D_i[i]))
+		else
+			@expression(model, DR_OPT[i in I, h in H], 0)
+		end
 		#(3) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 		@constraint(model, PB_con[i in I, h in H], sum(p[g,h] for g in G_i[i]) 
 			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
@@ -291,7 +312,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			+ sum(f[l,h] for l in LR_i[i])#LR
 			+ NI_h[h,i]
 			#+ slack_pos[h,i]-slack_neg[h,i]
-			== sum(P_t[h,i]*PK[i] - p_LS[d,h] for d in D_i[i]),base_name = "PB_con"); 
+			== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h],base_name = "PB_con"); 
 		
 		#TC_con =  @constraint(model, [i in I, t in T, h in H_t[t]], - sum(f[l,t,h] for l in LS_i[i]) == sum(f[l,t,h] for l in LR_i[i]),base_name = "TC_con" )
 		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
@@ -333,7 +354,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 
 		#(9) Load shedding limit	
-		LS_con = @constraint(model, [i in I, d in D_i[i], h in H], 0 <= p_LS[d,h]<= P_t[h,i]*PK[i],base_name = "LS_con")
+		LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h]<= sum(P_t[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
 		
 		
 		##############
@@ -412,7 +433,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		NCrY_in_con = @constraint(model, [g in G_F], b[g,1] == b[g,end],base_name="NCrY_in_con")
 		NCrY_end_con = @constraint(model, [g in G_F], b[g,end] == 0, base_name="NCrY_end_con")
 		=#
+		if config_set["flexible_demand"] == 1
+			#Demand response program (load shifting)
+			#(25) DR balance
+			DR_con = @constraint(model, [d in D, h in H], dr[d,h] == DR_t[h,d]*DR_MAX[d] + dr_UP[d,h]-dr_DN[d,h], base_name="DR_con")
 
+			#(26) DR daily balance
+			DR_day_con=@constraint(model, [d in D, h in setdiff(H_D, [0,8760])], sum(dr_UP[d,h1] for h1 in h:h+23)==sum(dr_DN[d,h1] for h1 in h:h+23),base_name="DR_day_con")
+
+			#(27) DR max demand limit
+			DR_max_con = @constraint(model, [d in D, h in H], DR_t[h,d]*DR_MAX[d]+dr_UP[d,h] <= DR_MAX[d], base_name = "DR_max_con")
+			DR_ref_con =  @constraint(model, [d in D, h in H], dr_DN[d,h] <= DR_t[h,d]*DR_MAX[d], base_name = "DR_ref_con")
+		end
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
 		#@expression(model, INVCost, sum(INV_g[g]*unit_converter*x[g] for g in G_new)+sum(INV_l[l]*unit_converter*y[l] for l in L_new)+sum(INV_s[s]*unit_converter*z[s] for s in S_new))			
@@ -440,10 +472,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#@expression(model, SlackPenalty, BM *sum(slack_pos[h,i]+slack_neg[h,i] for h in H for i in I))
 
 		#Minmize objective fuction: INVCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
-		if config_set["unit_commitment"] == 0
+		if config_set["unit_commitment"] == 0 & config_set["flexible_demand"] == 0
 			@objective(model,Min, OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
-		else
+		end
+		if config_set["unit_commitment"] == 1 & config_set["flexible_demand"] == 0
 			@objective(model,Min, model[:STCost] + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
+		end
+		if config_set["flexible_demand"] == 1
+			@expression(model,DR_OPcost,sum(DRC_d[d]*(dr_UP[d,h]+dr_DN[d,h]) for h in H for d in D))
+			if config_set["unit_commitment"] == 0 
+				@objective(model,Min, DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
+			else
+				@objective(model,Min, model[:STCost] +DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
+			end
 		end
 		return model
 	end
