@@ -2,15 +2,14 @@ DataCase: Data_PCM2035/           #String, the folder name of data, default Data
 model_mode: PCM                   #String, "GTEP" or "PCM" or ...
 aggregated!: 1                    #Binary, 1 aggregate technology resource; 0 Does Not
 representative_day!: 0            #Binary, 1 use representative days and set time_periods please; 0 Does Not
-inv_dcs_bin: 0                    #Binary, 1 use integer variable for investment decisions; 0 Does Not
 flexible_demand: 1                #Binary, 1 use integer variable for demand resposne program; 0 Does Not
+inv_dcs_bin: 0                    #Binary, 1 use integer variable for investment decisions; 0 Does Not
 time_periods:                     #representative day clustering for time peroid reduction or carbon allowanceHO, could define yourself
     1 : (3, 20, 6, 20)            # March 20th to June 20th;  1;srping
     2 : (6, 21, 9, 21)            # June 21st to September 21st;  2;summer
     3 : (9, 22, 12, 20)           # September 22nd to December 20th;  3;fall
     4 : (12, 21, 3, 19)           # December 21st to March 19th;  4;winter
 unit_commitment: 0                #Int, 0 no UC constraints;, 1 integer UC; 2 convexified UC
-solver: cbc                       #String, solver: cbc, clp, scip, highs, cplex, gurobi
+solver: gurobi                       #String,solver: cbc, gurobi
 debug: 0                          #Binary, flag for turning on the Method of Debug, 0 = not active; 1 = active conflict method; 2 = active penalty method
-#(please refer to https://jump.dev/JuMP.jl/stable/tutorials/getting_started/debugging/, https://jump.dev/JuMP.jl/stable/manual/solutions/#Conflicts for more detal)
 
