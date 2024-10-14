@@ -1,0 +1,10 @@
+# Go to https://citation-file-format.github.io/cff-initializer-javascript/#/ to finish this
+cff-version: 1.2.0
+title: HOPE.jl
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: swang22
+    email: worldspace321@gmail.com
