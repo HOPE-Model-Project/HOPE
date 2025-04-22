@@ -43,8 +43,8 @@ The objective of this model is to minimize total system costs, including fixed i
 
 (5) Power balance:
 ```math
-\sum_{g \in G_{i}} p_{g,t,h} + \sum_{s \in S_{i}} (dc_{s,t,h} - c_{s,t,h}) - \sum_{l \in LS_{i}} f_{l.t.h} \\
-+ \sum_{l \in LR_{i}} f_{l.t.h} = \sum_{d \in D_{i}} (P_{d,t,h} - P_{d,t,h}^{LS}) ; \forall i \in I, h \in H_{t}, t \in T
+\sum_{g \in G_{i}} p_{g,t,h} + \sum_{s \in S_{i}} (dc_{s,t,h} - c_{s,t,h}) - \sum_{l \in LS_{i}} f_{l,t,h} \\
++ \sum_{l \in LR_{i}} f_{l,t,h} = \sum_{d \in D_{i}} (P_{d,t,h} - P_{d,t,h}^{LS}) ; \forall i \in I, h \in H_{t}, t \in T
 ```
 
 (6) Transmission power flow limit for existing transmission lines:
