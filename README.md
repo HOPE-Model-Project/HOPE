@@ -132,6 +132,11 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 
 Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
 
+# Research & Publication
+
+[Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf) 
+
+
 
 # Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
