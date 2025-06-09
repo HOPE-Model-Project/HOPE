@@ -11,6 +11,12 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 
+## How to cite HOPE?
+You can cite the paper: 
+```
+Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimization Program for Electricity. SoftwareX, 29, 101982. https://doi.org/10.1016/j.softx.2024.101982
+```
+
 # Overview
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
 1. `GTEP` mode: a generation & transmission expansion planning model
@@ -125,6 +131,11 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 # Documentation
 
 Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
+
+# Research & Publication
+
+[Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf) 
+
 
 
 # Program Sponsors
