@@ -179,7 +179,7 @@ function load_data(config_set::Dict,path::AbstractString)
     elseif model_mode == "PCM"          #read data for production cost model
         input_data = Dict()
         println("Reading Input_Data Files for PCM mode")
-        folderpath = joinpath(path*"/"*Data_case)
+        folderpath = joinpath(path, Data_case)
         files = readdir(folderpath)
         #input_data["VOLL"] = config_set["value_of_loss_load"]
         if any(endswith.(files, ".xlsx"))
