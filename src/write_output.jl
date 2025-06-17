@@ -1,10 +1,49 @@
 function mkdir_overwrite(path::AbstractString)
     if isdir(path)
-        rm(path; force=true, recursive=true)
-        println() 
         println("'output' folder exists, will be overwritten!")
+        
+        # Try to remove with retries for Windows file locking issues
+        max_retries = 3
+        for attempt in 1:max_retries
+            try
+                rm(path; force=true, recursive=true)
+                break  # Success, exit retry loop
+            catch e
+                if isa(e, SystemError) && attempt < max_retries
+                    println("Warning: Failed to remove output directory (attempt $attempt/$max_retries): $(e.msg)")
+                    println("Retrying in 1 second...")
+                    sleep(1)
+                    # Try to force release any file handles
+                    GC.gc()
+                elseif attempt == max_retries
+                    println("Warning: Could not remove existing output directory after $max_retries attempts.")
+                    println("This may be due to files being open in another application.")
+                    println("Trying to create backup and continue...")
+                    
+                    # Try to create a backup directory name
+                    backup_path = path * "_backup_" * string(round(Int, time()))
+                    try
+                        mv(path, backup_path)
+                        println("Moved existing output to: $backup_path")
+                    catch mv_error
+                        error("Cannot remove or move existing output directory '$path'. Please close any files/applications that may be using files in this directory and try again.\nOriginal error: $e")
+                    end
+                end
+            end
+        end
     end
-    mkdir(path)
+    
+    # Create the directory
+    try
+        mkdir(path)
+    catch e
+        if isa(e, SystemError) && occursin("already exists", e.msg)
+            # Directory was created between our check and mkdir call, that's fine
+            println("Directory was created by another process, continuing...")
+        else
+            rethrow(e)
+        end
+    end
 end
 
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)

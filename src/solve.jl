@@ -1,3 +1,19 @@
+"""
+    solve_model(config_set::Dict, input_data::Dict, model::Model)
+
+Solve the HOPE optimization model and print results.
+
+# Arguments
+- `config_set::Dict`: Configuration settings from YAML file
+- `input_data::Dict`: Input data loaded from files 
+- `model::Model`: JuMP model to solve
+
+# Returns
+- `Model`: The solved optimization model
+
+# Throws
+- Optimization errors if model fails to solve
+"""
 function solve_model(config_set::Dict, input_data::Dict, model::Model)
     model_mode = config_set["model_mode"]
 	## Start solve timer

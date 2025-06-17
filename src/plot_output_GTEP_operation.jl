@@ -1,10 +1,19 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\" #choose by user
+# Import constants and utilities from HOPE module
+# This script is designed to work as part of the HOPE module
+using ..HOPE: COLOR_MAP, TECH_ACRONYM_MAP, DEFAULT_MARKER_SIZE, get_paths, validate_case_directory, aggregate_by_fuel_type
 
-#Function use for aggregrating generation data:
-function aggregate_capdata(df)
+# Use the constants
+color_map = COLOR_MAP
+tech_acromy_map_dict = TECH_ACRONYM_MAP
+ordered_tech_power = ORDERED_TECH_POWER
+ordered_es_tech = ORDERED_ES_TECH
+
+input_dir, outpath = get_paths()
+
+#Function use for aggregating generation data:
+function aggregate_capdata_ini_ret_fin(df)
 	agg_df = combine(groupby(df, [:Technology,:Zone]),
 	Symbol("Capacity_INI (MW)") => sum,
     Symbol("Capacity_RET (MW)") => sum,
@@ -13,49 +22,14 @@ function aggregate_capdata(df)
 	rename!(agg_df, [Symbol("Capacity_INI (MW)_sum"),Symbol("Capacity_RET (MW)_sum"),Symbol("Capacity_FIN (MW)_sum")] .=>  [Symbol("Capacity_INI (MW)"),Symbol("Capacity_RET (MW)"), Symbol("Capacity_FIN (MW)")] )
 	return agg_df
 end
-function aggregate_capdata(df)
+
+function aggregate_capdata_simple(df)
 	agg_df = combine(groupby(df, [:Technology,:Zone]),
 	Symbol("Capacity (MW)") => sum,
     )
 	rename!(agg_df, [Symbol("Capacity (MW)_sum")] .=>  [Symbol("Capacity (MW)")] )
 	return agg_df
 end
-#color map
-color_map = Dict(
-    "Coal" =>"Black",
-    "Oil"=>"Bisque",
-    "NGCT"=>"LightSlateGray",
-    "NGCT_CCS"=>"LightSlateGray",
-    "Hydro"=>"MidnightBlue",
-    "Hydro_pump"=>"LightPurple",
-    "Hydro_pump_c"=>"LightPurple",
-    "Hydro_pump_dc"=>"LightPurple",
-    "Nuc"=>"Orange",
-    "MSW"=>"Saddlebrown",
-    "Bio" =>"LightGreen",
-    "Landfill_NG"=> "Gold",
-    "NGCC"=>"LightSteelBlue",
-    "NGCC_CCS"=>"LightSteelBlue",
-    "NG" =>"LightSteelBlue",
-    "WindOn"=>"LightSkyBlue",
-    "WindOff"=>"Blue",
-    "SolarPV"=>"Yellow",
-    "Battery" => "Purple",
-    "Battery_dc" => "Purple",
-    "Battery_c" => "Purple",
-    "Other" => "Pink"
-)
-tech_acromy_map_dict = Dict(
-    "Batteries" => "Battery",
-    "Biomass" => "Bio",
-    "HPS" => "Hydro_pump",
-    "BES" => "Battery",
-    "MSW" =>"Bio",
-    "Landfill_NG" => "Bio",
-    "NG" => "NGCC",
-    "NuC" => "Nuc"
-)
-
 #read output data#
 
 #power
@@ -97,9 +71,9 @@ end
 #aggregrated 
 
 agg_zone_data = combine(groupby(Output_power, [:Technology]), names(Output_power, r"h\d+") .=> sum) 
-agg_es_dc_zone_data = combine(groupby(Output_es_dc_power,[:Technology]), names(Output_es_power, r"dc_t\d+") .=> sum) 
-agg_es_soc_zone_data = combine(groupby(Output_es_soc_power,[:Technology]), names(Output_es_power, r"soc_t\d+") .=> sum) 
-agg_es_c_zone_data = combine(groupby(Output_es_c_power,[:Technology]), names(Output_es_power, r"^c_t\d+") .=> sum) 
+agg_es_dc_zone_data = combine(groupby(Output_es_dc_power,[:Technology]), names(Output_es_dc_power, r"dc_t\d+") .=> sum) 
+agg_es_soc_zone_data = combine(groupby(Output_es_soc_power,[:Technology]), names(Output_es_soc_power, r"soc_t\d+") .=> sum) 
+agg_es_c_zone_data = combine(groupby(Output_es_c_power,[:Technology]), names(Output_es_c_power, r"^c_t\d+") .=> sum) 
 
 power_output_data_df = Dict(
     "agg_zone_data" =>agg_zone_data ,
@@ -108,7 +82,7 @@ power_output_data_df = Dict(
     "agg_es_c_zone_data" => agg_es_c_zone_data 
 )
 
-hours=8401:8568 #8401:8568 #3625:3792
+hours=3625:3792 #8401:8568 #3625:3792
 ordered_tech_power = ["Nuc","Coal","NGCC_CCS","NGCT_CCS","Hydro","Bio","WindOn","WindOff","SolarPV","Other"]
 ordered_es_tech = ["Hydro_pump","Battery"]
 function plot_power_output(data::Dict, ordered_tech_power::Vector,ordered_es_tech ::Vector, color_map::Dict,hours::UnitRange)

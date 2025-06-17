@@ -1,5 +1,6 @@
 function initiate_solver(solver_name::String, path::String)
-	solver_settings = YAML.load(open(path*"Settings/"*solver_name*"_settings.yml"))
+	solver_settings_path = joinpath(path, "Settings", solver_name * "_settings.yml")
+	solver_settings = YAML.load(open(solver_settings_path))
 	if solver_name == "cbc"
 		# Optional solver parameters ############################################
 		Myseconds = 1e-6

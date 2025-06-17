@@ -45,9 +45,8 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
 	#PCM_model = HOPE.run_hope(PCM_case)
 	GTEP_inpath = GTEP_case
 	PCM_inpath = PCM_case
-
-	GTEP_outpath = GTEP_inpath*"/output/"
-	PCM_outpath = PCM_inpath*"/output/"
+	GTEP_outpath = joinpath(GTEP_inpath, "output")
+	PCM_outpath = joinpath(PCM_inpath, "output")
 
 	GTEP_solved_model,GTEP_solved_output, GTEP_input = GTEP_model[1], GTEP_model[2], GTEP_model[3]
 	#PCM_solved_model,PCM_solved_output, PCM_input = PCM_model[1], PCM_model[2], PCM_model[3]
