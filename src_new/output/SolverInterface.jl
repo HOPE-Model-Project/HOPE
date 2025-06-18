@@ -8,6 +8,7 @@
 using JuMP
 using YAML
 using Dates
+using JuMP: MOI
 
 # Conditional solver imports
 const HAS_GUROBI = try
@@ -175,127 +176,151 @@ function get_available_solvers()::Vector{String}
 end
 
 """
-Create optimizer from configuration
+Create optimizer constructor function from configuration
 """
 function create_optimizer(config::SolverConfig)
     if config.name == "Gurobi" && HAS_GUROBI
-        optimizer = Gurobi.Optimizer()
-        
-        # Create temporary model to set attributes
-        temp_model = Model(optimizer)
-        
-        # Set common Gurobi parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "TimeLimit", config.time_limit)
+        return () -> begin
+            optimizer = Gurobi.Optimizer()
+            
+            # Set common Gurobi parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            MOI.set(optimizer, MOI.RelativeGapTolerance(), config.gap_tolerance)
+            if config.threads > 0
+                MOI.set(optimizer, MOI.NumberOfThreads(), config.threads)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+            
+            return optimizer
         end
-        set_attribute(temp_model, "MIPGap", config.gap_tolerance)
-        if config.threads > 0
-            set_attribute(temp_model, "Threads", config.threads)
-        end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        # Return the configured optimizer
-        return backend(temp_model).optimizer
         
     elseif config.name == "CPLEX" && HAS_CPLEX
-        optimizer = CPLEX.Optimizer()
-        temp_model = Model(optimizer)
-        
-        # Set common CPLEX parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "CPX_PARAM_TILIM", config.time_limit)
-        end
-        set_attribute(temp_model, "CPX_PARAM_EPGAP", config.gap_tolerance)
-        if config.threads > 0
-            set_attribute(temp_model, "CPX_PARAM_THREADS", config.threads)
-        end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        return backend(temp_model).optimizer
-        
+        return () -> begin
+            optimizer = CPLEX.Optimizer()
+            
+            # Set common CPLEX parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            MOI.set(optimizer, MOI.RelativeGapTolerance(), config.gap_tolerance)
+            if config.threads > 0
+                MOI.set(optimizer, MOI.NumberOfThreads(), config.threads)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+            
+            return optimizer
+        end        
     elseif config.name == "HiGHS" && HAS_HIGHS
-        optimizer = HiGHS.Optimizer()
-        temp_model = Model(optimizer)
-        
-        # Set common HiGHS parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "time_limit", config.time_limit)
+        return () -> begin
+            optimizer = HiGHS.Optimizer()
+            
+            # Set common HiGHS parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            MOI.set(optimizer, MOI.RelativeGapTolerance(), config.gap_tolerance)
+            if config.threads > 0
+                MOI.set(optimizer, MOI.NumberOfThreads(), config.threads)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+            
+            return optimizer
         end
-        set_attribute(temp_model, "mip_rel_gap", config.gap_tolerance)
-        if config.threads > 0
-            set_attribute(temp_model, "threads", config.threads)
-        end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        return backend(temp_model).optimizer
         
     elseif config.name == "Cbc" && HAS_CBC
-        optimizer = Cbc.Optimizer()
-        temp_model = Model(optimizer)
-        
-        # Set common Cbc parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "seconds", config.time_limit)
+        return () -> begin
+            optimizer = Cbc.Optimizer()
+            
+            # Set common Cbc parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            MOI.set(optimizer, MOI.RelativeGapTolerance(), config.gap_tolerance)
+            if config.threads > 0
+                MOI.set(optimizer, MOI.NumberOfThreads(), config.threads)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+            
+            return optimizer
         end
-        set_attribute(temp_model, "ratioGap", config.gap_tolerance)
-        if config.threads > 0
-            set_attribute(temp_model, "threads", config.threads)
-        end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        return backend(temp_model).optimizer
         
     elseif config.name == "SCIP" && HAS_SCIP
-        optimizer = SCIP.Optimizer()
-        temp_model = Model(optimizer)
-        
-        # Set common SCIP parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "limits/time", config.time_limit)
+        return () -> begin
+            optimizer = SCIP.Optimizer()
+            
+            # Set common SCIP parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            MOI.set(optimizer, MOI.RelativeGapTolerance(), config.gap_tolerance)
+            if config.threads > 0
+                MOI.set(optimizer, MOI.NumberOfThreads(), config.threads)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+              return optimizer
         end
-        set_attribute(temp_model, "limits/gap", config.gap_tolerance)
-        if config.threads > 0
-            set_attribute(temp_model, "parallel/maxnthreads", config.threads)
-        end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        return backend(temp_model).optimizer
         
     elseif config.name == "Clp" && HAS_CLP
-        optimizer = Clp.Optimizer()
-        temp_model = Model(optimizer)
-        
-        # Set common Clp parameters
-        if config.time_limit < Inf
-            set_attribute(temp_model, "MaximumSeconds", config.time_limit)
+        return () -> begin
+            optimizer = Clp.Optimizer()
+            
+            # Set common Clp parameters
+            if config.time_limit < Inf
+                MOI.set(optimizer, MOI.TimeLimitSec(), config.time_limit)
+            end
+            
+            # Set additional parameters
+            for (param, value) in config.other_params
+                try
+                    MOI.set(optimizer, MOI.RawOptimizerAttribute(param), value)
+                catch
+                    # Ignore parameters that don't work
+                end
+            end
+              return optimizer
         end
-        
-        # Set additional parameters
-        for (param, value) in config.other_params
-            set_attribute(temp_model, param, value)
-        end
-        
-        return backend(temp_model).optimizer
         
     else
         error("Unsupported or unavailable solver: $(config.name)")

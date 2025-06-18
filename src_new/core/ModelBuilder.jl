@@ -98,10 +98,10 @@ function setup_time_structure!(builder::HOPEModelBuilder)
     end
     
     set_time_structure!(builder.time_manager, time_structure)
-    
-    # Store time indices in input_data for constraint functions
+      # Store time indices in input_data for constraint functions
     time_indices = get_time_indices(builder.time_manager)
-    merge!(builder.input_data, time_indices)
+    time_indices_dict = Dict(string(k) => v for (k, v) in pairs(time_indices))
+    merge!(builder.input_data, time_indices_dict)
     
     println("✅ Time structure configured: $(get_time_summary(builder.time_manager))")
 end

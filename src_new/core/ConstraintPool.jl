@@ -197,9 +197,9 @@ function apply_single_constraint!(
     elseif constraint_name == :planning_reserve_margin
         return apply_planning_reserve_margin!(model, config, input_data)
     elseif constraint_name == :minimum_run_limit
-        return apply_minimum_run_limit!(model, config, input_data)
-    elseif constraint_name == :minimum_up_time
-        return apply_minimum_up_time!(model, config, input_data)    elseif constraint_name == :minimum_down_time
+        return apply_minimum_run_limit!(model, config, input_data)    elseif constraint_name == :minimum_up_time
+        return apply_minimum_up_time!(model, config, input_data)
+    elseif constraint_name == :minimum_down_time
         return apply_minimum_down_time!(model, config, input_data)
     elseif constraint_name == :unit_commitment_transition
         return apply_unit_commitment_transition!(model, config, input_data)
@@ -315,11 +315,11 @@ function initialize_hope_constraint_pool()::ConstraintPool
     register_constraint!(pool, :minimum_run_limit, UNIT_COMMITMENT,
         "Generator minimum run limit",
         [PCM_MODE], Symbol[], Symbol[], Symbol[], true, "unit_commitment")
-    
-    register_constraint!(pool, :minimum_up_time, UNIT_COMMITMENT,
+      register_constraint!(pool, :minimum_up_time, UNIT_COMMITMENT,
         "Generator minimum up time",
         [PCM_MODE], Symbol[], Symbol[], Symbol[], true, "unit_commitment")
-      register_constraint!(pool, :minimum_down_time, UNIT_COMMITMENT,
+    
+    register_constraint!(pool, :minimum_down_time, UNIT_COMMITMENT,
         "Generator minimum down time", 
         [PCM_MODE], Symbol[], Symbol[], Symbol[], true, "unit_commitment")
     
