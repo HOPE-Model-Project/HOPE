@@ -18,6 +18,7 @@ Pkg.activate(".")
 push!(LOAD_PATH, joinpath(@__DIR__, "src_new"))
 using HOPE_New
 using Test
+using JuMP
 using DataFrames
 
 function test_complete_workflow()
@@ -133,13 +134,12 @@ function test_complete_model_workflow()
     
     initialize!(builder, config, input_data, optimizer)
     model = build_model!(builder)
-    
-    @test model !== nothing
+      @test model !== nothing
     @test num_variables(model) > 0
-    @test num_constraints(model) > 0
+    @test num_constraints(model, count_variable_in_set_constraints=false) > 0
     println("   ✅ Model built successfully")
     println("      Variables: $(num_variables(model))")
-    println("      Constraints: $(num_constraints(model))")
+    println("      Constraints: $(num_constraints(model, count_variable_in_set_constraints=false))")
       # Test model solving
     solver_config = SolverConfig(best_solver, time_limit=30.0, other_params=Dict{String, Any}())
     solution_info = solve_hope_model!(model, solver_config)

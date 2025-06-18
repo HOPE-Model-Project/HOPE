@@ -96,8 +96,7 @@ struct SolutionInfo
         end
         
         gap = nothing
-        if status in ["OPTIMAL", "TIME_LIMIT"]
-            try
+        if status in ["OPTIMAL", "TIME_LIMIT"]            try
                 gap = relative_gap(model) * 100  # Convert to percentage
             catch
                 gap = nothing
@@ -107,7 +106,6 @@ struct SolutionInfo
         model_stats = Dict(
             "num_variables" => num_variables(model),
             "num_constraints" => num_constraints(model; count_variable_in_set_constraints=false),
-            "num_linear_constraints" => num_constraints(model, LinearRef),
             "num_binary_variables" => length([v for v in all_variables(model) if is_binary(v)]),
             "num_integer_variables" => length([v for v in all_variables(model) if is_integer(v)])
         )

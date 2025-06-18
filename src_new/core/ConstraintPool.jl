@@ -123,10 +123,16 @@ function apply_constraints!(
         if mode ∉ metadata.applicable_modes
             continue
         end
-        
-        # Check conditional constraints
+          # Check conditional constraints
         if metadata.is_conditional && metadata.condition_setting !== nothing
-            if !get(config, metadata.condition_setting, false)
+            condition_value = get(config, metadata.condition_setting, false)
+            # Convert to boolean (handle case where config values are integers)
+            is_enabled = if condition_value isa Number
+                condition_value > 0
+            else
+                Bool(condition_value)
+            end
+            if !is_enabled
                 skipped_count += 1
                 continue
             end
