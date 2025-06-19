@@ -1,0 +1,244 @@
+# HOPE Data Preprocessing Settings
+# This file controls how input data is preprocessed before being fed into HOPE models
+# Preprocessing includes time clustering, generator aggregation, and data validation
+
+# =============================================================================
+# TIME CLUSTERING SETTINGS
+# =============================================================================
+
+# Enable/disable time clustering (representative days/seasons)
+enable_time_clustering: true
+
+# Clustering method: "seasonal", "kmeans", "hierarchical"
+clustering_method: "seasonal"
+
+# Number of clusters (for kmeans/hierarchical methods)
+num_clusters: 4
+
+# Time period definitions (for seasonal clustering)
+# Format: period_id: (start_month, start_day, end_month, end_day)
+time_periods:
+  1: [3, 20, 6, 20]    # Spring: March 20 - June 20
+  2: [6, 21, 9, 21]    # Summer: June 21 - September 21  
+  3: [9, 22, 12, 20]   # Fall: September 22 - December 20
+  4: [12, 21, 3, 19]   # Winter: December 21 - March 19
+
+# Variables to use for clustering analysis
+cluster_variables:
+  - "load"     # Load time series
+  - "wind"     # Wind time series
+  - "solar"    # Solar time series
+  # - "dr"     # Demand response (if available)
+
+# Advanced clustering settings
+clustering_options:
+  # Weight different variables in clustering
+  variable_weights:
+    load: 1.0
+    wind: 0.8
+    solar: 0.8
+  
+  # Normalization method: "standardize", "normalize", "none"
+  normalization: "standardize"
+  
+  # Distance metric for clustering: "euclidean", "correlation", "manhattan"
+  distance_metric: "euclidean"
+
+# =============================================================================
+# GENERATOR AGGREGATION SETTINGS  
+# =============================================================================
+
+# Enable/disable generator aggregation
+enable_generator_aggregation: true
+
+# Aggregation level: "zone_type", "zone", "type", "none"
+# - "zone_type": Group by both zone and technology type
+# - "zone": Group by zone only (all technologies combined per zone)
+# - "type": Group by technology type only (all zones combined per type)
+# - "none": No aggregation
+aggregation_level: "zone_type"
+
+# Generator flags to preserve during aggregation
+preserve_flags:
+  - "Flag_thermal"   # Thermal generation flag
+  - "Flag_VRE"       # Variable renewable energy flag
+  - "Flag_RET"       # Retirement eligible flag
+  - "Flag_mustrun"   # Must-run flag
+  - "Flag_UC"        # Unit commitment flag (if present)
+
+# Aggregation methods for different parameter types
+aggregation_method:
+  # Capacity parameters (sum across units)
+  capacity_params:
+    method: "sum"
+    parameters:
+      - "Pmax (MW)"
+      - "Pmin (MW)"
+      - "Capacity (MWh)"  # For storage
+      - "Max Power (MW)"   # For storage
+  
+  # Cost parameters (weighted average by capacity)
+  cost_params:
+    method: "weighted_mean"
+    weight_by: "Pmax (MW)"
+    parameters:
+      - "Cost ($/MWh)"
+      - "Start_up_cost ($/MW)"
+      - "Cost ($/MW/yr)"   # Investment costs
+  
+  # Technical parameters (simple average)
+  technical_params:
+    method: "mean"
+    parameters:
+      - "EF"           # Emission factor
+      - "CC"           # Capacity credit  
+      - "AF"           # Availability factor
+      - "FOR"          # Forced outage rate
+      - "RM_SPIN"      # Spinning reserve
+      - "RU"           # Ramp up rate
+      - "RD"           # Ramp down rate
+      - "Charging efficiency"
+      - "Discharging efficiency"
+  
+  # Time parameters (maximum across units)
+  time_params:
+    method: "max"
+    parameters:
+      - "Min_down_time"
+      - "Min_up_time"
+  
+  # Flag parameters (any unit with flag = 1 sets aggregated flag = 1)
+  flag_params:
+    method: "any"
+    parameters:
+      - "Flag_thermal"
+      - "Flag_VRE" 
+      - "Flag_RET"
+      - "Flag_mustrun"
+      - "Flag_UC"
+
+# =============================================================================
+# DATA VALIDATION SETTINGS
+# =============================================================================
+
+# Enable/disable data validation
+enable_validation: true
+
+# Validation rules
+validation_rules:
+  # Required data tables
+  required_tables:
+    - "Zonedata"
+    - "Gendata"
+    - "Loaddata"
+  
+  # Time series consistency checks
+  time_series_checks:
+    expected_hours: 8760  # Full year
+    allow_partial_year: false
+    check_chronological: true
+  
+  # Data value checks
+  value_checks:
+    # Check for negative values where not allowed
+    non_negative:
+      - "Pmax (MW)"
+      - "Pmin (MW)" 
+      - "Cost ($/MWh)"
+      - "Load"
+    
+    # Check for values within reasonable ranges
+    range_checks:
+      "Capacity factor": [0.0, 1.0]
+      "Efficiency": [0.0, 1.0]
+      "FOR": [0.0, 1.0]
+  
+  # Cross-table consistency checks
+  consistency_checks:
+    # Check that all generator zones exist in zone data
+    generator_zones: true
+    # Check that time series have data for all zones
+    time_series_zones: true
+
+# =============================================================================
+# OUTPUT SETTINGS
+# =============================================================================
+
+# Save intermediate results to disk
+save_intermediate_results: true
+
+# Output directory for intermediate results  
+output_directory: "preprocessing_output"
+
+# What to save
+save_options:
+  cluster_results: true
+  aggregated_data: true
+  validation_report: true
+  processing_log: true
+  representative_time_series: true
+
+# Data formats for saved files
+output_formats:
+  tabular_data: "csv"      # "csv", "xlsx", "parquet"
+  configuration: "yml"     # "yml", "json"
+  results: "yml"          # "yml", "json"
+
+# =============================================================================
+# MODEL COMPATIBILITY SETTINGS
+# =============================================================================
+
+# Target model mode: "PCM", "GTEP", "HOLISTIC"
+target_model_mode: "GTEP"
+
+# Model-specific preprocessing options
+model_options:
+  PCM:
+    # For PCM, decide whether to use full resolution or clustering
+    force_full_resolution: false
+    include_unit_commitment: false
+    
+  GTEP:
+    # For GTEP, clustering is typically beneficial
+    recommend_clustering: true
+    include_investment_costs: true
+    
+  HOLISTIC:
+    # For holistic models, maintain mapping between resolutions
+    maintain_resolution_mapping: true
+    create_time_mapping: true
+
+# =============================================================================
+# PERFORMANCE SETTINGS  
+# =============================================================================
+
+# Parallel processing options
+parallel_processing:
+  enable: false
+  num_threads: 4
+  chunk_size: 1000
+
+# Memory management
+memory_management:
+  # Use memory-efficient clustering for large datasets
+  efficient_clustering: true
+  # Cache intermediate results
+  cache_results: true
+  # Maximum memory usage (MB)
+  max_memory_mb: 4096
+
+# =============================================================================
+# DEBUGGING AND LOGGING
+# =============================================================================
+
+# Debugging options
+debug:
+  verbose_output: true
+  save_debug_plots: false
+  validate_each_step: true
+  
+# Logging settings
+logging:
+  log_level: "INFO"  # "DEBUG", "INFO", "WARN", "ERROR"
+  log_to_file: true
+  log_file: "preprocessing.log"

@@ -1,0 +1,88 @@
+# HOPE Preprocessing Settings for MD_GTEP_clean_case
+# This configuration enables time clustering for GTEP modeling
+
+# =============================================================================
+# TIME CLUSTERING SETTINGS
+# =============================================================================
+
+enable_time_clustering: true
+clustering_method: "seasonal"
+
+# Time period definitions matching the original GTEP case
+time_periods:
+  1: [3, 20, 6, 20]    # Spring: March 20 - June 20
+  2: [6, 21, 9, 21]    # Summer: June 21 - September 21  
+  3: [9, 22, 12, 20]   # Fall: September 22 - December 20
+  4: [12, 21, 3, 19]   # Winter: December 21 - March 19
+
+# Variables to cluster (matching available data)
+cluster_variables:
+  - "load"
+  - "wind" 
+  - "solar"
+
+# =============================================================================
+# GENERATOR AGGREGATION SETTINGS  
+# =============================================================================
+
+enable_generator_aggregation: true
+aggregation_level: "zone_type"
+
+preserve_flags:
+  - "Flag_thermal"
+  - "Flag_VRE"
+  - "Flag_RET"
+  - "Flag_mustrun"
+
+# =============================================================================
+# DATA VALIDATION SETTINGS
+# =============================================================================
+
+enable_validation: true
+
+validation_rules:
+  required_tables:
+    - "Zonedata"
+    - "Gendata"
+    - "Loaddata"
+    - "Winddata"
+    - "Solardata"
+  
+  time_series_checks:
+    expected_hours: 8760
+    allow_partial_year: false
+
+# =============================================================================
+# OUTPUT SETTINGS
+# =============================================================================
+
+save_intermediate_results: true
+output_directory: "preprocessing_output"
+
+save_options:
+  cluster_results: true
+  aggregated_data: true
+  validation_report: true
+  representative_time_series: true
+
+# =============================================================================
+# MODEL COMPATIBILITY SETTINGS
+# =============================================================================
+
+target_model_mode: "GTEP"
+
+model_options:
+  GTEP:
+    recommend_clustering: true
+    include_investment_costs: true
+
+# =============================================================================
+# DEBUGGING SETTINGS
+# =============================================================================
+
+debug:
+  verbose_output: true
+  validate_each_step: true
+  
+logging:
+  log_level: "INFO"
