@@ -69,7 +69,7 @@ The objective of this model is to minimize total system costs, including fixed i
 
 (10) Load shedding limit:
 ```math
-0 \le p_{g,t,h}^{LS} \le P_{g,t,h};  \forall d \in D_{i}, i \in I, h \in H_{t}, t \in T
+0 \le p_{d,t,h}^{LS} \le P_{d,t,h};  \forall d \in D_{i}, i \in I, h \in H_{t}, t \in T
 ```
 
 (11) Renewables generation availability for the existing plants:
@@ -191,7 +191,7 @@ dr_{i,t,h}^{DR} = DR_{i,t,h}^{REF} + dr_{i,t,h}^{UP} - dr_{i,t,h}^{DN}; \forall 
 ```
 (33) Demand response (load shifting) constraints - 2:
 ```math
-\sum_{i=h}^{h+23} dr_{i,t,h}^{UP} = \sum_{i=h}^{h+23} dr_{i,t,h}^{DN}; \forall i \in I, h \in HD \text{{1, 25, 49, T-23}}
+\sum_{i=h}^{h+23} dr_{i,t,h}^{UP} = \sum_{i=h}^{h+23} dr_{i,t,h}^{DN}; \forall i \in I, h \in HD \{1, 25, 49, T-23\}
 ```
 (34) Demand response (load shifting) constraints - 3:
 ```math
