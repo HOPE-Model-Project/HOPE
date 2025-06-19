@@ -5,6 +5,8 @@
 # to various formats (CSV, Excel, HDF5) with standardized structure.
 """
 
+module OutputWriter
+
 using JuMP
 using DataFrames
 using CSV
@@ -544,3 +546,5 @@ end
 # Export main functions and types
 export HOPEOutputWriter
 export write_results!
+
+end # module OutputWriter

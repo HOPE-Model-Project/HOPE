@@ -4,6 +4,8 @@
 # This module contains common utility functions used throughout the HOPE system.
 """
 
+module Utils
+
 using DataFrames
 using CSV
 using YAML
@@ -303,3 +305,5 @@ export format_number, create_result_summary
 export ensure_output_path, log_message
 export PerformanceTimer, checkpoint!, get_timing_report
 export get_memory_usage, analyze_model_size
+
+end # module Utils

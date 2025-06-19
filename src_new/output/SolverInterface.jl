@@ -5,6 +5,8 @@
 # with different optimizers and extracting solution information.
 """
 
+module SolverInterface
+
 using JuMP
 using YAML
 using Dates
@@ -336,11 +338,12 @@ function load_solver_config(config_path::String, solver_name::String)::SolverCon
     
     try
         config_data = YAML.load_file(config_path)
-        
-        time_limit = get(config_data, "time_limit", 3600.0)
+          time_limit = get(config_data, "time_limit", 3600.0)
         gap_tolerance = get(config_data, "gap_tolerance", 0.01)
         threads = get(config_data, "threads", 0)
-        other_params = get(config_data, "parameters", Dict())
+        other_params_raw = get(config_data, "parameters", Dict())
+        # Convert to Dict{String, Any} to match SolverConfig type
+        other_params = Dict{String, Any}(string(k) => v for (k, v) in other_params_raw)
         
         return SolverConfig(
             solver_name,
@@ -511,3 +514,5 @@ export get_available_solvers, choose_best_solver
 export create_optimizer, load_solver_config
 export solve_hope_model!, solve_workflow!
 export solution_info_to_dict, validate_model
+
+end # module SolverInterface

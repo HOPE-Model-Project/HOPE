@@ -1,268 +1,484 @@
 """
-# HOPE_New.jl - New Modular HOPE Architecture Entry Point
+# HOPE_New.jl - Modern HOPE Power System Modeling Framework
 # 
-# This is the main module for the redesigned HOPE architecture,
-# demonstrating the new modular, extensible, and transparent design.
+# New modular architecture with integrated preprocessing, unified time management,
+# and flexible constraint system.
 """
 
 module HOPE_New
 
-# Import required packages
+# Core dependencies
 using JuMP
 using DataFrames
-using HiGHS  # Default solver
+using Clustering
+using Statistics
 
-# Core architecture components
-include("core/ConstraintPool.jl")
-include("core/ConstraintImplementations.jl") 
-include("core/TimeManager.jl")
-include("core/ModelBuilder.jl")
-
-# Input/Output layer
+# Include submodules
 include("io/DataReader.jl")
-
-# Utilities
+include("preprocessing/DataPreprocessor.jl")
+include("core/TimeManager.jl")
+include("core/ConstraintPool.jl")
+include("core/ModelBuilder.jl")
+include("output/SolverInterface.jl")
+include("output/OutputWriter.jl")
+include("output/PlotGenerator.jl")
 include("utils/Utils.jl")
 
-# Output layer
-include("output/SolverInterface.jl")
-include("output/OutputWriter.jl")  
-include("output/PlotGenerator.jl")
-include("output/HolisticWorkflow.jl")
+# Import and re-export main functionality
+using .DataReader
+using .DataPreprocessor
+using .TimeManager
+using .ConstraintPool
+using .ModelBuilder
+using .SolverInterface
+using .OutputWriter
+using .PlotGenerator
+using .Utils
 
-# Re-export key functions and types
-export HOPEModelBuilder, HOPEDataReader
-export initialize!, build_model!, get_model_report
-export load_hope_data
-
-# Export output functions
-export SolverConfig, SolutionInfo, HOPEOutputWriter, HOPEPlotGenerator
-export HolisticConfig, HolisticResults
-export solve_hope_model!, write_results!, generate_all_plots!
-export run_holistic_workflow!
-
-"""
-Main function to run HOPE with new architecture
-"""
-function run_hope_new(
-    case_path::String;
-    optimizer = nothing,
-    debug_mode::Bool = false
-)
-    println("🚀 Starting HOPE with New Architecture")
-    println("📁 Case: $case_path")
-    
-    # Initialize data reader
-    reader = HOPEDataReader(case_path)
-    
-    # Load configuration and data
-    input_data = load_hope_data(reader)
-    config = load_configuration(reader)
-    
-    # Set debug mode
-    if debug_mode
-        config["debug"] = 2
-    end
-      # Initialize solver if not provided
-    if optimizer === nothing
-        optimizer = HiGHS.Optimizer
-    end
-    
-    # Create model builder
-    builder = HOPEModelBuilder()
-    builder.constraint_pool.debug_mode = debug_mode
-    
-    # Initialize builder with data and config
-    initialize!(builder, config, input_data, optimizer)
-    
-    # Build the complete model
-    model = build_model!(builder)
-    
-    # Solve the model
-    println("🔧 Solving model...")
-    optimize!(model)
-    
-    # Check solution status
-    status = termination_status(model)
-    println("📊 Solution status: $status")
-    
-    if status == MOI.OPTIMAL
-        println("✅ Optimal solution found!")
-        println("💰 Objective value: $(objective_value(model))")
-    elseif status == MOI.INFEASIBLE
-        println("❌ Model is infeasible")
-        if debug_mode
-            println("🔍 Running debug analysis...")
-            # TODO: Add debug functionality using constraint pool
-        end
-    else
-        println("⚠️  Solution status: $status")
-    end
-    
-    # Generate model report
-    report = get_model_report(builder)
-    println("📋 Model Report:")
-    for (key, value) in report
-        if key != "constraint_report"
-            println("   $key: $value")
-        end
-    end
-    
-    # Print constraint report if available
-    if haskey(report, "constraint_report") && !isempty(report["constraint_report"])
-        println("\n📊 Constraint Report:")
-        constraint_df = report["constraint_report"]
-        for row in eachrow(constraint_df)
-            if row.Status == "VIOLATED"
-                println("   ⚠️  $(row.Constraint): $(row.Description) - Violation: $(row.MaxViolation)")
-            end
-        end
-    end
-    
-    return (model, builder, report)
-end
+# Legacy function - replaced by flexible run_hope_model above
+# """
+# Main HOPE model workflow with integrated preprocessing
+# """
+# function run_hope_model_old(case_path::String; solver_name::String="cbc")
+#     # This function has been replaced by the flexible run_hope_model function above
+#     return run_hope_model_with_preprocessing(case_path; solver_name=solver_name)
+# end
 
 """
-Demonstrate the new architecture with a simple example
+Setup time structure from already preprocessed data
 """
-function demo_new_architecture()
-    println("🎯 HOPE New Architecture Demo")
-    
-    # Create a minimal test case in memory
-    println("📝 Creating minimal test case...")
-    
-    # This would normally load from files, but for demo we create minimal data
-    config = Dict(
-        "model_mode" => "PCM",
-        "solver" => "HiGHS",
-        "unit_commitment" => 0,
-        "flexible_demand" => 0,
-        "debug" => 0
-    )
-    
-    # Minimal input data structure
-    input_data = Dict{String, Any}(
-        "I" => ["Zone1"],  # Zones
-        "W" => ["State1"], # States
-        "G" => [1, 2],     # Two generators
-        "S" => Int[],      # No storage
-        "L" => Int[],      # No transmission
-        "H" => collect(1:24), # 24 hours
-          # Generator data
-        "Gendata" => DataFrame(
-            "Zone" => ["Zone1", "Zone1"],
-            "Type" => ["Coal", "Gas"],
-            "Pmax (MW)" => [100.0, 200.0],
-            "Cost (\$/MWh)" => [50.0, 80.0]
-        ),
-          # Load data (single zone, 24 hours)
-        "Loaddata" => DataFrame(
-            "Hour" => 1:24,
-            "Zone1" => [80, 75, 70, 65, 60, 65, 70, 80, 90, 100, 110, 120,
-                       125, 120, 115, 110, 105, 100, 95, 90, 85, 80, 75, 70]
-        ),
-        
-        # Empty storage data
-        "Storagedata" => DataFrame(
-            "Zone" => String[],
-            "Type" => String[],
-            "Capacity (MWh)" => Float64[],
-            "Max Power (MW)" => Float64[]
-        ),
-        
-        # Empty line data  
-        "Linedata" => DataFrame(
-            "Zone_from" => String[],
-            "Zone_to" => String[],
-            "Pmax (MW)" => Float64[]
+function setup_time_structure_from_preprocessed!(time_manager::HOPETimeManager, processed_data::Dict)
+    # Create a simple time structure from the preprocessed data
+    if haskey(processed_data, "is_clustered") && processed_data["is_clustered"]
+        # Clustered time structure
+        time_structure = UnifiedTimeStructure(
+            get(processed_data, "H", collect(1:8760)),
+            get(processed_data, "T", [1]),
+            get(processed_data, "H_T", Dict(1 => collect(1:8760))),
+            get(processed_data, "period_weights", Dict(1 => 1.0)),
+            get(processed_data, "days_per_period", Dict(1 => 365)),
+            true,  # is_clustered
+            Dict{Int, Int}(),  # cluster_mapping (simplified)
+            get(processed_data, "representative_data", Dict()),
+            Dict{Int, Int}(),  # hour_to_day (simplified)
+            Dict{Int, Int}(),  # hour_to_month (simplified)
+            get(processed_data, "model_mode", "PCM")
         )
-    )
-      println("🏗️  Building model with new architecture...")
-    
-    # Initialize solver
-    optimizer = HiGHS.Optimizer
-    
-    # Create model builder
-    builder = HOPEModelBuilder()
-    builder.constraint_pool.debug_mode = true
-    
-    # Initialize builder
-    initialize!(builder, config, input_data, optimizer)
-    
-    # Build model
-    model = build_model!(builder)
-    
-    # Solve
-    println("🔧 Solving demo model...")
-    optimize!(model)
-    
-    # Results
-    status = termination_status(model)
-    println("📊 Demo solution status: $status")
-    
-    if status == MOI.OPTIMAL
-        println("✅ Demo completed successfully!")
-        println("💰 Objective value: $(round(objective_value(model), digits=2))")
-        
-        # Show some results
-        if haskey(builder.variables, :p)
-            println("🔋 Generation results (MW):")
-            for g in input_data["G"], h in [1, 12, 24]  # Show a few hours
-                gen_val = value(builder.variables[:p][g, h])
-                gen_type = input_data["Gendata"][g, :Type]
-                println("   Hour $h, $gen_type: $(round(gen_val, digits=1)) MW")
-            end
-        end
     else
-        println("❌ Demo failed with status: $status")
+        # Full time structure
+        hours = get(processed_data, "H", collect(1:8760))
+        time_structure = UnifiedTimeStructure(
+            hours,
+            [1],
+            Dict(1 => hours),
+            Dict(1 => 1.0),
+            Dict(1 => 365),
+            false,  # not clustered
+            Dict{Int, Int}(),
+            Dict(),
+            Dict{Int, Int}(),
+            Dict{Int, Int}(),
+            get(processed_data, "model_mode", "PCM")
+        )
     end
     
-    # Generate report
-    report = get_model_report(builder)
-    println("\n📋 Demo Model Report:")
-    println("   Variables: $(report["num_variables"])")
-    println("   Constraints: $(report["num_constraints"])")
-    println("   Time Structure: $(report["time_structure"]["type"])")
-    
-    return (model, builder, report)
+    set_time_structure!(time_manager, time_structure)
+    println("   ✓ Time structure configured from preprocessed data")
 end
 
 """
-Compare old vs new architecture performance
+Simplified workflow for testing and development
 """
-function benchmark_architectures(case_path::String)
-    println("⚡ Benchmarking Old vs New Architecture")
+function run_hope_preprocessing_only(case_path::String)
+    println("🧪 Testing HOPE Preprocessing Only")
+    println("=" ^ 40)
+      try
+        # Load data and configuration
+        reader = HOPEDataReader(case_path)
+        input_data, config = load_case_data(reader, case_path)
+          # Create and run preprocessing
+        preprocessing_config = create_preprocessing_config_from_hope_settings(config)
+        preprocessor = HOPEDataPreprocessor(preprocessing_config)
+        processed_data = preprocess_data!(preprocessor, input_data)
+        
+        println("✅ Preprocessing test completed!")
+        return processed_data, preprocessor.preprocessing_report
+        
+    catch e
+        println("❌ Error in preprocessing test:")
+        println("   $(string(e))")
+        rethrow(e)
+    end
+end
+
+# Main workflow function with preprocessing
+"""
+Main HOPE model workflow with integrated preprocessing
+Supports time clustering and generator aggregation for computational efficiency
+
+# Arguments
+- `case_path`: Path to the case directory
+- `solver_name`: Solver to use (default: "cbc")
+
+# Returns
+- Results dictionary with preprocessing report and model outputs
+"""
+function run_hope_model_with_preprocessing(case_path::String; solver_name::String="cbc")
+    println("🚀 Starting HOPE Model with Integrated Preprocessing")
+    println("=" ^ 60)
     
-    # This would run both architectures and compare:
-    # - Model building time
-    # - Solution time  
-    # - Memory usage
-    # - Code complexity metrics
-    
-    println("🔄 Running new architecture...")
     start_time = time()
     
     try
-        result_new = run_hope_new(case_path, debug_mode=false)
-        new_time = time() - start_time
+        # Step 1: Load configuration and data
+        println("📂 Loading data and configuration...")
+        reader = HOPEDataReader(case_path)
+        input_data, config = load_case_data(reader, case_path)
         
-        println("✅ New architecture completed in $(round(new_time, digits=2)) seconds")
+        # Step 2: Create preprocessing configuration from HOPE settings        println("⚙️  Setting up preprocessing...")
+        preprocessing_config = create_preprocessing_config_from_hope_settings(config)
+        preprocessor = HOPEDataPreprocessor(preprocessing_config)
         
-        # TODO: Run old architecture for comparison
-        # This would require importing the existing HOPE functions
+        # Step 3: Preprocess data (time clustering + generator aggregation)
+        println("🔧 Preprocessing data (clustering and aggregation)...")
+        processed_data = preprocess_data!(preprocessor, input_data)
+          # Step 4: Setup time management with preprocessed data
+        println("⏰ Setting up time management...")
+        time_manager = HOPETimeManager()
+        setup_time_structure_from_preprocessed!(time_manager, processed_data)
+          # Step 5: Build model
+        println("🏗️  Building optimization model...")
+        builder = HOPEModelBuilder()
+        ModelBuilder.initialize!(builder, processed_data, config, time_manager)
+        model = ModelBuilder.build_model!(builder)
+        
+        # Step 6: Solve model
+        println("🔧 Solving model...")
+        solver_config = SolverInterface.SolverConfig(solver_name)
+        solve_results = SolverInterface.solve_hope_model!(model, solver_config, config)
+        
+        # Step 7: Generate outputs
+        println("📊 Generating outputs...")
+        output_writer = HOPEOutputWriter(case_path, config)
+        output_files = OutputWriter.write_results!(output_writer, solve_results, processed_data)
+        
+        execution_time = time() - start_time
+        println("✅ HOPE model with preprocessing completed successfully in $(round(execution_time, digits=2)) seconds!")
         
         return Dict(
-            "new_architecture" => Dict(
-                "time" => new_time,
-                "status" => "completed",
-                "result" => result_new
-            )
+            "status" => "success",
+            "execution_time" => execution_time,
+            "preprocessing_report" => preprocessor.preprocessing_report,
+            "model" => model,
+            "solve_results" => solve_results,
+            "output_files" => output_files,
+            "processed_data" => processed_data,
+            "config" => config,
+            "workflow" => "preprocessing"
         )
         
     catch e
-        println("❌ New architecture failed: $e")
-        return Dict("error" => string(e))
+        execution_time = time() - start_time
+        println("❌ Error in HOPE model execution after $(round(execution_time, digits=2)) seconds:")
+        println("   $(string(e))")
+        rethrow(e)
     end
 end
 
-end  # module HOPE_New
+"""
+Direct HOPE model workflow without preprocessing
+Load Data → Build Model → Solve → Output
+Suitable for small-scale studies or when using pre-processed data
+
+# Arguments
+- `case_path`: Path to the case directory
+- `solver_name`: Solver to use (default: "cbc")
+
+# Returns
+- Results dictionary with model outputs
+"""
+function run_hope_model_direct(case_path::String; solver_name::String="cbc")
+    println("🚀 Starting HOPE Model (Direct Mode - No Preprocessing)")
+    println("=" ^ 60)
+    
+    start_time = time()
+    
+    try
+        # Step 1: Load configuration and data
+        println("📂 Loading data and configuration...")
+        reader = HOPEDataReader(case_path)
+        input_data, config = load_case_data(reader, case_path)
+          # Step 2: Setup time management directly from configuration
+        println("⏰ Setting up time management...")
+        time_manager = HOPETimeManager()
+        setup_time_structure!(time_manager, input_data, config)
+          # Step 3: Build model
+        println("🏗️  Building optimization model...")
+        builder = HOPEModelBuilder()
+        ModelBuilder.initialize!(builder, input_data, config, time_manager)
+        model = ModelBuilder.build_model!(builder)
+        
+        # Step 4: Solve model
+        println("🔧 Solving model...")
+        solver_config = SolverInterface.SolverConfig(solver_name)
+        solve_results = SolverInterface.solve_hope_model!(model, solver_config, config)
+        
+        # Step 5: Generate outputs
+        println("📊 Generating outputs...")
+        output_writer = HOPEOutputWriter(case_path, config)
+        output_files = OutputWriter.write_results!(output_writer, solve_results, input_data)
+        
+        execution_time = time() - start_time
+        println("✅ HOPE model (direct) completed successfully in $(round(execution_time, digits=2)) seconds!")
+        
+        return Dict(
+            "status" => "success",
+            "execution_time" => execution_time,
+            "model" => model,
+            "solve_results" => solve_results,
+            "output_files" => output_files,
+            "input_data" => input_data,
+            "config" => config,
+            "workflow" => "direct"
+        )
+        
+    catch e
+        execution_time = time() - start_time
+        println("❌ Error in HOPE model execution after $(round(execution_time, digits=2)) seconds:")
+        println("   $(string(e))")
+        rethrow(e)
+    end
+end
+
+"""
+Flexible HOPE model workflow that auto-detects preprocessing needs
+Main entry point that chooses between preprocessed and direct workflows
+
+# Arguments
+- `case_path`: Path to the case directory containing Settings/ and Data/ folders
+- `solver_name`: Solver to use (default: "cbc")
+- `use_preprocessing`: Force preprocessing on/off, or auto-detect if nothing
+- `config_override`: Optional dictionary to override configuration parameters
+
+# Returns
+- Results dictionary containing model outputs, timing information, and metadata
+"""
+function run_hope_model(case_path::String; 
+                       solver_name::String="cbc", 
+                       use_preprocessing::Union{Bool, Nothing}=nothing,
+                       config_override::Dict=Dict())
+    
+    start_time = time()
+    
+    try
+        # Load configuration to determine preprocessing needs
+        reader = HOPEDataReader(case_path)
+        _, config = load_case_data(reader, case_path)
+        
+        # Apply configuration overrides
+        merge!(config, config_override)
+        
+        # Auto-detect preprocessing needs if not specified
+        if use_preprocessing === nothing
+            needs_preprocessing = detect_preprocessing_needs(config)
+            println("🔍 Auto-detected preprocessing needs: $needs_preprocessing")
+        else
+            needs_preprocessing = use_preprocessing
+            println("🎯 User-specified preprocessing: $needs_preprocessing")
+        end
+        
+        # Choose workflow based on preprocessing needs
+        if needs_preprocessing
+            println("🔄 Running with preprocessing workflow")
+            results = run_hope_model_with_preprocessing(case_path; solver_name=solver_name)
+        else
+            println("⚡ Running direct workflow (no preprocessing)")
+            results = run_hope_model_direct(case_path; solver_name=solver_name)
+        end
+        
+        # Add workflow metadata
+        execution_time = time() - start_time
+        results["total_execution_time"] = execution_time
+        results["workflow_type"] = needs_preprocessing ? "preprocessing" : "direct"
+        results["preprocessing_enabled"] = needs_preprocessing
+        results["config"] = config
+        
+        println("✅ Total execution time: $(round(execution_time, digits=2)) seconds")
+        return results
+        
+    catch e
+        execution_time = time() - start_time
+        println("❌ Model execution failed after $(round(execution_time, digits=2)) seconds")
+        println("Error: $e")
+        rethrow(e)
+    end
+end
+
+"""
+Detect if preprocessing is needed based on configuration and data characteristics
+
+# Arguments
+- `config`: Configuration dictionary from YAML file
+
+# Returns
+- `true` if preprocessing is needed, `false` otherwise
+
+# Detection criteria:
+- Time clustering: representative_day! = 1 and time_periods defined
+- Generator aggregation: aggregated! = 1  
+- Large dataset: Automatic detection based on data size (future)
+"""
+function detect_preprocessing_needs(config::Dict)::Bool
+    # Check if time clustering is explicitly enabled
+    if get(config, "representative_day!", 0) == 1
+        # Verify time_periods are defined
+        if haskey(config, "time_periods") && !isempty(config["time_periods"])
+            println("   ✓ Time clustering enabled with time_periods defined")
+            return true
+        else
+            @warn "representative_day! is enabled but time_periods is not defined or empty"
+        end
+    end
+    
+    # Check if generator aggregation is enabled
+    if get(config, "aggregated!", 0) == 1
+        println("   ✓ Generator aggregation enabled")
+        return true
+    end
+    
+    # Future: Could add automatic detection based on data size
+    # if data size > threshold, suggest preprocessing
+    
+    println("   ✓ No preprocessing flags detected")
+    return false
+end
+
+# Export main functions
+export run_hope_model, run_hope_model_with_preprocessing, run_hope_model_direct
+export run_hope_preprocessing_only, detect_preprocessing_needs
+export setup_time_structure_from_preprocessed!
+
+# Export key types and functions from submodules
+export HOPEDataReader, load_case_data
+export PreprocessingConfig, HOPEDataPreprocessor, create_preprocessing_config_from_hope_settings
+export preprocess_data!, process_time_clustering!, process_generator_aggregation!
+export UnifiedTimeStructure, HOPETimeManager, create_unified_time_structure
+export setup_time_structure!, set_time_structure!, get_time_indices, get_effective_hours
+export HOPEModelBuilder, initialize!, build_model!
+export SolverConfig, solve_hope_model!
+export HOPEOutputWriter, write_results!
+
+# Additional utility functions
+"""
+    validate_case_directory(case_path::String)
+
+Validate that a case directory has the required structure and files.
+"""
+function validate_case_directory(case_path::String)
+    if !isdir(case_path)
+        throw(ArgumentError("Case directory does not exist: $case_path"))
+    end
+    
+    settings_dir = joinpath(case_path, "Settings")
+    if !isdir(settings_dir)
+        throw(ArgumentError("Settings directory not found: $settings_dir"))
+    end
+    
+    config_file = joinpath(settings_dir, "HOPE_model_settings.yml")
+    if !isfile(config_file)
+        throw(ArgumentError("Configuration file not found: $config_file"))
+    end
+    
+    return true
+end
+
+"""
+    get_available_solvers()
+
+Get list of available solvers in the current environment.
+"""
+function get_available_solvers()
+    available = String[]
+    
+    # Check commonly available solvers by checking if they're in the environment
+    # Use haskey on the loaded packages
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("9961bab8-2fa3-5c5a-9d89-47fab24efd76"), "Cbc"))
+            push!(available, "cbc")
+        end
+    catch
+    end
+    
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("e2554f3b-3117-50c0-817c-e040a3ddf72d"), "Clp"))
+            push!(available, "clp")
+        end
+    catch
+    end
+    
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("60bf3e95-4087-53dc-ae20-288a0d20c6a6"), "GLPK"))
+            push!(available, "glpk")
+        end
+    catch
+    end
+    
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("87dc4568-4c63-4d18-b0c0-bb2238e4078b"), "HiGHS"))
+            push!(available, "highs")
+        end
+    catch
+    end
+    
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("2e9cd046-0924-5485-92f1-d5272153d98b"), "Gurobi"))
+            push!(available, "gurobi")
+        end
+    catch
+    end
+    
+    try
+        if haskey(Base.loaded_modules, Base.PkgId(Base.UUID("a076750e-1247-5638-91d2-ce28b192dca0"), "CPLEX"))
+            push!(available, "cplex")
+        end
+    catch
+    end
+    
+    # If no solvers detected in loaded modules, add default ones that are likely available
+    if isempty(available)
+        push!(available, "cbc")  # CBC is usually available
+        push!(available, "highs") # HiGHS is becoming standard
+    end
+    
+    return available
+end
+
+"""
+    print_hope_info()
+
+Print information about HOPE system and available features.
+"""
+function print_hope_info()
+    println("🏛️  HOPE: Holistic Optimization Power-system Economy Model")
+    println("=" ^ 60)
+    println("🔄 Flexible Workflow: Auto-detects preprocessing needs")
+    println("⚡ Direct Mode: No preprocessing for small studies")
+    println("🔧 Preprocessing Mode: Time clustering + generator aggregation")
+    println("📊 Supported Models: GTEP (capacity expansion), PCM (dispatch)")
+    println()
+    println("Available Solvers: $(join(get_available_solvers(), ", "))")
+    println()
+    println("Usage Examples:")
+    println("  # Auto-detect workflow")
+    println("  results = run_hope_model(\"ModelCases/MyCase\")")
+    println()
+    println("  # Force preprocessing")
+    println("  results = run_hope_model(\"ModelCases/MyCase\", use_preprocessing=true)")
+    println()
+    println("  # Use specific solver")
+    println("  results = run_hope_model(\"ModelCases/MyCase\", solver_name=\"highs\")")
+end
+
+export validate_case_directory, get_available_solvers, print_hope_info
+
+end # module HOPE_New

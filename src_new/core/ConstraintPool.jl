@@ -11,6 +11,8 @@
 # - Transparent constraint application and reporting
 """
 
+module ConstraintPool
+
 using JuMP
 using DataFrames
 
@@ -48,7 +50,7 @@ struct ConstraintMetadata
 end
 
 # Main ConstraintPool structure
-mutable struct ConstraintPool
+mutable struct HOPEConstraintPool
     constraints::Dict{Symbol, ConstraintMetadata}
     constraint_refs::Dict{Symbol, Vector{JuMP.ConstraintRef}}  # Store actual constraint references
     model_ref::Union{JuMP.Model, Nothing}
@@ -56,7 +58,7 @@ mutable struct ConstraintPool
     constraint_violations::Dict{Symbol, Float64}
     debug_mode::Bool
     
-    function ConstraintPool()
+    function HOPEConstraintPool()
         new(
             Dict{Symbol, ConstraintMetadata}(),
             Dict{Symbol, Vector{JuMP.ConstraintRef}}(),
@@ -72,7 +74,7 @@ end
 Register a new constraint type in the pool
 """
 function register_constraint!(
-    pool::ConstraintPool,
+    pool::HOPEConstraintPool,
     name::Symbol,
     category::ConstraintCategory,
     description::String,
@@ -106,7 +108,7 @@ end
 Apply constraints to a model based on configuration and mode
 """
 function apply_constraints!(
-    pool::ConstraintPool,
+    pool::HOPEConstraintPool,
     model::JuMP.Model,
     mode::ModelMode,
     config::Dict,
@@ -171,7 +173,7 @@ Apply a single constraint to the model
 This function dispatches to specific constraint implementations
 """
 function apply_single_constraint!(
-    pool::ConstraintPool,
+    pool::HOPEConstraintPool,
     constraint_name::Symbol,
     model::JuMP.Model,
     config::Dict,
@@ -219,7 +221,7 @@ end
 """
 Get constraint status and violations report
 """
-function get_constraint_report(pool::ConstraintPool)::DataFrame
+function get_constraint_report(pool::HOPEConstraintPool)::DataFrame
     if pool.model_ref === nothing
         return DataFrame()
     end
@@ -261,8 +263,8 @@ end
 """
 Initialize the constraint pool with all HOPE constraints
 """
-function initialize_hope_constraint_pool()::ConstraintPool
-    pool = ConstraintPool()
+function initialize_hope_constraint_pool()::HOPEConstraintPool
+    pool = HOPEConstraintPool()
     
     println("🏗️  Initializing HOPE Constraint Pool...")
     
@@ -343,6 +345,8 @@ function initialize_hope_constraint_pool()::ConstraintPool
 end
 
 # Export main functions and types
-export ConstraintPool, ConstraintCategory, ModelMode
+export HOPEConstraintPool, ConstraintCategory, ModelMode
 export register_constraint!, apply_constraints!, get_constraint_report
 export initialize_hope_constraint_pool
+
+end # module ConstraintPool

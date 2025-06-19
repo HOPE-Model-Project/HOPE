@@ -3,84 +3,163 @@
 # 
 # This module provides unified data loading capabilities for HOPE models,
 # handling CSV, Excel, and other data formats with validation and preprocessing.
+# Supports flexible data sources: multi-sheet Excel files OR individual CSV files
 """
+
+module DataReader
 
 using DataFrames
 using CSV
 using XLSX
 using YAML
+using Statistics
 
 """
-Data reader structure for managing input data loading
+Data reader structure for managing input data loading with flexible format support
 """
 struct HOPEDataReader
     case_path::String
     data_path::String
     settings_path::String
+    use_excel::Bool
+    excel_file::Union{String, Nothing}
     
     function HOPEDataReader(case_path::String)
-        data_path = joinpath(case_path, "Data_100RPS")  # Default data folder
-        if !isdir(data_path)
-            data_path = joinpath(case_path, "Data_PCM2035")
-        end
-        if !isdir(data_path)
-            data_path = joinpath(case_path, "Data_PJM_GTEP_subzones")
-        end
-        if !isdir(data_path)
-            data_path = joinpath(case_path, "Data_PJM_PCM_subzones")
-        end
-        
         settings_path = joinpath(case_path, "Settings")
         
-        new(case_path, data_path, settings_path)
+        # Load configuration to get DataCase
+        settings_file = joinpath(settings_path, "HOPE_model_settings.yml")
+        if !isfile(settings_file)
+            throw(ArgumentError("Settings file not found: $settings_file"))
+        end
+        
+        config = YAML.load(open(settings_file))
+        data_case = get(config, "DataCase", "Data/")
+        
+        # Remove trailing slash if present
+        data_case = rstrip(data_case, '/')
+        
+        # Construct data path using DataCase from config
+        data_path = joinpath(case_path, data_case)
+        
+        if !isdir(data_path)
+            throw(ArgumentError("Data directory not found: $data_path"))
+        end
+        
+        # Auto-detect whether to use Excel or CSV
+        files = readdir(data_path)
+        excel_files = filter(f -> endswith(f, ".xlsx"), files)
+        
+        use_excel = length(excel_files) > 0
+        excel_file = use_excel ? excel_files[1] : nothing  # Use first Excel file found
+        
+        println("📁 Data source detected:")
+        println("   Case path: $case_path")
+        println("   Data path: $data_path") 
+        println("   Format: $(use_excel ? "Excel ($excel_file)" : "CSV files")")
+        
+        new(case_path, data_path, settings_path, use_excel, excel_file)
     end
 end
 
 """
-Main data loading function with validation and preprocessing
+Aggregation function for generation data in GTEP mode (from original code)
 """
-function load_hope_data(reader::HOPEDataReader)::Dict
-    println("📂 Loading HOPE data from: $(reader.case_path)")
-    
-    # Load configuration
-    config = load_configuration(reader)
-    
-    # Load all data tables
-    data = Dict{String, Any}()
-    
-    # Core network and technology data
-    data["Zonedata"] = load_zone_data(reader)
-    data["Linedata"] = load_line_data(reader)
-    data["Gendata"] = load_generator_data(reader)
-    data["Storagedata"] = load_storage_data(reader)
-    
-    # Time series data
-    data["Loaddata"] = load_load_timeseries(reader)
-    data["Winddata"] = load_wind_timeseries(reader)
-    data["Solardata"] = load_solar_timeseries(reader)
-    data["NIdata"] = load_net_interchange_data(reader)
-    
-    # Policy data
-    data["CBPdata"] = load_carbon_policy_data(reader)
-    data["RPSdata"] = load_rps_policy_data(reader)
-    
-    # Single parameters
-    data["Singlepar"] = load_single_parameters(reader)
-    
-    # Load candidate data for GTEP mode
-    if config["model_mode"] == "GTEP"
-        data["Gendata_candidate"] = load_candidate_generator_data(reader)
-        data["Linedata_candidate"] = load_candidate_line_data(reader)
-        data["Estoragedata_candidate"] = load_candidate_storage_data(reader)
+function aggregate_gendata_gtep(df)
+    agg_df = combine(groupby(df, [:Zone,:Type]),
+        Symbol("Pmax (MW)") .=> sum,
+        Symbol("Pmin (MW)") .=> sum,
+        Symbol("Cost (\$/MWh)") .=> mean,
+        :EF .=> mean,
+        :CC .=> mean,
+        :AF .=> mean,
+        :Flag_thermal .=> mean,
+        :Flag_VRE .=> mean,
+        :Flag_RET .=> mean,
+        :Flag_mustrun .=> mean,)
+    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun] )
+    agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
+    agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+    agg_df[agg_df.Flag_RET .> 0, :Flag_RET] .=1
+    agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
+    return agg_df
+end
+
+"""
+Aggregation function for generation data in PCM mode (from original code)
+"""
+function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
+    if get(config_set, "unit_commitment", 0) == 0
+        agg_df = combine(groupby(df, [:Zone,:Type]),
+            Symbol("Pmax (MW)") .=> sum,
+            Symbol("Pmin (MW)") .=> sum,
+            Symbol("Cost (\$/MWh)") .=> mean,
+            :EF .=> mean,
+            :CC .=> mean,
+            :FOR .=> mean,
+            :RM_SPIN .=> mean,
+            :RU .=> mean,
+            :RD .=> mean,
+            :Flag_thermal .=> mean,
+            :Flag_VRE .=> mean,
+            :Flag_mustrun .=> mean)
+        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean] 
+            .=> [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE,:Flag_mustrun])
+        agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
+        agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+        agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
+        return agg_df
+    else
+        # Include unit commitment parameters
+        agg_df = combine(groupby(df, [:Zone,:Type]),
+            Symbol("Pmax (MW)") .=> sum,
+            Symbol("Pmin (MW)") .=> sum,
+            Symbol("Cost (\$/MWh)") .=> mean,
+            :EF .=> mean,
+            :CC .=> mean,
+            :FOR .=> mean,
+            :RM_SPIN .=> mean,
+            :RU .=> mean,
+            :RD .=> mean,
+            :Min_run_hour .=> mean,
+            :Min_up_hour .=> mean,
+            :Min_down_hour .=> mean,
+            :Flag_thermal .=> mean,
+            :Flag_VRE .=> mean,
+            :Flag_mustrun .=> mean,
+            :Flag_UC .=> mean)
+        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Min_run_hour_mean,:Min_up_hour_mean,:Min_down_hour_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean,:Flag_UC_mean] 
+            .=> [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Min_run_hour,:Min_up_hour,:Min_down_hour,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC])
+        agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
+        agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
+        agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
+        agg_df[agg_df.Flag_UC .> 0, :Flag_UC] .=1
+        return agg_df
     end
+end
+
+"""
+Main function to load HOPE input data with flexible Excel/CSV support
+"""
+function load_hope_data(reader::HOPEDataReader, config::Dict)::Dict
+    model_mode = config["model_mode"]
+    println("📊 Loading input data for $model_mode mode...")
+    println("   Data source: $(reader.use_excel ? "Excel" : "CSV")")
     
-    # Load demand response data if enabled
-    if get(config, "flexible_demand", false)
-        data["Flexddata"] = load_demand_response_data(reader)
+    input_data = Dict()
+    
+    if model_mode == "GTEP"
+        input_data = load_gtep_data(reader, config)
+    elseif model_mode == "PCM"
+        input_data = load_pcm_data(reader, config)
+    elseif model_mode == "HOLISTIC"
+        input_data = load_holistic_data(reader, config)
+    else
+        throw(ArgumentError("Unknown model mode: $model_mode"))
     end
     
     # Process and validate data
-    processed_data = process_raw_data(data, config)
+    processed_data = process_raw_data(input_data, config)
     validated_data = validate_input_data(processed_data, config)
     
     println("✅ Data loading completed successfully")
@@ -90,7 +169,7 @@ function load_hope_data(reader::HOPEDataReader)::Dict
 end
 
 """
-Load model configuration from YAML settings
+Load model configuration from YAML settings with full settings structure support
 """
 function load_configuration(reader::HOPEDataReader)::Dict
     settings_file = joinpath(reader.settings_path, "HOPE_model_settings.yml")
@@ -102,21 +181,27 @@ function load_configuration(reader::HOPEDataReader)::Dict
     config = YAML.load(open(settings_file))
     
     # Validate required settings
-    required_settings = ["model_mode", "solver"]
+    required_settings = ["model_mode", "solver", "DataCase"]
     for setting in required_settings
         if !haskey(config, setting)
             throw(ArgumentError("Required setting missing: $setting"))
         end
     end
     
-    # Set default values for optional settings
+    # Set default values for optional settings based on real examples
     defaults = Dict(
         "unit_commitment" => 0,
         "flexible_demand" => 0,
-        "generator_retirement" => 0,
-        "investment_binary" => 1,
+        "aggregated!" => 1,
+        "representative_day!" => 0,
+        "inv_dcs_bin" => 0,
         "debug" => 0,
-        "target_year" => 2035
+        "time_periods" => Dict(
+            1 => (3, 20, 6, 20),    # Spring
+            2 => (6, 21, 9, 21),    # Summer  
+            3 => (9, 22, 12, 20),   # Fall
+            4 => (12, 21, 3, 19)    # Winter
+        )
     )
     
     for (key, default_value) in defaults
@@ -125,7 +210,32 @@ function load_configuration(reader::HOPEDataReader)::Dict
         end
     end
     
+    println("📋 Configuration loaded:")
+    println("   Model mode: $(config["model_mode"])")
+    println("   Data case: $(config["DataCase"])")
+    println("   Solver: $(config["solver"])")
+    println("   Aggregated: $(config["aggregated!"])")
+    println("   Flexible demand: $(config["flexible_demand"])")
+    println("   Representative days: $(config["representative_day!"])")
+    
     return config
+end
+
+"""
+Load solver-specific configuration
+"""
+function load_solver_configuration(reader::HOPEDataReader, solver_name::String)::Dict
+    solver_file = joinpath(reader.settings_path, "$(solver_name)_settings.yml")
+    
+    if !isfile(solver_file)
+        println("⚠️  Solver settings file not found: $solver_file, using defaults")
+        return Dict{String, Any}()
+    end
+    
+    solver_config = YAML.load(open(solver_file))
+    println("🔧 Solver configuration loaded for $solver_name")
+    
+    return solver_config
 end
 
 """
@@ -516,11 +626,64 @@ Process raw data into model-ready format
 function process_raw_data(data::Dict, config::Dict)::Dict
     processed = copy(data)
     
-    # Create index sets from data
-    processed["I"] = unique(data["Zonedata"][!, :Zone])  # Zones
-    processed["W"] = unique(data["Zonedata"][!, :State])  # States (if available)
-    if isempty(processed["W"])
+    # Debug: Check what columns exist in zone data
+    println("🔍 Zone data columns: $(names(data["Zonedata"]))")
+    println("🔍 Zone data sample:")
+    println(first(data["Zonedata"], 3))
+      # Create index sets from data - be flexible with column names
+    if hasproperty(data["Zonedata"], :Zone)
+        processed["I"] = unique(data["Zonedata"][!, :Zone])  # Zones
+    elseif hasproperty(data["Zonedata"], :zone)
+        processed["I"] = unique(data["Zonedata"][!, :zone])  # Zones (lowercase)
+    elseif hasproperty(data["Zonedata"], :Zone_id)
+        processed["I"] = unique(data["Zonedata"][!, :Zone_id])  # Zone_id column
+        println("⚠️  Using column 'Zone_id' as zone identifier")
+    elseif hasproperty(data["Zonedata"], Symbol("Zone ID"))
+        processed["I"] = unique(data["Zonedata"][!, Symbol("Zone ID")])  # Alternative name
+    else
+        # Use first string column as zone identifier
+        string_cols = filter(col -> eltype(data["Zonedata"][!, col]) <: AbstractString, names(data["Zonedata"]))
+        if !isempty(string_cols)
+            processed["I"] = unique(data["Zonedata"][!, string_cols[1]])
+            println("⚠️  Using column '$(string_cols[1])' as zone identifier")
+        else
+            throw(ArgumentError("Cannot find zone identifier column in Zonedata"))
+        end
+    end
+    
+    # Similarly for states
+    if hasproperty(data["Zonedata"], :State)
+        processed["W"] = unique(data["Zonedata"][!, :State])  # States (if available)
+    elseif hasproperty(data["Zonedata"], :state)
+        processed["W"] = unique(data["Zonedata"][!, :state])  # States (lowercase)
+    else
         processed["W"] = ["State1"]  # Default state
+        println("⚠️  No State column found, using default")
+    end
+      if isempty(processed["W"])
+        processed["W"] = ["State1"]  # Default state
+    end
+    
+    # Standardize generator data zone column
+    if haskey(data, "Gendata")
+        gen_df = data["Gendata"]
+        gen_zone_col_candidates = [:Zone, :Zone_id, "Zone", "Zone_id"]
+        gen_zone_col = nothing
+        
+        for col in gen_zone_col_candidates
+            if hasproperty(gen_df, col)
+                gen_zone_col = col
+                break
+            end
+        end
+        
+        if gen_zone_col !== nothing && gen_zone_col != :Zone
+            if !hasproperty(gen_df, :Zone)
+                rename!(gen_df, gen_zone_col => :Zone)
+            end
+        end
+        
+        processed["Gendata"] = gen_df
     end
     
     # Generator sets
@@ -627,6 +790,240 @@ function print_data_summary(data::Dict)
     end
 end
 
+"""
+Load data for GTEP mode with flexible Excel/CSV support
+"""
+function load_gtep_data(reader::HOPEDataReader, config::Dict)::Dict
+    data = Dict()
+    aggregated = get(config, "aggregated!", 0) == 1
+    flexible_demand = get(config, "flexible_demand", 0) == 1
+    
+    if reader.use_excel
+        println("📄 Reading from Excel file: $(reader.excel_file)")
+        excel_path = joinpath(reader.data_path, reader.excel_file)
+        
+        # Network data
+        println("Reading network data...")
+        data["Zonedata"] = DataFrame(XLSX.readtable(excel_path, "zonedata"))
+        data["Linedata"] = DataFrame(XLSX.readtable(excel_path, "linedata"))
+        
+        # Technology data
+        println("Reading technology data...")
+        gendata_raw = DataFrame(XLSX.readtable(excel_path, "gendata"))
+        data["Gendata"] = aggregated ? aggregate_gendata_gtep(gendata_raw) : gendata_raw
+        data["Storagedata"] = DataFrame(XLSX.readtable(excel_path, "storagedata"))
+        
+        # Time series data
+        println("Reading time series...")
+        data["Winddata"] = DataFrame(XLSX.readtable(excel_path, "wind_timeseries_regional"))
+        data["Solardata"] = DataFrame(XLSX.readtable(excel_path, "solar_timeseries_regional"))
+        data["Loaddata"] = DataFrame(XLSX.readtable(excel_path, "load_timeseries_regional"))
+        data["NIdata"] = data["Loaddata"][:, "NI"]
+          # Candidate data
+        println("Reading candidate resources...")
+        data["Estoragedata_candidate"] = DataFrame(XLSX.readtable(excel_path, "storagedata_candidate"))
+        data["Linedata_candidate"] = DataFrame(XLSX.readtable(excel_path, "linedata_candidate"))
+        data["Gendata_candidate"] = DataFrame(XLSX.readtable(excel_path, "gendata_candidate"))
+        
+        # Policy data
+        println("Reading policies...")
+        data["CBPdata"] = DataFrame(XLSX.readtable(excel_path, "carbonpolicies"))
+        data["RPSdata"] = DataFrame(XLSX.readtable(excel_path, "rpspolicies"))
+        
+        # Single parameters
+        println("Reading single parameters...")
+        data["Singlepar"] = DataFrame(XLSX.readtable(excel_path, "single_parameter"))
+        
+        # Optional demand response data
+        if flexible_demand
+            try
+                data["DRdata"] = DataFrame(XLSX.readtable(excel_path, "flexddata"))
+                data["DRtsdata"] = DataFrame(XLSX.readtable(excel_path, "dr_timeseries_regional"))
+            catch e
+                println("⚠️  Warning: Could not load demand response data: $e")
+            end
+        end
+        
+        println("✅ Excel files successfully loaded from $(reader.data_path)")
+        
+    else
+        println("📄 Reading from CSV files...")
+        
+        # Network data
+        println("Reading network data...")
+        data["Zonedata"] = CSV.read(joinpath(reader.data_path, "zonedata.csv"), DataFrame)
+        data["Linedata"] = CSV.read(joinpath(reader.data_path, "linedata.csv"), DataFrame)
+        
+        # Technology data
+        println("Reading technology data...")
+        gendata_raw = CSV.read(joinpath(reader.data_path, "gendata.csv"), DataFrame)
+        data["Gendata"] = aggregated ? aggregate_gendata_gtep(gendata_raw) : gendata_raw
+        data["Storagedata"] = CSV.read(joinpath(reader.data_path, "storagedata.csv"), DataFrame)
+        
+        # Time series data
+        println("Reading time series...")
+        data["Winddata"] = CSV.read(joinpath(reader.data_path, "wind_timeseries_regional.csv"), DataFrame)
+        data["Solardata"] = CSV.read(joinpath(reader.data_path, "solar_timeseries_regional.csv"), DataFrame)
+        data["Loaddata"] = CSV.read(joinpath(reader.data_path, "load_timeseries_regional.csv"), DataFrame)
+        data["NIdata"] = data["Loaddata"][:, "NI"]
+        
+        # Candidate data
+        println("Reading candidate resources...")
+        data["Estoragedata_candidate"] = CSV.read(joinpath(reader.data_path, "storagedata_candidate.csv"), DataFrame)
+        data["Linedata_candidate"] = CSV.read(joinpath(reader.data_path, "linedata_candidate.csv"), DataFrame)
+        data["Gendata_candidate"] = CSV.read(joinpath(reader.data_path, "gendata_candidate.csv"), DataFrame)
+        
+        # Policy data
+        println("Reading policies...")
+        data["CBPdata"] = CSV.read(joinpath(reader.data_path, "carbonpolicies.csv"), DataFrame)
+        data["RPSdata"] = CSV.read(joinpath(reader.data_path, "rpspolicies.csv"), DataFrame)
+        
+        # Single parameters
+        println("Reading single parameters...")
+        data["Singlepar"] = CSV.read(joinpath(reader.data_path, "single_parameter.csv"), DataFrame)
+        
+        # Optional demand response data
+        if flexible_demand
+            try
+                data["DRdata"] = CSV.read(joinpath(reader.data_path, "flexddata.csv"), DataFrame)
+                data["DRtsdata"] = CSV.read(joinpath(reader.data_path, "dr_timeseries_regional.csv"), DataFrame)
+            catch e
+                println("⚠️  Warning: Could not load demand response data: $e")
+            end
+        end
+        
+        println("✅ CSV files successfully loaded from $(reader.data_path)")
+    end
+    
+    return data
+end
+
+"""
+Load data for PCM mode with flexible Excel/CSV support
+"""
+function load_pcm_data(reader::HOPEDataReader, config::Dict)::Dict
+    data = Dict()
+    aggregated = get(config, "aggregated!", 0) == 1
+    flexible_demand = get(config, "flexible_demand", 0) == 1
+    
+    if reader.use_excel
+        println("📄 Reading from Excel file: $(reader.excel_file)")
+        excel_path = joinpath(reader.data_path, reader.excel_file)
+        
+        # Network data
+        println("Reading network data...")
+        data["Zonedata"] = DataFrame(XLSX.readtable(excel_path, "zonedata"))
+        data["Linedata"] = DataFrame(XLSX.readtable(excel_path, "linedata"))
+        
+        # Technology data
+        println("Reading technology data...")
+        gendata_raw = DataFrame(XLSX.readtable(excel_path, "gendata"))
+        data["Gendata"] = aggregated ? aggregate_gendata_pcm(gendata_raw, config) : gendata_raw
+        data["Storagedata"] = DataFrame(XLSX.readtable(excel_path, "storagedata"))
+        
+        # Time series data
+        println("Reading time series...")
+        data["Winddata"] = DataFrame(XLSX.readtable(excel_path, "wind_timeseries_regional"))
+        data["Solardata"] = DataFrame(XLSX.readtable(excel_path, "solar_timeseries_regional"))
+        data["Loaddata"] = DataFrame(XLSX.readtable(excel_path, "load_timeseries_regional"))
+        data["NIdata"] = data["Loaddata"][:, "NI"]
+        
+        # Policy data
+        println("Reading policies...")
+        data["CBPdata"] = DataFrame(XLSX.readtable(excel_path, "carbonpolicies"))
+        data["RPSdata"] = DataFrame(XLSX.readtable(excel_path, "rpspolicies"))
+        
+        # Single parameters
+        println("Reading single parameters...")
+        data["Singlepar"] = DataFrame(XLSX.readtable(excel_path, "single_parameter"))
+        
+        # Optional demand response data
+        if flexible_demand
+            try
+                data["DRdata"] = DataFrame(XLSX.readtable(excel_path, "flexddata"))
+                data["DRtsdata"] = DataFrame(XLSX.readtable(excel_path, "dr_timeseries_regional"))
+            catch e
+                println("⚠️  Warning: Could not load demand response data: $e")
+            end
+        end
+        
+        println("✅ Excel files successfully loaded from $(reader.data_path)")
+        
+    else
+        println("📄 Reading from CSV files...")
+        
+        # Network data
+        println("Reading network data...")
+        data["Zonedata"] = CSV.read(joinpath(reader.data_path, "zonedata.csv"), DataFrame)
+        data["Linedata"] = CSV.read(joinpath(reader.data_path, "linedata.csv"), DataFrame)
+        
+        # Technology data
+        println("Reading technology data...")
+        gendata_raw = CSV.read(joinpath(reader.data_path, "gendata.csv"), DataFrame)
+        data["Gendata"] = aggregated ? aggregate_gendata_pcm(gendata_raw, config) : gendata_raw
+        data["Storagedata"] = CSV.read(joinpath(reader.data_path, "storagedata.csv"), DataFrame)
+        
+        # Time series data
+        println("Reading time series...")
+        data["Winddata"] = CSV.read(joinpath(reader.data_path, "wind_timeseries_regional.csv"), DataFrame)
+        data["Solardata"] = CSV.read(joinpath(reader.data_path, "solar_timeseries_regional.csv"), DataFrame)
+        data["Loaddata"] = CSV.read(joinpath(reader.data_path, "load_timeseries_regional.csv"), DataFrame)
+        data["NIdata"] = data["Loaddata"][:, "NI"]
+        
+        # Policy data
+        println("Reading policies...")
+        data["CBPdata"] = CSV.read(joinpath(reader.data_path, "carbonpolicies.csv"), DataFrame)
+        data["RPSdata"] = CSV.read(joinpath(reader.data_path, "rpspolicies.csv"), DataFrame)
+        
+        # Single parameters
+        println("Reading single parameters...")
+        data["Singlepar"] = CSV.read(joinpath(reader.data_path, "single_parameter.csv"), DataFrame)
+        
+        # Optional demand response data
+        if flexible_demand
+            try
+                data["DRdata"] = CSV.read(joinpath(reader.data_path, "flexddata.csv"), DataFrame)
+                data["DRtsdata"] = CSV.read(joinpath(reader.data_path, "dr_timeseries_regional.csv"), DataFrame)
+            catch e
+                println("⚠️  Warning: Could not load demand response data: $e")
+            end
+        end
+        
+        println("✅ CSV files successfully loaded from $(reader.data_path)")
+    end
+    
+    return data
+end
+
+"""
+Load data for holistic mode (combines GTEP and PCM requirements)
+"""
+function load_holistic_data(reader::HOPEDataReader, config::Dict)::Dict
+    # Start with GTEP data (more comprehensive)
+    data = load_gtep_data(reader, config)
+    
+    # Add any additional PCM-specific requirements
+    # This can be extended as needed
+      return data
+end
+
+"""
+Load case data and configuration (wrapper function for compatibility)
+"""
+function load_case_data(reader::HOPEDataReader, case_path::String)
+    # Load configuration
+    config_file = joinpath(case_path, "Settings", "HOPE_model_settings.yml")
+    config = YAML.load_file(config_file)
+    
+    # Load data using the reader
+    data = load_hope_data(reader, config)
+    
+    return data, config
+end
+
 # Export main functions and types
-export HOPEDataReader, load_hope_data
-export load_configuration, process_raw_data, validate_input_data
+export HOPEDataReader, load_hope_data, load_case_data
+export load_configuration, load_solver_configuration
+export process_raw_data, validate_input_data
+
+end # module DataReader

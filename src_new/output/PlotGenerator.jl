@@ -5,6 +5,8 @@
 # using basic CSV output for now (can be extended with plotting libraries later).
 """
 
+module PlotGenerator
+
 using DataFrames
 using CSV
 using Dates
@@ -826,3 +828,5 @@ end
 # Export main functions and types
 export HOPEPlotGenerator
 export generate_all_plots!
+
+end # module PlotGenerator

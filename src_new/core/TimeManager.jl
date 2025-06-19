@@ -1,254 +1,197 @@
 """
-# TimeManager.jl - Unified Time Index Management
+# TimeManager.jl - Simplified Time Index Management for HOPE
 # 
-# This module provides consistent time index management across HOPE models,
-# handling the differences between GTEP (representative days) and PCM (full year) time structures.
+# This module provides simplified time index management that works with preprocessed data.
+# The preprocessing module handles time clustering, and this manager provides access to time indices.
 """
+
+module TimeManager
 
 using DataFrames
 using Dates
 
-# Time structure types
-abstract type TimeStructure end
-
-struct GTEPTimeStructure <: TimeStructure
-    time_periods::Vector{Int}  # T: planning time periods (e.g., seasons)
-    hours_per_period::Dict{Int, Vector{Int}}  # H_T: representative hours for each period
-    days_per_period::Dict{Int, Int}  # Number of days each representative day represents
-    period_weights::Dict{Int, Float64}  # Weight of each time period for scaling
-end
-
-struct PCMTimeStructure <: TimeStructure
-    hours::Vector{Int}  # H: all hours in the year (1:8760)
-    days::Vector{Int}   # Days (1:365)
-    months::Vector{Int} # Months (1:12)
-    hour_to_day::Dict{Int, Int}  # Mapping from hour to day
-    hour_to_month::Dict{Int, Int}  # Mapping from hour to month
-end
-
-struct HolisticTimeStructure <: TimeStructure
-    gtep_structure::GTEPTimeStructure
-    pcm_structure::PCMTimeStructure
-    gtep_to_pcm_mapping::Dict{Tuple{Int,Int}, Vector{Int}}  # Map (period, rep_hour) to actual hours
+"""
+Unified time structure that handles both clustered and full resolution time indices
+"""
+struct UnifiedTimeStructure
+    hours::Vector{Int}                      # Universal hour index (H)
+    time_periods::Vector{Int}               # Time periods (T)
+    hours_per_period::Dict{Int, Vector{Int}} # Hours per period mapping (H_T)
+    period_weights::Dict{Int, Float64}      # Weights for scaling
+    days_per_period::Dict{Int, Int}         # Days represented by each period
+    is_clustered::Bool                      # Whether using time clustering
+    cluster_mapping::Dict{Int, Int}         # Day to period mapping
+    representative_data::Dict               # Representative time series data
+    hour_to_day::Dict{Int, Int}            # Hour to day mapping
+    hour_to_month::Dict{Int, Int}          # Hour to month mapping
+    model_mode::String                      # GTEP or PCM
 end
 
 """
-Time index manager for coordinating different time structures
+Create unified time structure from configuration and input data
 """
-mutable struct TimeManager
-    current_structure::Union{TimeStructure, Nothing}
-    gtep_structure::Union{GTEPTimeStructure, Nothing}
-    pcm_structure::Union{PCMTimeStructure, Nothing}
-    holistic_structure::Union{HolisticTimeStructure, Nothing}
-    
-    function TimeManager()
-        new(nothing, nothing, nothing, nothing)
-    end
-end
-
-"""
-Create GTEP time structure from representative day clustering
-"""
-function create_gtep_time_structure(
-    cluster_data::Dict,
-    days_per_cluster::Dict{Int, Int}
-)::GTEPTimeStructure
-    
-    time_periods = sort(collect(keys(cluster_data)))
-    hours_per_period = Dict{Int, Vector{Int}}()
-    period_weights = Dict{Int, Float64}()
-    
-    total_days = sum(values(days_per_cluster))
-    
-    for t in time_periods
-        # Each representative day has 24 hours
-        hours_per_period[t] = collect(1:24)
-        
-        # Weight is proportional to number of days represented
-        period_weights[t] = days_per_cluster[t] / total_days
-    end
-    
-    return GTEPTimeStructure(
-        time_periods,
-        hours_per_period,
-        days_per_cluster,
-        period_weights
-    )
-end
-
-"""
-Create PCM time structure for full year simulation
-"""
-function create_pcm_time_structure(year::Int = 2035)::PCMTimeStructure
+function create_unified_time_structure(config::Dict, input_data::Dict=Dict())::UnifiedTimeStructure
+    # Default to full resolution (8760 hours)
     hours = collect(1:8760)
-    days = collect(1:365)
-    months = collect(1:12)
+    time_periods = [1]
+    hours_per_period = Dict(1 => hours)
+    period_weights = Dict(1 => 1.0)
+    days_per_period = Dict(1 => 365)
+    is_clustered = false
+    cluster_mapping = Dict{Int, Int}()
+    representative_data = Dict()
     
-    # Create hour-to-day and hour-to-month mappings
-    hour_to_day = Dict{Int, Int}()
+    # Create basic calendar mappings
+    hour_to_day = Dict(h => div(h-1, 24) + 1 for h in 1:8760)
     hour_to_month = Dict{Int, Int}()
     
-    days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    if isleapyear(year)
-        days_in_month[2] = 29
+    # Simple month assignment (30-day months for simplicity)
+    for h in 1:8760
+        day = hour_to_day[h]
+        month = min(12, div(day-1, 30) + 1)
+        hour_to_month[h] = month
     end
     
-    current_day = 1
-    current_month = 1
-    days_passed_in_month = 0
+    model_mode = get(config, "model_mode", "PCM")
     
-    for hour in hours
-        hour_to_day[hour] = current_day
-        hour_to_month[hour] = current_month
+    # Check if clustering is enabled
+    if get(config, "representative_day!", 0) == 1 && haskey(config, "time_periods")
+        is_clustered = true
+        time_periods_config = config["time_periods"]
         
-        # Advance to next hour
-        if hour % 24 == 0  # End of day
-            current_day += 1
-            days_passed_in_month += 1
-            
-            # Check if month ended
-            if days_passed_in_month >= days_in_month[current_month]
-                current_month += 1
-                days_passed_in_month = 0
-            end
+        # Create clustered structure based on time_periods configuration
+        time_periods = collect(keys(time_periods_config))
+        hours_per_period = Dict{Int, Vector{Int}}()
+        period_weights = Dict{Int, Float64}()
+        days_per_period = Dict{Int, Int}()
+        
+        # Simple clustering: assign 24 hours per period
+        for (period, period_def) in time_periods_config
+            hours_per_period[period] = collect(1:24)  # Representative day hours
+            period_weights[period] = 0.25  # Equal weight for 4 periods
+            days_per_period[period] = 91   # ~3 months per period
         end
+        
+        println("   ✓ Created clustered time structure with $(length(time_periods)) periods")
+    else
+        println("   ✓ Created full resolution time structure")
     end
     
-    return PCMTimeStructure(
-        hours,
-        days,
-        months,
-        hour_to_day,
-        hour_to_month
+    return UnifiedTimeStructure(
+        hours, time_periods, hours_per_period, period_weights, days_per_period,
+        is_clustered, cluster_mapping, representative_data,
+        hour_to_day, hour_to_month, model_mode
     )
 end
 
 """
-Create holistic time structure that maps between GTEP and PCM
+Simplified time index manager that works with preprocessed data
 """
-function create_holistic_time_structure(
-    gtep_structure::GTEPTimeStructure,
-    pcm_structure::PCMTimeStructure,
-    cluster_mapping::Dict  # Maps actual days to representative periods
-)::HolisticTimeStructure
+mutable struct HOPETimeManager
+    input_data::Dict  # Preprocessed data containing time indices
+    current_structure::Union{UnifiedTimeStructure, Nothing}  # Current time structure
     
-    # Create mapping from (period, rep_hour) to actual hours
-    gtep_to_pcm_mapping = Dict{Tuple{Int,Int}, Vector{Int}}()
+    function HOPETimeManager()
+        new(Dict(), nothing)
+    end
+end
+
+"""
+Initialize time manager with preprocessed data
+"""
+function initialize_time_manager!(manager::HOPETimeManager, preprocessed_data::Dict)
+    manager.input_data = preprocessed_data
+end
+
+"""
+Get time indices from preprocessed data
+"""
+function get_time_indices(manager::HOPETimeManager)
+    data = manager.input_data
     
-    for (period, rep_hours) in gtep_structure.hours_per_period
-        for rep_hour in rep_hours
-            actual_hours = Int[]
-            
-            # Find all actual days that belong to this representative period
-            for (day, rep_period) in cluster_mapping
-                if rep_period == period
-                    # Add corresponding hour from this day
-                    actual_hour = (day - 1) * 24 + rep_hour
-                    if actual_hour <= 8760
-                        push!(actual_hours, actual_hour)
-                    end
-                end
-            end
-            
-            gtep_to_pcm_mapping[(period, rep_hour)] = actual_hours
-        end
+    # Ensure required indices exist
+    if !haskey(data, "H") || !haskey(data, "T") || !haskey(data, "H_T")
+        error("Preprocessed data missing required time indices (H, T, H_T)")
     end
     
-    return HolisticTimeStructure(
-        gtep_structure,
-        pcm_structure,
-        gtep_to_pcm_mapping
+    return (
+        H = data["H"],  # Universal hour index (1:8760)
+        T = data["T"],  # Time periods
+        H_T = data["H_T"],  # Hours per period mapping
+        period_weights = get(data, "period_weights", Dict(1 => 1.0)),
+        hour_to_day = get(data, "hour_to_day", Dict()),
+        hour_to_month = get(data, "hour_to_month", Dict()),
+        is_clustered = length(data["T"]) > 1 && haskey(data, "representative_data")
     )
 end
 
 """
-Set the active time structure for the manager
+Check if using clustered time structure
 """
-function set_time_structure!(manager::TimeManager, structure::TimeStructure)
-    manager.current_structure = structure
-    
-    if isa(structure, GTEPTimeStructure)
-        manager.gtep_structure = structure
-    elseif isa(structure, PCMTimeStructure)
-        manager.pcm_structure = structure
-    elseif isa(structure, HolisticTimeStructure)
-        manager.holistic_structure = structure
-        manager.gtep_structure = structure.gtep_structure
-        manager.pcm_structure = structure.pcm_structure
-    end
+function is_clustered(manager::HOPETimeManager)::Bool
+    data = manager.input_data
+    return length(get(data, "T", [1])) > 1 && haskey(data, "representative_data")
 end
 
 """
-Get time indices for model variables based on current structure
+Get representative data for time series (if available)
 """
-function get_time_indices(manager::TimeManager)
-    if manager.current_structure === nothing
-        throw(ArgumentError("No time structure set"))
+function get_representative_data(manager::HOPETimeManager, data_type::String="Loaddata")
+    data = manager.input_data
+    
+    if haskey(data, "representative_data")
+        rep_data = data["representative_data"]
+        
+        # Map data_type to the expected key in representative_data
+        data_key = lowercase(replace(data_type, "data" => ""))  # "Loaddata" -> "load"
+        
+        if haskey(rep_data, data_key)
+            return rep_data[data_key]
+        end
     end
     
-    structure = manager.current_structure
-    
-    if isa(structure, GTEPTimeStructure)
-        return (
-            T = structure.time_periods,
-            H_T = structure.hours_per_period,
-            period_weights = structure.period_weights
-        )
-    elseif isa(structure, PCMTimeStructure)
-        return (
-            H = structure.hours,
-            D = structure.days,
-            M = structure.months,
-            hour_to_day = structure.hour_to_day,
-            hour_to_month = structure.hour_to_month
-        )
-    elseif isa(structure, HolisticTimeStructure)
-        return (
-            T = structure.gtep_structure.time_periods,
-            H_T = structure.gtep_structure.hours_per_period,
-            H = structure.pcm_structure.hours,
-            gtep_to_pcm = structure.gtep_to_pcm_mapping,
-            period_weights = structure.gtep_structure.period_weights
-        )
-    end
+    return nothing
 end
 
 """
-Scale GTEP results to annual values using time weights
+Scale clustered results to annual values
 """
-function scale_to_annual(
-    manager::TimeManager,
-    gtep_values::Dict,  # Values indexed by (period, hour)
-    variable_type::Symbol  # :energy, :capacity, :cost, etc.
-)::Dict
+function scale_to_annual(manager::HOPETimeManager, clustered_values::Dict, variable_type::Symbol=:energy)
+    data = manager.input_data
     
-    if manager.gtep_structure === nothing
-        throw(ArgumentError("No GTEP time structure available"))
+    if !is_clustered(manager)
+        return clustered_values  # No scaling needed for full resolution
     end
     
-    structure = manager.gtep_structure
+    if !haskey(data, "period_weights") || !haskey(data, "days_per_period")
+        @warn "Missing period weights or days_per_period for scaling"
+        return clustered_values
+    end
+    
+    period_weights = data["period_weights"]
+    days_per_period = data["days_per_period"]
     annual_values = Dict()
     
-    for (key, value) in gtep_values
-        if isa(key, Tuple) && length(key) >= 2
+    for (key, value) in clustered_values
+        if isa(key, Tuple) && length(key) >= 1
             period = key[1]
             
-            # Scale based on period weight and days represented
-            if variable_type == :energy
-                # Energy values scaled by number of days and hours
-                scale_factor = structure.days_per_period[period] * 365 / sum(values(structure.days_per_period))
-            elseif variable_type == :capacity
-                # Capacity values don't need temporal scaling
-                scale_factor = 1.0
-            elseif variable_type == :cost
-                # Costs scaled by period weight
-                scale_factor = structure.period_weights[period] * 365
+            if haskey(period_weights, period) && haskey(days_per_period, period)
+                if variable_type == :energy
+                    # Scale energy by number of days represented
+                    scale_factor = days_per_period[period]
+                elseif variable_type == :cost
+                    # Scale costs by period weight and annualize
+                    scale_factor = period_weights[period] * 365
+                else
+                    # Default scaling by period weight
+                    scale_factor = period_weights[period]
+                end
+                
+                annual_values[key] = value * scale_factor
             else
-                # Default scaling
-                scale_factor = structure.period_weights[period]
+                annual_values[key] = value
             end
-            
-            annual_values[key] = value * scale_factor
         else
             annual_values[key] = value
         end
@@ -258,150 +201,309 @@ function scale_to_annual(
 end
 
 """
-Map GTEP representative results to PCM hourly values
+Get effective time indices for model building
+Returns appropriate time structure based on whether clustering is used
 """
-function map_gtep_to_pcm(
-    manager::TimeManager,
-    gtep_values::Dict,  # GTEP results indexed by (period, rep_hour, ...)
-    fill_method::Symbol = :repeat  # :repeat, :interpolate, :zero
-)::Dict
+function get_effective_time_structure(manager::HOPETimeManager)
+    time_indices = get_time_indices(manager)
     
-    if manager.holistic_structure === nothing
-        throw(ArgumentError("No holistic time structure available"))
-    end
-    
-    structure = manager.holistic_structure
-    pcm_values = Dict()
-    
-    for (gtep_key, gtep_value) in gtep_values
-        if isa(gtep_key, Tuple) && length(gtep_key) >= 2
-            period = gtep_key[1]
-            rep_hour = gtep_key[2]
-            other_indices = gtep_key[3:end]
-            
-            # Get corresponding actual hours
-            actual_hours = get(structure.gtep_to_pcm_mapping, (period, rep_hour), Int[])
-            
-            # Map to PCM structure
-            for actual_hour in actual_hours
-                pcm_key = tuple(actual_hour, other_indices...)
-                
-                if fill_method == :repeat
-                    pcm_values[pcm_key] = gtep_value
-                elseif fill_method == :zero
-                    pcm_values[pcm_key] = 0.0
-                # Additional interpolation methods can be added here
-                end
+    if time_indices.is_clustered
+        # For clustered models, return period-hour combinations
+        effective_hours = []
+        for t in time_indices.T
+            for h in time_indices.H_T[t]
+                push!(effective_hours, (t, h))
             end
         end
+        return (
+            time_type = :clustered,
+            T = time_indices.T,
+            H_T = time_indices.H_T,
+            effective_hours = effective_hours,
+            period_weights = time_indices.period_weights
+        )
+    else
+        # For full resolution models, return all hours
+        return (
+            time_type = :full,
+            H = time_indices.H,
+            T = time_indices.T,  # [1]
+            H_T = time_indices.H_T,  # {1 => 1:8760}
+            effective_hours = time_indices.H
+        )
     end
-    
-    return pcm_values
 end
 
 """
-Create time series DataFrame with proper time indexing
+Get time summary for reporting
 """
-function create_time_series_df(
-    manager::TimeManager,
-    data::Dict,
-    column_name::String = "value"
-)::DataFrame
+function get_time_summary(manager::HOPETimeManager)
+    if isempty(manager.input_data)
+        return Dict("status" => "No data loaded")
+    end
     
+    time_indices = get_time_indices(manager)
+    
+    summary = Dict(
+        "total_hours_available" => length(time_indices.H),
+        "time_periods" => length(time_indices.T),
+        "is_clustered" => time_indices.is_clustered
+    )
+    
+    if time_indices.is_clustered
+        total_rep_hours = sum(length(hours) for hours in values(time_indices.H_T))
+        summary["representative_hours"] = total_rep_hours
+        summary["periods"] = time_indices.T
+        
+        if haskey(manager.input_data, "days_per_period")
+            total_days = sum(values(manager.input_data["days_per_period"]))
+            summary["total_days_represented"] = total_days
+        end
+    else
+        summary["mode"] = "full_resolution"
+    end
+    
+    return summary
+end
+
+# Export main functions
+export TimeManager, initialize_time_manager!, get_time_indices
+export is_clustered, get_representative_data, scale_to_annual
+export get_effective_time_structure, get_time_summary
+
+"""
+Set the active time structure for the manager
+"""
+function set_time_structure!(manager::HOPETimeManager, structure::UnifiedTimeStructure)
+    manager.current_structure = structure
+end
+
+"""
+Setup time structure based on model mode and configuration
+Enhanced to support unified time indexing with flexible clustering
+"""
+function setup_time_structure!(manager::HOPETimeManager, input_data::Dict, config::Dict)
+    println("⏰ Setting up unified time structure...")
+    
+    # Create unified time structure
+    time_structure = create_unified_time_structure(config, input_data)
+    set_time_structure!(manager, time_structure)
+    
+    # Add time indices to input data based on structure
+    if time_structure.is_clustered
+        # Clustered mode: both T and H_T available
+        input_data["T"] = time_structure.time_periods
+        input_data["H_T"] = time_structure.hours_per_period
+        input_data["H"] = time_structure.hours  # Full hour set still available
+        input_data["period_weights"] = time_structure.period_weights
+        input_data["days_per_period"] = time_structure.days_per_period
+        
+        total_rep_hours = sum(length(hours) for hours in values(time_structure.hours_per_period))
+        println("✅ Clustered time structure: $(length(time_structure.time_periods)) periods, $total_rep_hours representative hours")
+    else
+        # Full resolution mode: single period with all hours
+        input_data["H"] = time_structure.hours
+        input_data["T"] = time_structure.time_periods  # [1]
+        input_data["H_T"] = time_structure.hours_per_period  # {1 => 1:8760}
+        
+        println("✅ Full resolution time structure: $(length(time_structure.hours)) hours")
+    end
+    
+    # Add calendar mappings for both modes
+    input_data["hour_to_day"] = time_structure.hour_to_day
+    input_data["hour_to_month"] = time_structure.hour_to_month
+    
+    # Store representative data if available
+    if !isempty(time_structure.representative_data)
+        input_data["representative_data"] = time_structure.representative_data
+    end
+    
+    println("📊 Model mode: $(time_structure.model_mode)")
+    println("🔄 Clustering: $(time_structure.is_clustered ? "enabled" : "disabled")")
+end
+
+"""
+Get time indices for model variables based on current structure
+"""
+function get_time_indices(manager::HOPETimeManager)
     if manager.current_structure === nothing
         throw(ArgumentError("No time structure set"))
     end
     
     structure = manager.current_structure
     
-    if isa(structure, PCMTimeStructure)
-        # Create DataFrame with hourly timestamps
-        df = DataFrame()
-        hours = Int[]
-        values = Float64[]
-        
-        for hour in structure.hours
-            if haskey(data, hour)
-                push!(hours, hour)
-                push!(values, data[hour])
-            end
-        end
-        
-        df.Hour = hours
-        df[!, Symbol(column_name)] = values
-        
-        # Add date information
-        df.Day = [structure.hour_to_day[h] for h in df.Hour]
-        df.Month = [structure.hour_to_month[h] for h in df.Hour]
-        
-        return df
-        
-    elseif isa(structure, GTEPTimeStructure)
-        # Create DataFrame with period and representative hour structure
-        df = DataFrame()
-        periods = Int[]
-        rep_hours = Int[]
-        values = Float64[]
-        weights = Float64[]
-        
-        for (key, value) in data
-            if isa(key, Tuple) && length(key) >= 2
-                push!(periods, key[1])
-                push!(rep_hours, key[2])
-                push!(values, value)
-                push!(weights, structure.period_weights[key[1]])
-            end
-        end
-        
-        df.Period = periods
-        df.RepHour = rep_hours
-        df[!, Symbol(column_name)] = values
-        df.Weight = weights
-        
-        return df
-    end
-    
-    return DataFrame()
+    return (
+        H = structure.hours,  # Universal hour index
+        T = structure.time_periods,  # Time periods
+        H_T = structure.hours_per_period,  # Hours per period
+        period_weights = structure.period_weights,  # Period weights
+        is_clustered = structure.is_clustered,  # Clustering flag
+        hour_to_day = structure.hour_to_day,  # Calendar mappings
+        hour_to_month = structure.hour_to_month,
+        model_mode = structure.model_mode
+    )
 end
 
 """
-Get time summary information
+Scale clustered results to annual values using time weights
 """
-function get_time_summary(manager::TimeManager)::Dict
+function scale_to_annual(
+    manager::HOPETimeManager,
+    clustered_values::Dict,  # Values indexed by (period, hour) or similar
+    variable_type::Symbol  # :energy, :capacity, :cost, etc.
+)::Dict
+    
     if manager.current_structure === nothing
-        return Dict("status" => "No time structure set")
+        throw(ArgumentError("No time structure available"))
     end
     
     structure = manager.current_structure
     
-    if isa(structure, GTEPTimeStructure)
-        return Dict(
-            "type" => "GTEP",
-            "num_periods" => length(structure.time_periods),
-            "total_rep_hours" => sum(length(hours) for hours in values(structure.hours_per_period)),
-            "total_days_represented" => sum(values(structure.days_per_period)),
-            "periods" => structure.time_periods
-        )
-    elseif isa(structure, PCMTimeStructure)
-        return Dict(
-            "type" => "PCM",
-            "total_hours" => length(structure.hours),
-            "total_days" => length(structure.days),
-            "total_months" => length(structure.months)
-        )
-    elseif isa(structure, HolisticTimeStructure)
-        return Dict(
-            "type" => "Holistic",
-            "gtep_periods" => length(structure.gtep_structure.time_periods),
-            "pcm_hours" => length(structure.pcm_structure.hours),
-            "mapping_size" => length(structure.gtep_to_pcm_mapping)
-        )
+    if !structure.is_clustered
+        # No scaling needed for full resolution
+        return clustered_values
+    end
+    
+    annual_values = Dict()
+    
+    for (key, value) in clustered_values
+        if isa(key, Tuple) && length(key) >= 2
+            period = key[1]
+            if haskey(structure.period_weights, period)
+                weight = structure.period_weights[period]
+                
+                if variable_type == :energy
+                    # Scale energy by number of days represented
+                    annual_values[key] = value * structure.days_per_period[period]
+                elseif variable_type == :cost
+                    # Scale costs by period weight
+                    annual_values[key] = value * weight * 365
+                else
+                    # Default scaling by period weight
+                    annual_values[key] = value * weight
+                end
+            else
+                annual_values[key] = value
+            end
+        else
+            annual_values[key] = value
+        end
+    end
+    
+    return annual_values
+end
+
+"""
+Map representative hours to actual hours (for output expansion)
+"""
+function map_representative_to_actual(
+    manager::HOPETimeManager,
+    representative_values::Dict  # Values indexed by (period, rep_hour)
+)::Dict
+    
+    if manager.current_structure === nothing || !manager.current_structure.is_clustered
+        return representative_values
+    end
+    
+    structure = manager.current_structure
+    actual_values = Dict()
+    
+    for ((period, rep_hour), value) in representative_values
+        if haskey(structure.cluster_mapping, period)
+            # Find all actual days that belong to this period
+            actual_days = [day for (day, mapped_period) in structure.cluster_mapping if mapped_period == period]
+            
+            for day in actual_days
+                actual_hour = (day - 1) * 24 + rep_hour
+                if actual_hour <= 8760
+                    actual_values[actual_hour] = value
+                end
+            end
+        end
+    end
+    
+    return actual_values
+end
+
+"""
+Create time structure mapping for holistic models
+"""
+function create_holistic_mapping(
+    gtep_structure::UnifiedTimeStructure,
+    pcm_structure::UnifiedTimeStructure
+)::Dict
+    
+    mapping = Dict()
+    
+    if gtep_structure.is_clustered && !pcm_structure.is_clustered
+        # Map GTEP periods to PCM hours
+        for (period, rep_hours) in gtep_structure.hours_per_period
+            for rep_hour in rep_hours
+                # Find corresponding actual hours in PCM
+                actual_hours = Int[]
+                
+                for (day, mapped_period) in gtep_structure.cluster_mapping
+                    if mapped_period == period
+                        actual_hour = (day - 1) * 24 + rep_hour
+                        if actual_hour <= 8760
+                            push!(actual_hours, actual_hour)
+                        end
+                    end
+                end
+                
+                mapping[(period, rep_hour)] = actual_hours
+            end
+        end
+    end
+    
+    return mapping
+end
+
+"""
+Utility function to get effective hours for model building
+For clustered models: returns representative hours
+For full models: returns all hours
+"""
+function get_effective_hours(manager::HOPETimeManager)
+    if manager.current_structure === nothing
+        throw(ArgumentError("No time structure set"))
+    end
+    
+    structure = manager.current_structure
+    
+    if structure.is_clustered
+        # Return all representative hours across all periods
+        all_rep_hours = []
+        for (period, hours) in structure.hours_per_period
+            for hour in hours
+                push!(all_rep_hours, (period, hour))
+            end
+        end
+        return all_rep_hours
+    else
+        # Return all actual hours
+        return structure.hours
     end
 end
 
+"""
+Legacy compatibility function - create GTEP time structure from config
+Maintained for backward compatibility but uses new unified structure
+"""
+function create_gtep_time_structure_from_config(time_periods_config::Dict)
+    println("⚠️  Using legacy GTEP time structure function. Consider using create_unified_time_structure instead.")
+    
+    config = Dict(
+        "model_mode" => "GTEP",
+        "representative_day!" => 1,
+        "time_periods" => time_periods_config
+    )
+      return create_unified_time_structure(config)
+end
+
 # Export main types and functions
-export TimeStructure, GTEPTimeStructure, PCMTimeStructure, HolisticTimeStructure
-export TimeManager
-export create_gtep_time_structure, create_pcm_time_structure, create_holistic_time_structure
-export set_time_structure!, get_time_indices, scale_to_annual, map_gtep_to_pcm
-export create_time_series_df, get_time_summary
+export UnifiedTimeStructure, HOPETimeManager
+export create_unified_time_structure, set_time_structure!, get_time_indices
+export setup_time_structure!, get_effective_hours
+
+end # module TimeManager
