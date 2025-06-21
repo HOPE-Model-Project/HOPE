@@ -1,0 +1,2 @@
+Zone,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost ($/MWh),EF,CC,Charging Rate,Discharging Rate
+Zone2,BES,400,100,0.9,0.95,5.0,0,1,1,1

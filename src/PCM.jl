@@ -292,10 +292,13 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#@constraint(model, [g in G_new], x[g]==0);
 		#@constraint(model, [l in L_new], y[l]==0);
 		#@constraint(model, [s in S_new], z[s]==0);
-
 		if config_set["unit_commitment"]!=0
 			unit_commitment!(config_set, input_data, model)
-		elseif config_set["unit_commitment"]>2
+		else
+			# Add fallback STCost expression when unit commitment is disabled
+			@expression(model, STCost, 0)
+		end
+		if config_set["unit_commitment"]>2
 			uc_set = config_set["unit_commitment"]
 			print("Invalid settings $uc_set for unit_commitment! Please set it tobe '0' or '1' or '2'!")
 		end

@@ -1,0 +1,4 @@
+Pmax (MW),Pmin (MW),Zone,Type,Flag_thermal,Flag_RET,Flag_VRE,Flag_mustrun,Cost ($/MWh),EF,CC,AF,FOR,RM_SPIN,RU,RD,Flag_UC,Min_down_time,Min_up_time,Start_up_cost ($/MW)
+800,100,Zone1,Coal,1,0,0,0,25.0,0.9,0.95,1,0.05,0.1,1,1,0,0,0,0
+600,50,Zone1,NGCT,1,0,0,0,50.0,0.4,0.98,1,0.08,0.15,1,1,0,0,0,0
+400,0,Zone2,NGCT,1,0,0,0,45.0,0.4,0.98,1,0.08,0.15,1,1,0,0,0,0

@@ -1,0 +1,2 @@
+From_zone,To_zone,from_bus,to_bus,KV,Capacity (MW)
+Zone1,Zone2,Bus1,Bus2,500,300

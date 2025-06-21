@@ -1,3 +1,6 @@
+# Required imports for data loading
+using Statistics
+
 #Function use for aggregrating generation data:
 function aggregate_gendata_gtep(df)
     #print(df)

@@ -19,6 +19,7 @@ include("preprocessing/DataPreprocessor.jl")
 include("core/TimeManager.jl")
 include("core/ConstraintPool.jl")
 include("core/ModelBuilder.jl")
+include("models/PCM.jl")
 include("output/SolverInterface.jl")
 include("output/OutputWriter.jl")
 include("output/PlotGenerator.jl")
@@ -30,6 +31,7 @@ using .DataPreprocessor
 using .TimeManager
 using .ConstraintPool
 using .ModelBuilder
+using .PCM
 using .SolverInterface
 using .OutputWriter
 using .PlotGenerator
