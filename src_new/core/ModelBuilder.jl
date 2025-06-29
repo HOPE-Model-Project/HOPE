@@ -45,10 +45,16 @@ function initialize!(
     builder::HOPEModelBuilder,
     config::Dict,
     input_data::Dict,
-    optimizer
+    optimizer,
+    time_manager=nothing
 )
     builder.config = config
     builder.input_data = input_data
+    
+    # Set time manager if provided
+    if time_manager !== nothing
+        builder.time_manager = time_manager
+    end
     
     # Create JuMP model
     builder.model = Model(optimizer)

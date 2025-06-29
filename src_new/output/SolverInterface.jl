@@ -69,8 +69,13 @@ struct SolverConfig
                          time_limit::Float64=3600.0,
                          gap_tolerance::Float64=0.01,
                          threads::Int=0,
-                         other_params::Dict{String, Any}=Dict())
-        new(name, time_limit, gap_tolerance, threads, other_params)
+                         other_params::Dict=Dict{String, Any}())
+        # Convert other_params to Dict{String, Any} if needed
+        typed_params = Dict{String, Any}()
+        for (k, v) in other_params
+            typed_params[string(k)] = v
+        end
+        new(name, time_limit, gap_tolerance, threads, typed_params)
     end
 end
 

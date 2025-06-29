@@ -14,6 +14,7 @@ using Clustering
 using Statistics
 
 # Include submodules
+include("io/SimpleDataReader.jl")
 include("io/DataReader.jl")
 include("preprocessing/DataPreprocessor.jl")
 include("core/TimeManager.jl")
@@ -26,6 +27,7 @@ include("output/PlotGenerator.jl")
 include("utils/Utils.jl")
 
 # Import and re-export main functionality
+using .SimpleDataReader
 using .DataReader
 using .DataPreprocessor
 using .TimeManager
@@ -151,12 +153,13 @@ function run_hope_model_with_preprocessing(case_path::String; solver_name::Strin
           # Step 5: Build model
         println("🏗️  Building optimization model...")
         builder = HOPEModelBuilder()
-        ModelBuilder.initialize!(builder, processed_data, config, time_manager)
+        solver_config = SolverInterface.SolverConfig(solver_name)
+        optimizer = SolverInterface.create_optimizer(solver_config)
+        ModelBuilder.initialize!(builder, config, processed_data, optimizer, time_manager)
         model = ModelBuilder.build_model!(builder)
         
         # Step 6: Solve model
         println("🔧 Solving model...")
-        solver_config = SolverInterface.SolverConfig(solver_name)
         solve_results = SolverInterface.solve_hope_model!(model, solver_config, config)
         
         # Step 7: Generate outputs
@@ -217,12 +220,13 @@ function run_hope_model_direct(case_path::String; solver_name::String="cbc")
           # Step 3: Build model
         println("🏗️  Building optimization model...")
         builder = HOPEModelBuilder()
-        ModelBuilder.initialize!(builder, input_data, config, time_manager)
+        solver_config = SolverInterface.SolverConfig(solver_name)
+        optimizer = SolverInterface.create_optimizer(solver_config)
+        ModelBuilder.initialize!(builder, config, input_data, optimizer, time_manager)
         model = ModelBuilder.build_model!(builder)
         
         # Step 4: Solve model
         println("🔧 Solving model...")
-        solver_config = SolverInterface.SolverConfig(solver_name)
         solve_results = SolverInterface.solve_hope_model!(model, solver_config, config)
         
         # Step 5: Generate outputs
@@ -361,6 +365,7 @@ export run_hope_preprocessing_only, detect_preprocessing_needs
 export setup_time_structure_from_preprocessed!
 
 # Export key types and functions from submodules
+export SimpleHOPEDataReader, load_simple_case_data
 export HOPEDataReader, load_case_data
 export PreprocessingConfig, HOPEDataPreprocessor, create_preprocessing_config_from_hope_settings
 export preprocess_data!, process_time_clustering!, process_generator_aggregation!

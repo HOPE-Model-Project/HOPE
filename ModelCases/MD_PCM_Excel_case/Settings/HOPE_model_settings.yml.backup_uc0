@@ -1,0 +1,14 @@
+unit_commitment: 2
+time_periods:
+  4: "(12, 21, 3, 19)"
+  2: "(6, 21, 9, 21)"
+  3: "(9, 22, 12, 20)"
+  1: "(3, 20, 6, 20)"
+model_mode: "PCM"
+representative_day!: 0
+solver: "gurobi"
+inv_dcs_bin: 0
+flexible_demand: 0
+aggregated!: 1
+debug: 0
+DataCase: "Data_PCM2035/"

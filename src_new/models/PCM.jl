@@ -1,8 +1,10 @@
 """
-# PCM.jl - Production Cost Model for HOPE
+# PCM.jl - Production Cost Model using Modular ConstraintPool Architecture
 # 
-# Transparent and modular implementation of the Production Cost Model
-# with clear separation of sets, parameters, variables, constraints, and objective
+# NEW APPROACH: 
+# - PCM.jl orchestrates model building and calls ConstraintPool functions
+# - All constraints come from ConstraintPool (NOT hard-coded!)
+# - Reusable constraint functions can be shared with GTEP and other models
 # 
 # Model formulation reference: https://hope-model-project.github.io/HOPE/dev/PCM/
 """
@@ -11,29 +13,29 @@ module PCM
 
 using JuMP
 using DataFrames
+using ..ConstraintPool
 
 """
     PCMModel
 
-Transparent structure containing all PCM model components
+Lightweight structure that orchestrates PCM model building using ConstraintPool
 """
 mutable struct PCMModel
-    # Model object
+    # Core JuMP model
     model::Model
     
-    # Data and configuration
+    # Input data and configuration
     input_data::Dict
     config::Dict
     time_manager::Any  # TimeManager object
     
-    # Model components (transparent structure)
+    # Model components (generated through ConstraintPool)
     sets::Dict{String, Any}
     parameters::Dict{String, Any}
     variables::Dict{String, Any}
-    constraints::Dict{String, Any}
-    objective::Dict{String, Any}
+    objective::Dict{String, Any}  # Add missing objective field
     
-    # Solution and results
+    # Results storage
     results::Dict{String, Any}
     
     function PCMModel()
@@ -45,8 +47,7 @@ mutable struct PCMModel
             Dict(),
             Dict(),
             Dict(),
-            Dict(),
-            Dict(),
+            Dict(),  # Initialize objective
             Dict()
         )
     end
@@ -68,6 +69,8 @@ function create_pcm_sets!(pcm_model::PCMModel)
     Gendata = input_data["Gendata"]
     Linedata = input_data["Linedata"]
     Storagedata = input_data["Storagedata"]
+    RPSdata = input_data["RPSdata"]
+    CBPdata = input_data["CBPdata"]
     
     Num_zone = size(Zonedata, 1)
     Num_gen = size(Gendata, 1)
@@ -140,6 +143,14 @@ function create_pcm_sets!(pcm_model::PCMModel)
     # Zones by state
     sets["I_w"] = Dict(w => findall(Zonedata[:, "State"] .== w) for w in sets["W"])
     
+    # RPS Trading sets (for renewable credits trading between states)
+    sets["WER_w"] = Dict(zip(unique(RPSdata[:, "From_state"]), 
+                             [RPSdata[findall(RPSdata[:, "From_state"] .== i), "To_state"] for i in unique(RPSdata[:, "From_state"])]))
+    [sets["WER_w"][w] = [] for w in unique(RPSdata[:, "From_state"]) if [w] == sets["WER_w"][w]]
+    
+    sets["WIR_w"] = Dict(zip(unique(RPSdata[:, "From_state"]), 
+                             [unique(push!(RPSdata[findall(RPSdata[:, "From_state"] .== i), "To_state"], i)) for i in unique(RPSdata[:, "From_state"])]))
+    
     # ============================================================================
     # TIME SUBSETS
     # ============================================================================
@@ -207,6 +218,7 @@ function create_pcm_parameters!(pcm_model::PCMModel)
     parameters["EF"] = Gendata[:, "EF"]                                 # Emission factor [t/MWh]
     parameters["FOR"] = Dict(zip(sets["G"], Gendata[:, "FOR"]))         # Forced outage rate
     parameters["CC"] = Gendata[:, "CC"]                                 # Capacity credit
+    parameters["G_zone"] = Gendata[:, "Zone"]                           # Generator zone mapping
     
     # Ramping parameters
     parameters["RU"] = Dict(zip(sets["G"], Gendata[:, "RU"]))           # Ramp up rate
@@ -255,38 +267,59 @@ function create_pcm_parameters!(pcm_model::PCMModel)
         end
     end
     
-    # Net imports
+    # Net imports - Fixed to match old PCM structure
     parameters["NI"] = Dict()
-    for i in sets["I"]
+    for h in sets["H"], i in sets["I"]
         weight = parameters["PK"][i] / sum(parameters["PK"])
-        parameters["NI"][i] = Dict(h => NIdata[h] * weight for h in sets["H"])
+        parameters["NI"][(h, i)] = NIdata[h] * weight
     end
     
     # ============================================================================
-    # RENEWABLE AVAILABILITY FACTORS
+    # RENEWABLE AVAILABILITY FACTORS - FIXED to match old PCM structure
     # ============================================================================
     parameters["AFRE"] = Dict()
-      # Wind availability
+    
+    # Wind availability factors: AFRE[g][(h, i)] = availability
     for g in sets["G_wind"]
-        zone_idx = findfirst(x -> x == Gendata[g, "Zone"], ordered_zones)
-        if zone_idx !== nothing && ordered_zones[zone_idx] in names(Winddata)
-            full_wind = Winddata[:, ordered_zones[zone_idx]]
-            parameters["AFRE"][g] = Dict(h => full_wind[h] for h in sets["H"])
+        parameters["AFRE"][g] = Dict()
+        zone_id = Gendata[g, "Zone"]
+        zone_idx = findfirst(x -> x == zone_id, ordered_zones)
+        if zone_idx !== nothing && zone_id in names(Winddata)
+            full_wind = Winddata[:, zone_id]
+            for h in sets["H"], i in sets["I"]
+                if i == zone_idx
+                    parameters["AFRE"][g][(h, i)] = full_wind[h]
+                else
+                    parameters["AFRE"][g][(h, i)] = 0.0  # Not available at other zones
+                end
+            end
         else
-            @warn "Wind data not found for generator $g"
-            parameters["AFRE"][g] = Dict(h => 0.0 for h in sets["H"])
+            @warn "Wind data not found for generator $g in zone $zone_id"
+            for h in sets["H"], i in sets["I"]
+                parameters["AFRE"][g][(h, i)] = 0.0
+            end
         end
     end
     
-    # Solar availability
+    # Solar availability factors: AFRE[g][(h, i)] = availability
     for g in sets["G_solar"]
-        zone_idx = findfirst(x -> x == Gendata[g, "Zone"], ordered_zones)
-        if zone_idx !== nothing && ordered_zones[zone_idx] in names(Solardata)
-            full_solar = Solardata[:, ordered_zones[zone_idx]]
-            parameters["AFRE"][g] = Dict(h => full_solar[h] for h in sets["H"])
+        parameters["AFRE"][g] = Dict()
+        zone_id = Gendata[g, "Zone"]
+        zone_idx = findfirst(x -> x == zone_id, ordered_zones)
+        if zone_idx !== nothing && zone_id in names(Solardata)
+            full_solar = Solardata[:, zone_id]
+            for h in sets["H"], i in sets["I"]
+                if i == zone_idx
+                    parameters["AFRE"][g][(h, i)] = full_solar[h]
+                else
+                    parameters["AFRE"][g][(h, i)] = 0.0  # Not available at other zones
+                end
+            end
         else
-            @warn "Solar data not found for generator $g"
-            parameters["AFRE"][g] = Dict(h => 0.0 for h in sets["H"])
+            @warn "Solar data not found for generator $g in zone $zone_id"
+            for h in sets["H"], i in sets["I"]
+                parameters["AFRE"][g][(h, i)] = 0.0
+            end
         end
     end
     
@@ -365,6 +398,12 @@ function create_pcm_variables!(pcm_model::PCMModel)
                                  base_name = "load_shedding")           # Load shedding [MW]
     
     # ============================================================================
+    # NET IMPORTS VARIABLES (matching old PCM)
+    # ============================================================================
+    variables["ni"] = @variable(model, ni[sets["H"], sets["I"]], 
+                               base_name = "net_imports")               # Net imports [MW]
+    
+    # ============================================================================
     # POLICY VARIABLES
     # ============================================================================
     variables["pw"] = @variable(model, pw[sets["G_renewable"], sets["W"]] >= 0, 
@@ -422,324 +461,111 @@ end
 """
     create_pcm_constraints!(pcm_model::PCMModel)
 
-Define all constraints for the PCM model with transparent documentation
+Apply PCM constraints using direct, transparent constraint functions that match the original PCM order
 """
 function create_pcm_constraints!(pcm_model::PCMModel)
-    println("⚖️  Creating PCM Constraints...")
+    # ============================================================================
+    # APPLY CONSTRAINTS - Direct, transparent constraint functions in PCM order
+    # ============================================================================
     
-    model = pcm_model.model
+    println("🔗 Applying PCM Constraints with direct, transparent constraint functions...")
+    
+    # Constraint data for direct function calls
     sets = pcm_model.sets
     parameters = pcm_model.parameters
     variables = pcm_model.variables
     config = pcm_model.config
-    
-    constraints = pcm_model.constraints
-    
-    # Get commonly used variables
-    p = variables["p"]
-    soc = variables["soc"]
-    c = variables["c"]
-    dc = variables["dc"]
-    f = variables["f"]
-    p_LS = variables["p_LS"]
-    r_G = variables["r_G"]
-    r_S = variables["r_S"]
-    
-    # ============================================================================
-    # POWER BALANCE CONSTRAINTS
-    # ============================================================================
-    println("   📊 Power balance constraints...")
-    
-    # (1) Power balance at each zone for each hour
-    constraints["power_balance"] = @constraint(model, [i in sets["I"], h in sets["H"]],
-        # Generation in zone i
-        sum(p[g, h] for g in sets["G_i"][i]; init=0) +
-        # Storage discharge minus charge in zone i
-        sum(dc[s, h] - c[s, h] for s in sets["S_i"][i]; init=0) +
-        # Transmission inflow minus outflow
-        sum(f[l, h] for l in sets["LR_i"][i]; init=0) -
-        sum(f[l, h] for l in sets["LS_i"][i]; init=0) +
-        # Net imports (if any)
-        sum(get(get(parameters["NI"], i, Dict()), h, 0) for _ in 1:1) 
-        ==
-        # Load demand minus load shedding
-        sum(parameters["P_load"][d][h] * parameters["PK"][d] for d in [i]) - p_LS[i, h],
-        base_name = "power_balance"
-    )
-    
-    # ============================================================================
-    # GENERATOR CONSTRAINTS
-    # ============================================================================
-    println("   🏭 Generator constraints...")
-    
-    # (2) Generator capacity limits
-    if get(config, "unit_commitment", 0) == 0
-        # Without unit commitment
-        constraints["gen_capacity"] = @constraint(model, [g in sets["G_exist"], h in sets["H"]],
-            parameters["P_min"][g] <= p[g, h] + r_G[g, h] <= 
-            (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-            base_name = "generator_capacity"
-        )
-    else
-        # With unit commitment - handled separately below
-        constraints["gen_capacity_nouc"] = @constraint(model, 
-            [g in setdiff(sets["G_exist"], sets["G_UC"]), h in sets["H"]],
-            parameters["P_min"][g] <= p[g, h] + r_G[g, h] <= 
-            (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-            base_name = "generator_capacity_no_uc"
-        )
-    end
-    
-    # (3) Must-run generators
-    constraints["must_run"] = @constraint(model, [g in sets["G_mustrun"], h in sets["H"]],
-        p[g, h] == (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-        base_name = "must_run_generators"
-    )
-    
-    # (4) Renewable availability limits
-    constraints["renewable_availability"] = @constraint(model, 
-        [g in union(sets["G_wind"], sets["G_solar"]), h in sets["H"]],
-        p[g, h] <= get(get(parameters["AFRE"], g, Dict()), h, 0) * parameters["P_max"][g],
-        base_name = "renewable_availability"
-    )
-    
-    # (5) Spinning reserve limits
-    constraints["spinning_reserve"] = @constraint(model, [g in sets["G_exist"], h in sets["H"]],
-        r_G[g, h] <= parameters["RM_SPIN"][g] * (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-        base_name = "spinning_reserve_gen"
-    )
-    
-    # (6) Ramping constraints for thermal units
-    if !isempty(sets["G_thermal"])
-        constraints["ramp_up"] = @constraint(model, 
-            [g in sets["G_thermal"], h in sets["H"][2:end]],
-            p[g, h] + r_G[g, h] - p[g, h-1] <= 
-            parameters["RU"][g] * (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-            base_name = "ramp_up"
-        )
-        
-        constraints["ramp_down"] = @constraint(model, 
-            [g in sets["G_thermal"], h in sets["H"][2:end]],
-            p[g, h] + r_G[g, h] - p[g, h-1] >= 
-            -parameters["RD"][g] * (1 - parameters["FOR"][g]) * parameters["P_max"][g],
-            base_name = "ramp_down"
-        )
-    end
-    
-    # ============================================================================
-    # STORAGE CONSTRAINTS
-    # ============================================================================
-    if !isempty(sets["S_exist"])
-        println("   🔋 Storage constraints...")        # (7) Storage charging rate limit (Official constraint 10)
-        constraints["storage_charging_limit"] = @constraint(model, [s in sets["S_exist"], h in sets["H"]],
-            c[s, h] / parameters["SC"][s] <= parameters["SCAP"][s],
-            base_name = "storage_charging_limit"
-        )
-        
-        # (7b) Storage discharging rate limit - CORRECTED to match old PCM (Official constraint 11)  
-        constraints["storage_discharging_limit"] = @constraint(model, [s in sets["S_exist"], h in sets["H"]],
-            c[s, h] / parameters["SC"][s] + dc[s, h] / parameters["SD"][s] <= parameters["SCAP"][s],
-            base_name = "storage_discharging_limit"
-        )
-        
-        # (8) Storage energy capacity limits
-        constraints["storage_energy"] = @constraint(model, [s in sets["S_exist"], h in sets["H"]],
-            0 <= soc[s, h] <= parameters["SECAP"][s],
-            base_name = "storage_energy_capacity"
-        )
-        
-        # (9) Storage operation (state of charge evolution)
-        constraints["storage_operation"] = @constraint(model, 
-            [s in sets["S_exist"], h in sets["H"][2:end]],
-            soc[s, h] == soc[s, h-1] + 
-            parameters["e_ch"][s] * c[s, h] - dc[s, h] / parameters["e_dis"][s],
-            base_name = "storage_operation"
-        )
-          # (10) Storage spinning reserve
-        constraints["storage_spinning_reserve"] = @constraint(model, [s in sets["S_exist"], h in sets["H"]],
-            dc[s, h] + r_S[s, h] <= parameters["SD"][s] * parameters["SCAP"][s],
-            base_name = "storage_spinning_reserve"
-        )
-          # (11) Storage end-of-period target (50% full) - replaces daily balance for consistency
-        constraints["storage_end_target"] = @constraint(model, [s in sets["S_exist"]],
-            soc[s, length(sets["H"])] == 0.5 * parameters["SECAP"][s],
-            base_name = "storage_end_target"
-        )
-        
-        # (11b) Storage initial condition - match old PCM cyclic constraint  
-        constraints["storage_initial_condition"] = @constraint(model, [s in sets["S_exist"]],
-            soc[s, 1] == soc[s, length(sets["H"])],
-            base_name = "storage_initial_condition"
-        )
-    end
-    
-    # ============================================================================
-    # TRANSMISSION CONSTRAINTS
-    # ============================================================================
-    println("   🔌 Transmission constraints...")
-    
-    # (13) Transmission capacity limits
-    constraints["transmission_capacity"] = @constraint(model, [l in sets["L_exist"], h in sets["H"]],
-        -parameters["F_max"][l] <= f[l, h] <= parameters["F_max"][l],
-        base_name = "transmission_capacity"
-    )
-    
-    # ============================================================================
-    # LOAD SHEDDING CONSTRAINTS
-    # ============================================================================
-    println("   ⚡ Load shedding constraints...")
-    
-    # (14) Load shedding limits
-    constraints["load_shedding_limit"] = @constraint(model, [i in sets["I"], h in sets["H"]],
-        0 <= p_LS[i, h] <= sum(parameters["P_load"][d][h] * parameters["PK"][d] for d in [i]),
-        base_name = "load_shedding_limit"
-    )
-    
-    # ============================================================================
-    # RPS POLICY CONSTRAINTS
-    # ============================================================================
-    if !isempty(sets["G_renewable"])
-        println("   🌱 RPS policy constraints...")
-        
-        pw = variables["pw"]
-        pwi = variables["pwi"]
-        pt_rps = variables["pt_rps"]
-        
-        # (15) Define state-level renewable generation
-        constraints["rps_generation"] = @constraint(model, 
-            [w in sets["W"], g in intersect(union([sets["G_i"][i] for i in sets["I_w"][w]]...), sets["G_renewable"])],
-            pw[g, w] == sum(p[g, h] for h in sets["H"]),
-            base_name = "rps_state_generation"
-        )
-        
-        # (16) RPS requirement with trading and violations
-        # This is a simplified version - full implementation would include detailed trading rules
-        constraints["rps_requirement"] = @constraint(model, [w in sets["W"]],
-            sum(pw[g, w] for g in intersect(union([sets["G_i"][i] for i in sets["I_w"][w]]...), sets["G_renewable"]); init=0) +
-            sum(pt_rps[w, h] for h in sets["H"]) >=
-            get(parameters["RPS"], w, 0) * sum(sum(parameters["P_load"][i][h] * parameters["PK"][i] for h in sets["H"]) for i in sets["I_w"][w]),
-            base_name = "rps_requirement"
-        )
-    end
-    
-    # ============================================================================
-    # CARBON EMISSION CONSTRAINTS
-    # ============================================================================
-    if !isempty(sets["G_thermal"])
-        println("   🏭 Carbon emission constraints...")
-        
-        em_emis = variables["em_emis"]
-          # (17) State carbon emission limits
-        constraints["carbon_limit"] = @constraint(model, [w in sets["W"]],
-            sum(sum(parameters["EF"][g] * p[g, h] 
-                for g in intersect(sets["G_thermal"], sets["G_i"][i]) 
-                for h in sets["H"]) 
-                for i in sets["I_w"][w]) + em_emis[w] <= 
-            get(parameters["ELMT"], w, 1e6),  # Default large limit if not specified
-            base_name = "carbon_emission_limit"
-        )
-    end
-    
-    # ============================================================================
-    # UNIT COMMITMENT CONSTRAINTS (if enabled)
-    # ============================================================================
-    if get(config, "unit_commitment", 0) != 0
-        println("   🔄 Unit commitment constraints...")
-        add_unit_commitment_constraints!(pcm_model)
-    end
-    
-    # ============================================================================
-    # DEMAND RESPONSE CONSTRAINTS (if enabled)
-    # ============================================================================
-    if get(config, "flexible_demand", 0) == 1
-        println("   📈 Demand response constraints...")
-        add_demand_response_constraints!(pcm_model)
-    end
-    
-    println("   ✅ PCM Constraints created successfully")
-    # Simple constraint count
-    println("      Total constraint groups: $(length(pcm_model.constraints))")
-end
-
-"""
-    add_unit_commitment_constraints!(pcm_model::PCMModel)
-
-Add unit commitment constraints to the PCM model
-"""
-function add_unit_commitment_constraints!(pcm_model::PCMModel)
     model = pcm_model.model
-    sets = pcm_model.sets
-    parameters = pcm_model.parameters
-    variables = pcm_model.variables
-    constraints = pcm_model.constraints
     
-    if !haskey(sets, "G_UC") || isempty(sets["G_UC"])
-        return
+    # (1) Power balance constraints - Main constraint from original PCM
+    println("   📊 (1) Power balance constraints...")
+    ConstraintPool.add_power_balance_con!(model, sets, parameters, variables)
+    
+    # (2) Generator capacity constraints - Non-UC generators only
+    println("   ⚡ (2) Generator capacity constraints...")
+    ConstraintPool.add_generator_capacity_con!(model, sets, parameters, variables, config)
+    
+    # (3) Renewable availability constraints
+    println("   🌞 (3) Renewable availability constraints...")
+    ConstraintPool.add_renewable_availability_con!(model, sets, parameters, variables)
+    
+    # (4) Transmission capacity constraints
+    println("   🔌 (4) Transmission capacity constraints...")
+    ConstraintPool.add_transmission_capacity_con!(model, sets, parameters, variables)
+    
+    # Storage constraints (only if storage exists)
+    if !isempty(sets["S_exist"])
+        # (5) Storage SOC evolution constraints
+        println("   🔋 (5) Storage SOC evolution constraints...")
+        ConstraintPool.add_storage_soc_evolution_con!(model, sets, parameters, variables)
+        
+        # (6) Storage cyclic constraints
+        println("   🔄 (6) Storage cyclic constraints...")
+        ConstraintPool.add_storage_cyclic_con!(model, sets, parameters, variables)
+        
+        # (7) Storage capacity constraints
+        println("   📦 (7) Storage capacity constraints...")
+        ConstraintPool.add_storage_capacity_con!(model, sets, parameters, variables)
     end
     
-    p = variables["p"]
-    o = variables["o"]
-    su = variables["su"]
-    sd = variables["sd"]
-    pmin = variables["pmin"]
-    r_G = variables["r_G"]
+    # (8) Load shedding limit constraints
+    println("   💡 (8) Load shedding limit constraints...")
+    ConstraintPool.add_load_shedding_limit_con!(model, sets, parameters, variables)
     
-    # UC capacity constraints
-    constraints["uc_capacity_lower"] = @constraint(model, [g in sets["G_UC"], h in sets["H"]],
-        parameters["P_min"][g] <= p[g, h] + r_G[g, h],
-        base_name = "uc_capacity_lower"
-    )
+    # (9) Net imports constraints
+    println("   🌐 (9) Net imports constraints...")
+    ConstraintPool.add_net_imports_con!(model, sets, parameters, variables)
     
-    constraints["uc_capacity_upper"] = @constraint(model, [g in sets["G_UC"], h in sets["H"]],
-        p[g, h] + r_G[g, h] <= (1 - parameters["FOR"][g]) * parameters["P_max"][g] * o[g, h],
-        base_name = "uc_capacity_upper"
-    )
+    # (10) Spinning reserve constraints
+    println("   🔄 (10) Spinning reserve constraints...")
+    ConstraintPool.add_spinning_reserve_con!(model, sets, parameters, variables)
     
-    # Minimum run limit
-    constraints["uc_minimum_run"] = @constraint(model, [g in sets["G_UC"], h in sets["H"]],
-        pmin[g, h] <= (1 - parameters["FOR"][g]) * parameters["P_min"][g] * o[g, h],
-        base_name = "uc_minimum_run"
-    )
-      # State transition
-    constraints["uc_state_transition"] = @constraint(model, [g in sets["G_UC"], h in sets["H"][2:end]],
-        o[g, h] - o[g, h-1] == su[g, h] - sd[g, h],
-        base_name = "uc_state_transition"
-    )
+    # (11) Ramping up constraints
+    println("   ⬆️  (11) Ramping up constraints...")
+    ConstraintPool.add_ramping_up_con!(model, sets, parameters, variables)
     
-    # Minimum up time
-    if haskey(parameters, "Min_up_time")
-        constraints["uc_min_up_time"] = @constraint(model, 
-            [g in sets["G_UC"], h in sets["H"]; h >= parameters["Min_up_time"][g] + 1],
-            sum(su[g, hh] for hh in (h - Int(parameters["Min_up_time"][g]) + 1):h) <= o[g, h],
-            base_name = "uc_min_up_time"
-        )
+    # (12) Ramping down constraints
+    println("   ⬇️  (12) Ramping down constraints...")
+    ConstraintPool.add_ramping_down_con!(model, sets, parameters, variables)
+    
+    # (13) Must-run constraints
+    println("   🔒 (13) Must-run constraints...")
+    ConstraintPool.add_must_run_con!(model, sets, parameters, variables)
+    
+    # Policy constraints
+    println("   📋 (14) RPS annual constraints...")
+    ConstraintPool.add_rps_annual_con!(model, sets, parameters, variables)
+    
+    println("   🏛️  (15) RPS state requirement constraints...")
+    ConstraintPool.add_rps_state_requirement_con!(model, sets, parameters, variables)
+    
+    println("   🌍 (16) Emissions limit constraints...")
+    ConstraintPool.add_emissions_limit_con!(model, sets, parameters, variables)
+    
+    # Unit commitment constraints (only if UC > 0)
+    uc_setting = get(config, "unit_commitment", 0)
+    if uc_setting > 0 && haskey(sets, "G_UC") && !isempty(sets["G_UC"])
+        println("   🏭 Unit commitment constraints (UC=$uc_setting)...")
+        
+        # (UC-1) UC capacity constraints
+        println("     ⚡ UC capacity constraints...")
+        ConstraintPool.add_uc_capacity_con!(model, sets, parameters, variables)
+        
+        # (UC-2) UC state transition constraints
+        println("     🔄 UC state transition constraints...")
+        ConstraintPool.add_uc_transition_con!(model, sets, parameters, variables)
+        
+        # (UC-3) Minimum up time constraints
+        println("     ⬆️  UC minimum up time constraints...")
+        ConstraintPool.add_uc_min_up_time_con!(model, sets, parameters, variables)
+        
+        # (UC-4) Minimum down time constraints  
+        println("     ⬇️  UC minimum down time constraints...")
+        ConstraintPool.add_uc_min_down_time_con!(model, sets, parameters, variables)
     end
     
-    # Minimum down time
-    if haskey(parameters, "Min_down_time")
-        constraints["uc_min_down_time"] = @constraint(model, 
-            [g in sets["G_UC"], h in sets["H"]; h >= parameters["Min_down_time"][g] + 1],
-            sum(sd[g, hh] for hh in (h - Int(parameters["Min_down_time"][g]) + 1):h) <= 1 - o[g, h],
-            base_name = "uc_min_down_time"
-        )
-    end
-    
-    # Minimum generation linkage
-    constraints["uc_pmin_linkage"] = @constraint(model, [g in sets["G_UC"], h in sets["H"]],
-        pmin[g, h] <= p[g, h],
-        base_name = "uc_pmin_linkage"
-    )
-end
-
-"""
-    add_demand_response_constraints!(pcm_model::PCMModel)
-
-Add demand response constraints to the PCM model
-"""
-function add_demand_response_constraints!(pcm_model::PCMModel)
-    # This would implement demand response constraints
-    # For now, we'll skip this as it requires additional DR data
-    println("   ⚠️  Demand response constraints not implemented yet")
+    println("   ✅ All PCM constraints applied through direct, transparent functions!")
+    println("   🔍 Constraint structure is now transparent and matches original PCM order!")
 end
 
 """

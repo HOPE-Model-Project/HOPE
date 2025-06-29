@@ -121,15 +121,15 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
             :RM_SPIN .=> mean,
             :RU .=> mean,
             :RD .=> mean,
-            :Min_run_hour .=> mean,
-            :Min_up_hour .=> mean,
-            :Min_down_hour .=> mean,
+            :Min_down_time .=> mean,  # Use old PCM column name
+            :Min_up_time .=> mean,    # Use old PCM column name
             :Flag_thermal .=> mean,
             :Flag_VRE .=> mean,
             :Flag_mustrun .=> mean,
-            :Flag_UC .=> mean)
-        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Min_run_hour_mean,:Min_up_hour_mean,:Min_down_hour_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean,:Flag_UC_mean] 
-            .=> [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Min_run_hour,:Min_up_hour,:Min_down_hour,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC])
+            :Flag_UC .=> mean,
+            Symbol("Start_up_cost (\$/MW)") .=> mean)
+        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Min_down_time_mean,:Min_up_time_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean,:Flag_UC_mean,Symbol("Start_up_cost (\$/MW)_mean")] 
+            .=> [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Min_down_time,:Min_up_time,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC,Symbol("Start_up_cost (\$/MW)")])
         agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
         agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
         agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
