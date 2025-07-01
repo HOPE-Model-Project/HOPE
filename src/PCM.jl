@@ -471,21 +471,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Slack variable penalty
 		#@expression(model, SlackPenalty, BM *sum(slack_pos[h,i]+slack_neg[h,i] for h in H for i in I))
 
-		#Minmize objective fuction: INVCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
-		if config_set["unit_commitment"] == 0 & config_set["flexible_demand"] == 0
-			@objective(model,Min, OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+		#Unit commitment Start up cost
+		if config_set["unit_commitment"] == 0
+			@expression(model,STCost,0)	
+		else
+			@expression(model,STCost,sum(STC_g[g]*su[g,h]*P_max[g] for h in H for g in G_UC))
 		end
-		if config_set["unit_commitment"] == 1 & config_set["flexible_demand"] == 0
-			@objective(model,Min, model[:STCost] + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
-		end
-		if config_set["flexible_demand"] == 1
+		#Demand response operation cost
+		if config_set["flexible_demand"] == 0
+			@expression(model,DR_OPcost,0)
+		else
 			@expression(model,DR_OPcost,sum(DRC_d[d]*(dr_UP[d,h]+dr_DN[d,h]) for h in H for d in D))
-			if config_set["unit_commitment"] == 0 
-				@objective(model,Min, DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
-			else
-				@objective(model,Min, model[:STCost] +DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
-			end
 		end
+
+		#Minmize objective fuction: STCost + DR_OPCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
+		@objective(model,Min, STCost + DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
 		return model
 	end
 end 
