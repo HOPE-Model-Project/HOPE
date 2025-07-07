@@ -160,11 +160,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
 		HD = [h for h in 1:24]
 		H_D = [h for h in 0:24:8760]
-		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
-			H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
+		if config_set["representative_day!"]==1								#Set of hours in one day, index h, subset of H
+			H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]				#Set of hours in time period (day) t, index h, subset of H
 			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		else
-			H_t=[collect(1:8760) for t in [1]]									#Set of hours in time period (day) t, index h, subset of H
+			H_t=[collect(1:8760) for t in [1]]								#Set of hours in time period (day) t, index h, subset of H
 			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		end
 	
@@ -229,17 +229,23 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#for multiple time period, we need to use following TS parameters
 		if config_set["representative_day!"]==1
 			N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t	  #Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
-			NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
-			P_t = Load_rep #thd
-			DR_t = DR_rep
-			AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for i in I for h in H_t[t] ]) for t in T for g in G_PV])
-			AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
+			#NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
+			NI_hi = Dict([(h,i) => -Load_rep[t][!,"NI"][h- 24*(t-1)]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for t in T for h in H_t[t]])
+			#P_t = Load_rep #thd P_t[t][h,d]*PK[d] for d in D_i[i]
+			P_hd = Dict([(h,d) => Load_rep[t][h-24*(t-1),d] for i in I for d in D_i[i] for t in T for h in H_t[t]])
+			#DR_t = DR_rep
+			DR_hd = Dict([(h,d) => DR_rep[t][h-24*(t-1),d] for i in I for d in D_i[i] for t in T for h in H_t[t]])
+			AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h-24*(t-1)] for i in I for h in H_t[t]]) for t in T for g in G_PV])
+			AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h-24*(t-1)] for h in H_t[t] for i in I]) for t in T for g in G_W])
 			AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
 		else
 			N=[1]
-			NI_t = Dict(1=> NI)
-			P_t = Dict(1 => Loaddata[:,4:3+Num_zone])
-			DR_t = Dict(1 => DRtsdata[:,4:3+Num_zone])
+			#NI_t = Dict(1=> NI)
+			NI_hi = NI
+			#P_t = Dict(1 => Loaddata[:,4:3+Num_zone])
+			#DR_t = Dict(1 => DRtsdata[:,4:3+Num_zone])
+			P_hd = Loaddata[:,4:3+Num_zone]
+			DR_hd = DRtsdata[:,4:3+Num_zone] 
 			AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solardata[:,4:end][:,Idx_zone_dict[i]][h] for i in I for h in H]) for t in T for g in G_PV])
 			AFREW_tg = Dict([(t,g) => Dict([(h, i) => Winddata[:,4:end][:,Idx_zone_dict[i]][h] for h in H for i in I]) for t in T for g in G_W])
 			AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
@@ -253,11 +259,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#Variables---------------------------------------------
 		@variable(model, a[G,T]>=0) 							#Bidding carbon allowance of unit g in time period t, ton
 		@variable(model, b[G,T]>=0) 							#Banking of allowance of g in time period t, ton
-		@variable(model, f[L,T,H_T])							#Active power in transmission corridor/line l in h from resrource g, MW
+		@variable(model, f[L,H_T])							#Active power in transmission corridor/line l in h from resrource g, MW
 		@variable(model, em_emis[W]>=0)							#Carbon emission violated emission limit in state  w, ton
-		@variable(model, p[G,T,H_T]>=0)							#Active power generation of unit g in hour h, MW
+		@variable(model, p[G,H_T]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
-		@variable(model, p_LS[I,T,H_T]>=0)						#Load shedding of demand d in hour h, MW
+		@variable(model, p_LS[I,H_T]>=0)						#Load shedding of demand d in hour h, MW
 		@variable(model, pt_rps[W]>=0)							#Amount of active power violated RPS policy in state w, MW
 		@variable(model, pwi[G,W,W_prime]>=0)					#State w imported renewable credits from state w' annually, MWh	
 		if inv_dcs_bin == 1
@@ -269,16 +275,16 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, 0 <= x[G_new] <= 1)					#Decision variable for candidate generator g, relax to scale 0-1
 			@variable(model, 0 <= y[L_new] <= 1)					#Decision variable for candidate line l, relax to scale 0-1
 			@variable(model, 0 <= z[S_new] <= 1)					#Decision variable for candidate storage s, relax to scale 0-1
-			@variable(model, 0 <=x_RET[G_RET]<= 1)					#Decision variable for generator g eligible for retirement, relax to scale 0-1
+			@variable(model, 0 <= x_RET[G_RET] <= 1)				#Decision variable for generator g eligible for retirement, relax to scale 0-1
 		end
 		if config_set["flexible_demand"] ==1
-			@variable(model, dr[D,T,H_T]>=0)						#Demand from DR aggregator during t, h, MW
-			@variable(model, dr_UP[D,T,H_T]>=0)						#Demand change up relative to reference demand during t, h, MW
-			@variable(model, dr_DN[D,T,H_T]>=0)						#Demand change down relative to reference demand during t, h, MW
+			@variable(model, dr[D,H_T]>=0)							#Demand from DR aggregator during t, h, MW
+			@variable(model, dr_UP[D,H_T]>=0)						#Demand change up relative to reference demand during t, h, MW
+			@variable(model, dr_DN[D,H_T]>=0)						#Demand change down relative to reference demand during t, h, MW
 		end
-		@variable(model, soc[S,T,H_T]>=0)							#State of charge level of storage s in hour h, MWh
-		@variable(model, c[S,T,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
-		@variable(model, dc[S,T,H_T]>=0)							#Discharging power of storage s into grid in hour h, MW
+		@variable(model, soc[S,H_T]>=0)							#State of charge level of storage s in hour h, MWh
+		@variable(model, c[S,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
+		@variable(model, dc[S,H_T]>=0)							#Discharging power of storage s into grid in hour h, MW
 		#@variable(model, slack_pos[T,H_T,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[T,H_T,I]>=0)					#Slack varbale for debuging
 		#unregister(model, :p)
@@ -300,97 +306,98 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
 		if config_set["flexible_demand"] !=0
-			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], sum(dr[d,t,h]-DR_t[t][h,d]*DR_MAX[d] for d in D_i[i]))
+			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], sum(dr[d,h]-DR_hd[h,d]*DR_MAX[d] for d in D_i[i]))
 		else
 			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], 0)
 		end
-		@constraint(model, PB_con[i in I, t in T, h in H_t[t]], sum(p[g,t,h] for g in G_i[i]) 
-			+ sum(dc[s,t,h] - c[s,t,h] for s in S_i[i])
-			- sum(f[l,t,h] for l in LS_i[i])#LS
-			+ sum(f[l,t,h] for l in LR_i[i])#LR
-			+ NI_t[t][h,i]
+		@constraint(model, PB_con[i in I, t in T, h in H_t[t]], sum(p[g,h] for g in G_i[i]) 
+			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
+			- sum(f[l,h] for l in LS_i[i])#LS
+			+ sum(f[l,h] for l in LR_i[i])#LR
+			#+ NI_t[t][h,i]
+			+ NI_hi[h,i] #net import
 			#+ slack_pos[t,h,i]-slack_neg[t,h,i]
-			== sum(P_t[t][h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,t,h] - p_LS[i,t,h],base_name = "PB_con")
+			== sum(P_hd[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,t,h] - p_LS[i,h],base_name = "PB_con")
 		
 		#(6) Transissim power flow limit for existing lines	
-		TLe_con = @constraint(model, [l in L_exist,t in T,h in H_t[t]], -F_max[l] <= f[l,t,h] <= F_max[l],base_name = "TLe_con")
+		TLe_con = @constraint(model, [l in L_exist,t in T,h in H_t[t]], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
 
 		#(7) Transissim power flow limit for new lines
-		TLn_LB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]], -F_max[l] * y[l] <= f[l,t,h],base_name = "TLn_LB_con")
-		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,t,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
-	
+		TLn_LB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]], -F_max[l] * y[l] <= f[l,h],base_name = "TLn_LB_con")
+		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
+
 		#(8) Maximum capacity limits for existing power generator
-		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,t,h] <=P_max[g]*AF_g[g],base_name = "CLe_con")
-		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g] - P_min[g]*x_RET[g] <= p[g,t,h], base_name = "CLe_RET_LB_con")
-		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,t,h] <= P_max[g]- P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
-		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g], base_name = "CLe_MR_con")
+		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,h] <=P_max[g]*AF_g[g],base_name = "CLe_con")
+		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g] - P_min[g]*x_RET[g] <= p[g,h], base_name = "CLe_RET_LB_con")
+		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,h] <= P_max[g]- P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
+		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,h] == P_max[g], base_name = "CLe_MR_con")
 	
 		#(9) Maximum capacity limits for new power generator
-		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,t,h], base_name = "CLn_LB_con")
-		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,t,h] <=P_max[g]*x[g]*AF_g[g],base_name = "CLn_UB_con")
-		CLn_MR_con =  @constraint(model, [g in intersect(G_new,G_MR),t in T, h in H_t[t]],  p[g,t,h] == P_max[g]*x[g]*AF_g[g], base_name = "CLn_MR_con")
+		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,h], base_name = "CLn_LB_con")
+		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,h] <=P_max[g]*x[g]*AF_g[g],base_name = "CLn_UB_con")
+		CLn_MR_con =  @constraint(model, [g in intersect(G_new,G_MR),t in T, h in H_t[t]],  p[g,h] == P_max[g]*x[g]*AF_g[g], base_name = "CLn_MR_con")
 		#(10) Load shedding limit	
-		LS_con = @constraint(model, [i in I, t in T, h in H[t]], 0 <= p_LS[i,t,h]<= sum(P_t[t][h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
+		LS_con = @constraint(model, [i in I, t in T, h in H_t[t]], 0 <= p_LS[i,h]<= sum(P_hd[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
 	
 		##############
 		##Renewbales##
 		##############
 		#(11) Renewables generation availability for the existing plants: p_(g,h)≤AFRE_(g,h)∙P_g^max; ∀h∈H_t,g∈G^E∩(G^PV∪G^W)  
-		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] <= AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_con")
-		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] == AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_MR_con")
-		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], AFRE_tg[t,g][h,i]*P_max[g]-p[g,t,h])
+		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,h] <= AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_con")
+		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,h] == AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAe_MR_con")
+		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], AFRE_tg[t,g][h,i]*P_max[g]-p[g,h])
 		
 		#(12) Renewables generation availability for new installed plants: p_(g,h)≤AFRE_(g,h)∙P_g^max ∙x_g; ∀h∈H_t,g∈G^+∩(G^PV∪G^W)  
-		ReAn_con=@constraint(model, [i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h]<= x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_con")
-		ReAn_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_new,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,t,h] == x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_MR_con")
-		@expression(model, RenewableCurtailNew[i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], AFRE_tg[t,g][h,i]*P_max[g]-p[g,t,h])
+		ReAn_con=@constraint(model, [i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,h]<= x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_con")
+		ReAn_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_new,G_MR),G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], p[g,h] == x[g]*AFRE_tg[t,g][h,i]*P_max[g],base_name = "ReAn_MR_con")
+		@expression(model, RenewableCurtailNew[i in I, g in intersect(G_new,G_i[i],union(G_PV,G_W)), t in T, h in H_t[t]], AFRE_tg[t,g][h,i]*P_max[g]-p[g,h])
 		
 		##############
 		###Storages###
 		##############
 		#(13) Storage charging rate limit for existing units
-		ChLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], c[s,t,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
+		ChLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], c[s,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
 		
 		#(14) Storage discharging rate limit for existing units
-		DChLe_con=@constraint(model, [t in T, h in H_t[t],  s in S_exist], c[s,t,h]/SC[s] + dc[s,t,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
+		DChLe_con=@constraint(model, [t in T, h in H_t[t],  s in S_exist], c[s,h]/SC[s] + dc[s,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
 		
 		#(15) Storage charging rate limit for new installed units
-		ChLn_con=@constraint(model, [t in T, h in H_t[t], s in S_new], c[s,t,h]/SC[s] <= z[s]*SCAP[s],base_name = "ChLn_con")
+		ChLn_con=@constraint(model, [t in T, h in H_t[t], s in S_new], c[s,h]/SC[s] <= z[s]*SCAP[s],base_name = "ChLn_con")
 		
 		#(16) Storage discharging rate limit for new installed units
-		DChLn_con=@constraint(model, [t in T, h in H_t[t] , s in S_new], c[s,t,h]/SC[s]+ dc[s,t,h]/SD[s] <= z[s]*SCAP[s],base_name = "DChLn_con")
+		DChLn_con=@constraint(model, [t in T, h in H_t[t] , s in S_new], c[s,h]/SC[s]+ dc[s,h]/SD[s] <= z[s]*SCAP[s],base_name = "DChLn_con")
 		
 		#(17) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
-		SoCLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], 0 <= soc[s,t,h] <= SECAP[s], base_name = "SoCLe_con")
+		SoCLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
 		
 		#(18) State of charge limit for new installed units
-		SoCLn_ub_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  soc[s,t,h] <= z[s]*SECAP[s],base_name = "SoCLn_ub_con")
-		SoCLn_lb_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  0 <= soc[s,t,h], base_name = "SoCLn_lb_con")
+		SoCLn_ub_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  soc[s,h] <= z[s]*SECAP[s],base_name = "SoCLn_ub_con")
+		SoCLn_lb_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  0 <= soc[s,h], base_name = "SoCLn_lb_con")
 		#Stroage investment lower bound for MD
 		#S_lb_con = @constraint(model, [w in ["MD"]], sum(sum(z[s]*SCAP[s] for s in S_new_i[i]) for i in I_w[w])>= 3000, base_name="S_lb_con")
 
 		#(19) Storage operation constraints
-		SoC_con=@constraint(model, [t in T, h in setdiff(H_t[t], [1]),s in S], soc[s,t,h] == soc[s,t,h-1] + e_ch[s]*c[s,t,h] - dc[s,t,h]/e_dis[s],base_name = "SoC_con")
+		SoC_con=@constraint(model, [t in T, h in setdiff(H_t[t], [H_t[t][1]]),s in S], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
 		
 		#(20) Daily 50% of storage level balancing for existing units
 		if T == [1]
-			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,1] == soc[s,t,end]+ e_ch[s]*c[s,t,end] - dc[s,t,end]/e_dis[s],base_name = "SDBe_st_con")
+			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,1] == soc[s,end]+ e_ch[s]*c[s,end] - dc[s,end]/e_dis[s],base_name = "SDBe_st_con")
 			#SDBe_ps_con=@constraint(model, [t in T,s in S_exist, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBe_ps_con")
 			#SDBe_ed_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		else
-			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,t,1] == soc[s,t,end],base_name = "SDBe_st_con")
-			SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")	
+			SDBe_st_con=@constraint(model, [t in T, s in S_exist], soc[s,H_t[t][1]] == soc[s,H_t[t][end]],base_name = "SDBe_st_con")
+			SDBe_ed_con=@constraint(model, [t in T, s in S_exist], soc[s,H_t[t][end]] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
 		end
 		
 		
 		#(21) Daily 50% of storage level balancing for new units
 		if T== [1]
-			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,1] == soc[s,t,end]+ e_ch[s]*c[s,t,end] - dc[s,t,end]/e_dis[s],base_name = "SDBn_st_con")
+			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,1] == soc[s,end]+ e_ch[s]*c[s,end] - dc[s,end]/e_dis[s],base_name = "SDBn_st_con")
 			#SDBn_ps_con=@constraint(model, [t in T,s in S_new, h in setdiff(H_D, [0,8760])],soc[s,t,1]==soc[s,t,h],base_name="SDBn_ps_con")
 			#SDBn_ed_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,t,end] == 0.5 * SECAP[s],base_name = "SDBn_ed_con")
 		else
-			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,t,1] == soc[s,t,end],base_name = "SDBn_st_con" )
-			SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,t,end] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
+			SDBn_st_con=@constraint(model, [t in T, s in S_new], soc[s,H_t[t][1]] == soc[s,H_t[t][end]],base_name = "SDBn_st_con" )
+			SDBn_ed_con=@constraint(model, [t in T, s in S_new], soc[s,H_t[t][end]] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
 		end
 
 		
@@ -410,7 +417,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		##############
 		#(23) RPS, state level total Defining
 		RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
-							pw[g,w] == sum(N[t]*sum(p[g,t,h] for h in H_t[t]) for t in T), base_name = "RPS_pw_con")
+							pw[g,w] == sum(N[t]*sum(p[g,h] for h in H_t[t]) for t in T), base_name = "RPS_pw_con")
 
 		
 		#(24) State renewable credits export limitation 
@@ -423,14 +430,14 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		RPS_con = @constraint(model, [w in W], sum(pwi[g,w,w_prime]  for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
 									- sum(pwi[g,w_prime,w] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 									+ pt_rps[w] 
-									>= sum(N[t]*sum(sum(P_t[t][h,i]*PK[d]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
+									>= sum(N[t]*sum(sum(P_hd[h,d]*PK[d]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
 		# RPS_con_selfmeet = @constraint(model, [w in setdiff(W,W_RPS)], sum(N[t]*sum(p[g,t,h] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) for h in H_t[t]) for t in T) + pt_rps[w] >= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con_selfmeet")
 		
 		###############
 		#CarbonPolicies#				
 		###############
 		#(27) State carbon emission limit
-		CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,t,h] for g in intersect(G_F,G_i[i]) for h in H[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
+		CL_con = @constraint(model, [w in W], sum(sum(N[t]*sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H_t[t]) for t in T) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
 		
 
 		##Cap & Trade##
@@ -447,18 +454,18 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if config_set["flexible_demand"] == 1
 			#Demand response program (load shifting)
 			#(31) DR balance
-			DR_con = @constraint(model, [d in D, t in T, h in H_t[t]], dr[d,t,h] == DR_t[t][h,d]*DR_MAX[d] + dr_UP[d,t,h]-dr_DN[d,t,h], base_name="DR_con")
+			DR_con = @constraint(model, [d in D, t in T, h in H_t[t]], dr[d,h] == DR_hd[h,d]*DR_MAX[d] + dr_UP[d,h]-dr_DN[d,h], base_name="DR_con")
 
 			#(32) DR daily balance
 			if T== [1]
-				DR_day_con=@constraint(model, [d in D, t in T, h in setdiff(H_D, [0,8760])], sum(dr_UP[d,t,h1] for h1 in h:h+23)==sum(dr_DN[d,t,h1] for h1 in h:h+23),base_name="DR_day_con")
+				DR_day_con=@constraint(model, [d in D, t in T, h in setdiff(H_D, [0,8760])], sum(dr_UP[d,h1] for h1 in h:h+23)==sum(dr_DN[d,h1] for h1 in h:h+23),base_name="DR_day_con")
 			else
-				DR_day_con=@constraint(model, [d in D, t in T], sum(dr_UP[d,t,h] for h in HD)==sum(dr_DN[d,t,h] for h in HD),base_name = "DR_day_con" )
+				DR_day_con=@constraint(model, [d in D, t in T], sum(dr_UP[d,h] for h in H_t[t])==sum(dr_DN[d,h] for h in H_t[t]),base_name = "DR_day_con" )
 			end
 
 			#(33) DR max demand limit
-			DR_max_con = @constraint(model, [d in D, t in T, h in H_t[t]], DR_t[t][h,d]*DR_MAX[d]+dr_UP[d,t,h] <= DR_MAX[d], base_name = "DR_max_con")
-			DR_ref_con =  @constraint(model, [d in D, t in T, h in H_t[t]], dr_DN[d,t,h] <= DR_t[t][h,d]*DR_MAX[d], base_name = "DR_ref_con")
+			DR_max_con = @constraint(model, [d in D, t in T, h in H_t[t]], DR_hd[h,d]*DR_MAX[d]+dr_UP[d,h] <= DR_MAX[d], base_name = "DR_max_con")
+			DR_ref_con =  @constraint(model, [d in D, t in T, h in H_t[t]], dr_DN[d,h] <= DR_hd[h,d]*DR_MAX[d], base_name = "DR_ref_con")
 		end
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
@@ -468,31 +475,30 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		@expression(model, INVCost_storage, sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))
 
 		#Operation cost of generator and storages
-		@expression(model, OPCost, sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in G for t in T)
-					+ sum(VCS[s]*N[t]*sum(c[s,t,h]+dc[s,t,h] for h in H_t[t]) for s in S for t in T)
+		@expression(model, OPCost, sum(VCG[g]*N[t]*sum(p[g,h] for h in H_t[t]) for g in G for t in T)
+					+ sum(VCS[s]*N[t]*sum(c[s,h]+dc[s,h] for h in H_t[t]) for s in S for t in T)
 					)	
 		#Loss of load penalty
-		@expression(model, LoadShedding, sum(VOLL*N[t]*sum(p_LS[i,t,h] for h in H_t[t]) for i in I for t in T))
+		@expression(model, LoadShedding, sum(VOLL*N[t]*sum(p_LS[i,h] for h in H_t[t]) for i in I for t in T))
 
 		#RPS volitation penalty
 		@expression(model, RPSPenalty, PT_rps*sum(pt_rps[w] for w in W))
 		#VRE curtailments
-		VRE_CT = @expression(model, [g in G_VRE, t in T, h in H_t[t]], sum(AFRE_tg[t,g][h,i]*P_max[g] - p[g,t,h]) for i in I)			
+		VRE_CT = @expression(model, [g in G_VRE, t in T, h in H_t[t]], sum(AFRE_tg[t,g][h,i]*P_max[g] - p[g,h]) for i in I)			
 		
 		#Carbon cap volitation penalty
 		@expression(model, CarbonCapPenalty, PT_emis*sum(em_emis[w] for w in W))
-		@expression(model, CarbonEmission[w in W], sum(N[t]*EF[g]*p[g,t,h] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F) for t in T for h in H_t[t] ))
+		@expression(model, CarbonEmission[w in W], sum(N[t]*EF[g]*p[g,h] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F) for t in T for h in H_t[t] ))
 		#Slack variable penalty
 		#@expression(model, SlackPenalty, sum(BM * N[t]*sum(slack_pos[t,h,i]+slack_neg[t,h,i] for h in H_t[t] for i in I) for t in T))
 
 		#Minmize objective fuction: INVCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
 		if config_set["flexible_demand"] !=0
-			@expression(model,DR_OPcost,sum(N[t]*sum(DRC_d[d]*(dr_UP[d,t,h]+dr_DN[d,t,h]) for h in H_t[t] for d in D) for t in T))
-			@objective(model,Min,INVCost + OPCost +DR_OPcost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+			@expression(model,DR_OPcost,sum(N[t]*sum(DRC_d[d]*(dr_UP[d,h]+dr_DN[d,h]) for h in H_t[t] for d in D) for t in T))
 		else
-			@objective(model,Min,INVCost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+			@expression(model,DR_OPcost,0)		
 		end
-
+		@objective(model,Min,INVCost + OPCost +DR_OPcost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
 		return model
 	end
 end 
