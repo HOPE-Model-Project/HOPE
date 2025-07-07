@@ -150,7 +150,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(G)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(G)[1])  #Annual generation output
         )
-        P_gen_df.AnnSum .= [sum(value.(model[:p][g,t,h]) for t in T for h in H_t[t] ) for g in G]
+        P_gen_df.AnnSum .= [sum(value.(model[:p][g,h]) for t in T for h in H_t[t] ) for g in G]
         New_built_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
         #print(New_built_idx)
         #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
@@ -158,7 +158,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_gen_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
         power = value.(model[:p])
-        power_t_h = hcat([Array(power[:,t,h]) for t in T for h in H_t[t]]...)
+        power_t_h = hcat([Array(power[:,h]) for t in T for h in H_t[t]]...)
         #print(power_t_h)
         power_t_h_df = DataFrame(power_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_gen_df = hcat(P_gen_df, power_t_h_df )
@@ -199,9 +199,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
           load_area = vcat(Zonedata[:, "Zone_id"]), 
           AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
         )
-        P_ls_df.AnnTol .= [sum(value.(model[:p_LS][i,t,h]) for t in T for h in H_t[t]) for i in I]
+        P_ls_df.AnnTol .= [sum(value.(model[:p_LS][i,h]) for t in T for h in H_t[t]) for i in I]
         power_ls = value.(model[:p_LS])
-        power_ls_t_h = hcat([Array(power_ls[:,t,h]) for t in T for h in H_t[t]]...)
+        power_ls_t_h = hcat([Array(power_ls[:,h]) for t in T for h in H_t[t]]...)
         power_ls_t_h_df = DataFrame(power_ls_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_ls_df = hcat(P_ls_df, power_ls_t_h_df)
 
@@ -288,7 +288,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
         )
-        P_flow_df.AnnSum .= [sum(value.(model[:f][l,t,h]) for t in T for h in H_t[t] ) for l in L]
+        P_flow_df.AnnSum .= [sum(value.(model[:f][l,h]) for t in T for h in H_t[t] ) for l in L]
         
         New_built_line_idx = map(x -> x + Num_Eline, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
         P_flow_df[!,"New_Build"] .= 0
@@ -296,7 +296,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         #Retreive power data from solved model
         flow = value.(model[:f])
-        flow_t_h = hcat([Array(flow[:,t,h]) for t in T for h in H_t[t]]...)
+        flow_t_h = hcat([Array(flow[:,h]) for t in T for h in H_t[t]]...)
         flow_t_h_df = DataFrame(flow_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_flow_df = hcat(P_flow_df, flow_t_h_df )
         CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
@@ -311,7 +311,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
         )
-        P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,t,h]) for t in T for h in H_t[t] ) for s in S]
+        P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,h]) for t in T for h in H_t[t] ) for s in S]
         
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_c_df[!,:New_Build] .= 0
@@ -319,7 +319,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Retreive power data from solved model
         power_c = value.(model[:c])
 
-        power_c_t_h = hcat([Array(power_c[:,t,h]) for t in T for h in H_t[t]]...)
+        power_c_t_h = hcat([Array(power_c[:,h]) for t in T for h in H_t[t]]...)
         power_c_t_h_df = DataFrame(power_c_t_h, [Symbol("c_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_c_df = hcat(P_es_c_df, power_c_t_h_df)
@@ -332,7 +332,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
         )
-        P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,t,h]) for t in T for h in H_t[t] ) for s in S]
+        P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for t in T for h in H_t[t] ) for s in S]
         
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_dc_df[!,:New_Build] .= 0
@@ -340,7 +340,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Retreive power data from solved model
         power_dc = value.(model[:dc])
 
-        power_dc_t_h = hcat([Array(power_dc[:,t,h]) for t in T for h in H_t[t]]...)
+        power_dc_t_h = hcat([Array(power_dc[:,h]) for t in T for h in H_t[t]]...)
         power_dc_t_h_df = DataFrame(power_dc_t_h, [Symbol("dc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_dc_df = hcat(P_es_dc_df,  power_dc_t_h_df)
@@ -359,7 +359,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Retreive power data from solved model
         power_soc = value.(model[:soc])
 
-        power_soc_t_h = hcat([Array(power_soc[:,t,h]) for t in T for h in H_t[t]]...)
+        power_soc_t_h = hcat([Array(power_soc[:,h]) for t in T for h in H_t[t]]...)
         power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
@@ -387,12 +387,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual charge
             )
-            dr_df.DRAnnSum .= [sum(value.(model[:dr][d,t,h]) for t in T for h in H_t[t] ) for d in D]
+            dr_df.DRAnnSum .= [sum(value.(model[:dr][d,h]) for t in T for h in H_t[t] ) for d in D]
             
             #Retreive power data from solved model
             power_dr = value.(model[:dr])
 
-            power_dr_t_h = hcat([Array(power_dr[:,t,h]) for t in T for h in H_t[t]]...)
+            power_dr_t_h = hcat([Array(power_dr[:,h]) for t in T for h in H_t[t]]...)
             power_dr_t_h_df = DataFrame(power_dr_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
             dr_df = hcat(dr_df, power_dr_t_h_df)
@@ -405,12 +405,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
             )
-            dr_up_df.DRAnnSum .= [sum(value.(model[:dr_UP][d,t,h]) for t in T for h in H_t[t] ) for d in D]
+            dr_up_df.DRAnnSum .= [sum(value.(model[:dr_UP][d,h]) for t in T for h in H_t[t] ) for d in D]
             
             #Retreive power data from solved model
             power_dr_up = value.(model[:dr_UP])
 
-            power_dr_up_t_h = hcat([Array(power_dr_up[:,t,h]) for t in T for h in H_t[t]]...)
+            power_dr_up_t_h = hcat([Array(power_dr_up[:,h]) for t in T for h in H_t[t]]...)
             power_dr_up_t_h_df = DataFrame(power_dr_up_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
             dr_up_df = hcat(dr_up_df, power_dr_up_t_h_df)
@@ -423,12 +423,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
             )
-            dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DN][d,t,h]) for t in T for h in H_t[t] ) for d in D]
+            dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DN][d,h]) for t in T for h in H_t[t] ) for d in D]
             
             #Retreive power data from solved model
             power_dr_dn = value.(model[:dr_DN])
 
-            power_dr_dn_t_h = hcat([Array(power_dr_dn[:,t,h]) for t in T for h in H_t[t]]...)
+            power_dr_dn_t_h = hcat([Array(power_dr_dn[:,h]) for t in T for h in H_t[t]]...)
             power_dr_dn_t_h_df = DataFrame(power_dr_dn_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
             dr_dn_df = hcat(dr_dn_df, power_dr_dn_t_h_df)
@@ -456,10 +456,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         p_LS = value.(model[:p_LS])
         for i in  1:Num_zone
             Inv_c = sum(INV_g[g]*x[g]*P_max[g] for g in intersect(G_new,G_i[i]); init=0)+sum(INV_l[l]*unit_converter*y[l] for l in intersect(L_new,LS_i[i]); init=0)+sum(INV_s[s]*z[s]*SCAP[s] for s in intersect(S_new,S_i[i]); init=0)
-            Opr_c = sum(VCG[g]*N[t]*sum(p[g,t,h] for h in H_t[t]) for g in intersect(G,G_i[i]) for t in T; init=0) + sum(VCS[s]*N[t]*sum(c[s,t,h]+dc[s,t,h] for h in H_t[t]; init=0) for s in intersect(S,S_i[i]) for t in T; init=0)
+            Opr_c = sum(VCG[g]*N[t]*sum(p[g,h] for h in H_t[t]) for g in intersect(G,G_i[i]) for t in T; init=0) + sum(VCS[s]*N[t]*sum(c[s,h]+dc[s,h] for h in H_t[t]; init=0) for s in intersect(S,S_i[i]) for t in T; init=0)
             #RPS_p =  PT_rps*sum(pt_rps[w] for w in W)
             #Cb_p = PT_emis*sum(em_emis[w] for w in W)
-            Lol_p = sum(VOLL*N[t]*sum(p_LS[d,t,h] for h in H_t[t]; init=0) for d in intersect(D,D_i[i]) for t in T; init=0)
+            Lol_p = sum(VOLL*N[t]*sum(p_LS[d,h] for h in H_t[t]; init=0) for d in intersect(D,D_i[i]) for t in T; init=0)
             Tot = sum([Inv_c,Opr_c,Lol_p])
             Cost_df[i,2:end] = [Inv_c,Opr_c,Lol_p,Tot]
         end
