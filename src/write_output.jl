@@ -91,7 +91,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Time period
         T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
 		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
-			H_t=[collect(1:24) for t in T]									#Set of hours in time period (day) t, index h, subset of H
+			H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]								#Set of hours in time period (day) t, index h, subset of H
 			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		else
 			H_t=[collect(1:8760) for t in [1]]									#Set of hours in time period (day) t, index h, subset of H
