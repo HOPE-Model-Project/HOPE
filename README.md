@@ -22,7 +22,7 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
 3. `OPF` mode: (under development): an optimal power flow model
-4. `DART` mode: (under development): a bilevel market model for simulating day-ahead and real-time markets
+4. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
