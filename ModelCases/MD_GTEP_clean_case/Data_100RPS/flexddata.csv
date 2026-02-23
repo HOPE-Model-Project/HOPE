@@ -1,0 +1,7 @@
+Zone,Type,Max Power (MW),Cost ($/MW)
+BGE,Loadshifting,1000,500
+APS,Loadshifting,1000,500
+PEPCO,Loadshifting,1000,500
+DPL,Loadshifting,1000,500
+DPL_MD,Loadshifting,0,500
+APS_MD,Loadshifting,0,500

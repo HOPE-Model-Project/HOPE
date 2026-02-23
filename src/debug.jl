@@ -40,9 +40,9 @@ end
 
 function run_debug(case::AbstractString)
 	path = case
-	outpath = path*"/debug_report/"
+	outpath = joinpath(path, "debug_report")
 	mkdir_overwrite(outpath)
-	config_set = YAML.load(open(case*"/Settings/HOPE_model_settings.yml"))
+	config_set = YAML.load(open(joinpath(case, "Settings", "HOPE_model_settings.yml")))
 
 	#Set solver configuration
 	optimizer =  initiate_solver(config_set["solver"],path)

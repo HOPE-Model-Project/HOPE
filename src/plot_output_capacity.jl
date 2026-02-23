@@ -1,7 +1,17 @@
 using DataFrames, CSV, PlotlyJS
 
-input_dir = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
-outpath = "E:\\Dropbox (MIT)\\PJMShen\\HOPE\\ModelCases\\MD_clean_datacenter_case0RPS\\" #choose by user
+# Import constants and utilities from HOPE module
+# This script is designed to work as part of the HOPE module
+using ..HOPE: COLOR_MAP, TECH_ACRONYM_MAP, DEFAULT_MARKER_SIZE, get_paths, validate_case_directory, aggregate_by_fuel_type
+
+# Use the constants
+color_map = COLOR_MAP
+tech_acromy_map_dict = TECH_ACRONYM_MAP
+ordered_tech = ORDERED_TECH_CAPACITY
+
+input_dir, outpath = get_paths()
+#input_dir = "E:\\OneDrive - Johns Hopkins\\MAE\\Maryland-Electric-Sector-Transition\\HOPE\\ModelCases\\MD_GTEP_clean_case\\Output\\" # Please change it to your home directory where HOPE and your Output file of the ModelCases exist
+#outpath = "E:\\OneDrive - Johns Hopkins\\MAE\\Maryland-Electric-Sector-Transition\\HOPE\\ModelCases\\MD_GTEP_clean_case\\" #choose by user
 
 #Function use for aggregrating generation data:
 function aggregate_capdata(df)

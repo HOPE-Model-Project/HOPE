@@ -1,0 +1,13 @@
+# Changes here will be overwritten by Copier
+AnswerStrategy: recommended
+Authors: swang22 <worldspace321@gmail.com> and contributors
+CodeOfConductContact: worldspace321@gmail.com
+JuliaIndentation: 4
+JuliaMinVersion: '1'
+License: MIT
+LicenseCopyrightHolders: swang22
+PackageName: HOPE
+PackageOwner: SW
+PackageUUID: 2ce8c7c5-3207-4bce-8974-65cdad2c68ed
+_commit: v0.13.0
+_src_path: https://github.com/abelsiqueira/BestieTemplate.jl
