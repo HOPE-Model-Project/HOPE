@@ -308,6 +308,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		PK=Zonedata[:,"Demand (MW)"]#d												#Zone reference demand (used with per-unit load profile), MW
 		PT_rps=SinglePardata[1, "PT_RPS"]											#RPS volitation penalty, $/MWh
 		PT_emis=SinglePardata[1, "PT_emis"]											#Carbon emission volitation penalty, $/t
+		singlepar_cols = Set(string.(names(SinglePardata)))
+		alpha_storage_anchor = ("alpha_storage_anchor" in singlepar_cols) ? Float64(SinglePardata[1, "alpha_storage_anchor"]) : 0.5
+		if !(0.0 <= alpha_storage_anchor <= 1.0)
+			throw(ArgumentError("Invalid alpha_storage_anchor=$(alpha_storage_anchor). Expected value in [0, 1]."))
+		end
 		P_min=[Gendata[:,"Pmin (MW)"];Gendata_candidate[:,"Pmin (MW)"]]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
 		RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))	#w									#Renewable portfolio standard in state w,  unitless
@@ -397,7 +402,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		@variable(model, p[G,H_T]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
 		@variable(model, p_LS[I,H_T]>=0)						#Load shedding of demand d in hour h, MW
-		@variable(model, pt_rps[W]>=0)							#Amount of active power violated RPS policy in state w, MW
+		@variable(model, pt_rps[W]>=0)							#Amount of energy violated RPS policy in state w, MWh
 		@variable(model, pwi[G,W,W_prime]>=0)					#Renewable credits transferred from state w to state w' annually, MWh
 		if inv_dcs_bin == 1
 			@variable(model, x[G_new], Bin)							#Decision variable for candidate generator g, binary
@@ -519,12 +524,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,1] == soc[s,end] + e_ch[s]*c[s,1] - dc[s,1]/e_dis[s],base_name = "SDBn_st_con")
 		else
 			# Representative-day mode:
-			# - Short-duration storage (S_SD): daily cyclic SOC + 50% end anchor.
+			# - Short-duration storage (S_SD): daily start/end SOC anchors at alpha_storage_anchor.
 			# - Long-duration storage (S_LD): inter-period SOC linkage (no daily 50% anchor).
-			SDBe_st_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][1]] == soc[s,H_t[t][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s],base_name = "SDBe_st_con")
-			SDBe_ed_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][end]] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
-			SDBn_st_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][1]] == soc[s,H_t[t][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s],base_name = "SDBn_st_con" )
-			SDBn_ed_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][end]] == 0.5 * z[s]*SECAP[s],base_name = "SDBn_ed_con")
+			SDBe_st_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][1]] == alpha_storage_anchor * SECAP[s],base_name = "SDBe_st_con")
+			SDBe_ed_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][end]] == alpha_storage_anchor * SECAP[s],base_name = "SDBe_ed_con")
+			SDBn_st_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][1]] == alpha_storage_anchor * z[s]*SECAP[s],base_name = "SDBn_st_con" )
+			SDBn_ed_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][end]] == alpha_storage_anchor * z[s]*SECAP[s],base_name = "SDBn_ed_con")
 			T_first = T[1]
 			T_last = T[end]
 			T_follow = length(T) > 1 ? T[2:end] : Int[]
