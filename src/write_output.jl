@@ -49,6 +49,8 @@ end
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)
 	mkdir_overwrite(outpath)
     model_mode = config_set["model_mode"]
+    flexible_demand_raw = get(config_set, "flexible_demand", 0)
+    flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
     println() 
     println("HOPE model ($model_mode mode) is successfully solved!")
     if model_mode == "GTEP"
@@ -62,7 +64,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Linedata_candidate = input_data["Linedata_candidate"]
         Loaddata = input_data["Loaddata"]
         VOLL = input_data["Singlepar"][1,"VOLL"]
-        if config_set["flexible_demand"]==1
+        if flexible_demand == 1
             DRdata = input_data["DRdata"]
         end
         #Calculate number of elements of input data
@@ -104,17 +106,27 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G=[g for g=1:Num_Egen+Num_Cgen]
         G_exist=[g for g=1:Num_Egen]
         G_new=[g for g=Num_Egen+1:Num_Egen+Num_Cgen]
-        G_RET=findall(x -> x in [1], Gendata[:,"Flag_RET"])
+        G_MR_E=findall(x -> x in [1], Gendata[:,"Flag_mustrun"])
+        G_RET_raw=findall(x -> x in [1], Gendata[:,"Flag_RET"])
+        G_RET=setdiff(G_RET_raw, G_MR_E)
         G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
 		G_PV_C=findall(Gendata_candidate[:,"Type"].=="SolarPV").+Num_Egen#Set of candidate solar, subsets of G
 		G_PV=[G_PV_E;G_PV_C]											#Set of all solar, subsets of G
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
-		G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_Egen#Set of candidate wind, subsets of G
+        G_W_C=findall(x -> x in ["WindOn","WindOff"], Gendata_candidate[:,"Type"]).+Num_Egen#Set of candidate wind, subsets of G
 		G_W=[G_W_E;G_W_C]
         G_VRE_E = [G_PV_E;G_W_E]
         G_VRE_C = [G_PV_C;G_W_C]
         G_VRE = [G_VRE_E;G_VRE_C]
+        if ("Flag_RPS" in names(Gendata)) && ("Flag_RPS" in names(Gendata_candidate))
+            G_RPS_E=findall(x -> x in [1], Gendata[:,"Flag_RPS"])
+            G_RPS_C=findall(x -> x in [1], Gendata_candidate[:,"Flag_RPS"]).+Num_Egen
+            G_RPS = sort(unique(vcat(G_RPS_E, G_RPS_C, G_VRE)))
+        else
+            # Backward-compatible fallback for older data
+            G_RPS = G_VRE
+        end
         S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
         S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
@@ -191,7 +203,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #)
         #power = value.(model[:p])
         #power_VRE_t_h = hcat([Array(power[G_VRE,t,h]) for t in T for h in H_t[t]]...)
-        #power_VRE_max_t_h = hct([Array(AFRE_tg[t,g][h,i]*P_max[g]) for t in T for h in H_t[t]]...)
+        #power_VRE_max_t_h = hcat([Array(AF_gh[g,h]*P_max[g]) for t in T for h in H_t[t]]...)
         #power_VRE_ctl_t_h =  hcat([Array(power[G_VRE,t,h]) for t in T for h in H_t[t]]...)
 
         ##Load shedding
@@ -208,16 +220,18 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
         
         ##Renewable curtailments
+        G_vre_exist_rps = intersect(intersect(G_exist, union(G_PV, G_W)), G_RPS)
+        G_vre_new_rps = intersect(intersect(G_new, union(G_PV, G_W)), G_RPS)
         P_ct_df = DataFrame(
-            Technology = vcat(Gendata[[g for g in intersect(G_exist,union(G_PV,G_W))],"Type"],Gendata_candidate[[g for g in intersect(G_new,union(G_PV,G_W))] .- Num_Egen,"Type"]),
-            Zone = vcat(Gendata[[g for g in intersect(G_exist,union(G_PV,G_W))],"Zone"],Gendata_candidate[[g for g in intersect(G_new,union(G_PV,G_W))] .- Num_Egen,"Zone"]),
-            EC_Category = [repeat(["Existing"],size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]);repeat(["Candidate"],size([g for g in intersect(G_new,union(G_PV,G_W))])[1])], # existing capacity
-            New_Build = Array{Union{Missing,Bool}}(undef, size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]+size([g for g in intersect(G_new,union(G_PV,G_W))])[1]),
-            AnnSum = Array{Union{Missing,Float64}}(undef, size([g for g in intersect(G_exist,union(G_PV,G_W))])[1]+size([g for g in intersect(G_new,union(G_PV,G_W))])[1])  #Annual generation output
+            Technology = vcat(Gendata[[g for g in G_vre_exist_rps],"Type"],Gendata_candidate[[g for g in G_vre_new_rps] .- Num_Egen,"Type"]),
+            Zone = vcat(Gendata[[g for g in G_vre_exist_rps],"Zone"],Gendata_candidate[[g for g in G_vre_new_rps] .- Num_Egen,"Zone"]),
+            EC_Category = [repeat(["Existing"],size(G_vre_exist_rps)[1]);repeat(["Candidate"],size(G_vre_new_rps)[1])], # existing capacity
+            New_Build = Array{Union{Missing,Bool}}(undef, size(G_vre_exist_rps)[1]+size(G_vre_new_rps)[1]),
+            AnnSum = Array{Union{Missing,Float64}}(undef, size(G_vre_exist_rps)[1]+size(G_vre_new_rps)[1])  #Annual generation output
         )
-        P_ct_df.AnnSum .= [[sum(value.(model[:RenewableCurtailExist][Zone_idx_dict[Gendata[g,"Zone"]],g,t,h]) for t in T for h in H_t[t];init=0) for g in intersect(G_exist,union(G_PV,G_W))];[sum(value.(model[:RenewableCurtailNew][Zone_idx_dict[Gendata_candidate[g - Num_Egen,"Zone"]],g,t,h]) for t in T for h in H_t[t];init=0) for g in intersect(G_new,union(G_PV,G_W))]]
+        P_ct_df.AnnSum .= [[sum(value.(model[:RenewableCurtailExist][g,t,h]) for t in T for h in H_t[t];init=0) for g in G_vre_exist_rps];[sum(value.(model[:RenewableCurtailNew][g,t,h]) for t in T for h in H_t[t];init=0) for g in G_vre_new_rps]]
         New_built_vre_idx = intersect(New_built_idx,G_VRE_C)
-        New_built_matched_vre_idx = findall(x->x in New_built_vre_idx, [[g for g in intersect(G_exist,union(G_PV,G_W))];[g for g in intersect(G_new,union(G_PV,G_W))]])
+        New_built_matched_vre_idx = findall(x->x in New_built_vre_idx, [[g for g in G_vre_exist_rps];[g for g in G_vre_new_rps]])
 
         #print(New_built_idx)
         #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
@@ -226,7 +240,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Retreive power data from solved model
         power_e = value.(model[:RenewableCurtailExist])
         power_n = value.(model[:RenewableCurtailNew])
-        power_h =[[[power_e[Zone_idx_dict[Gendata[g,"Zone"]],g,t,h] for t in T for h in H_t[t]] for g in intersect(G_exist,union(G_PV,G_W))];[[power_n[Zone_idx_dict[Gendata_candidate[g - Num_Egen,"Zone"]],g,t,h] for t in T for h in H_t[t]] for g in intersect(G_new,union(G_PV,G_W))]]
+        power_h =[[[power_e[g,t,h] for t in T for h in H_t[t]] for g in G_vre_exist_rps];[[power_n[g,t,h] for t in T for h in H_t[t]] for g in G_vre_new_rps]]
         power_h_df = DataFrame([[] for t in T for h in H_t[t]],[Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         for r in 1:size(power_h)[1]
             push!(power_h_df,power_h[r])
@@ -380,61 +394,53 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         CSV.write(joinpath(outpath, "es_capacity.csv"), C_es_df, writeheader=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
-        if config_set["flexible_demand"] ==1
-            #DR
-            dr_df = DataFrame(
-                Zone = vcat(DRdata[:,"Zone"]),    
+        if flexible_demand == 1
+            # Backlog load-shifting DR outputs
+            power_df = value.(model[:dr_DF])
+            power_pb = value.(model[:dr_PB])
+            power_backlog = value.(model[:b_DR])
+            dr_cols = [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]]
+
+            # Net DR shift (payback minus deferred)
+            dr_net_df = DataFrame(
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual charge
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
             )
-            dr_df.DRAnnSum .= [sum(value.(model[:dr][d,h]) for t in T for h in H_t[t] ) for d in D]
-            
-            #Retreive power data from solved model
-            power_dr = value.(model[:dr])
+            dr_net_df.DRAnnSum .= [sum(power_pb[d,h] - power_df[d,h] for t in T for h in H_t[t]) for d in D]
+            dr_net_t_h = hcat([Array(power_pb[:,h] .- power_df[:,h]) for t in T for h in H_t[t]]...)
+            dr_net_df = hcat(dr_net_df, DataFrame(dr_net_t_h, dr_cols))
+            CSV.write(joinpath(outpath, "dr_power.csv"), dr_net_df, writeheader=true)
 
-            power_dr_t_h = hcat([Array(power_dr[:,h]) for t in T for h in H_t[t]]...)
-            power_dr_t_h_df = DataFrame(power_dr_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
-
-            dr_df = hcat(dr_df, power_dr_t_h_df)
-
-            CSV.write(joinpath(outpath, "dr_power.csv"), dr_df, writeheader=true)
-            
-            #DR_UP
-            dr_up_df = DataFrame(
-                Zone = vcat(DRdata[:,"Zone"]),    
+            dr_pb_df = DataFrame(
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
             )
-            dr_up_df.DRAnnSum .= [sum(value.(model[:dr_UP][d,h]) for t in T for h in H_t[t] ) for d in D]
-            
-            #Retreive power data from solved model
-            power_dr_up = value.(model[:dr_UP])
+            dr_pb_df.DRAnnSum .= [sum(value.(model[:dr_PB][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_pb_t_h = hcat([Array(power_pb[:,h]) for t in T for h in H_t[t]]...)
+            dr_pb_df = hcat(dr_pb_df, DataFrame(dr_pb_t_h, dr_cols))
+            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_pb_df, writeheader=true)
 
-            power_dr_up_t_h = hcat([Array(power_dr_up[:,h]) for t in T for h in H_t[t]]...)
-            power_dr_up_t_h_df = DataFrame(power_dr_up_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
-
-            dr_up_df = hcat(dr_up_df, power_dr_up_t_h_df)
-
-            CSV.write(joinpath(outpath, "dr_up_power.csv"), dr_up_df, writeheader=true)
-        
-            #DR_DN
-            dr_dn_df = DataFrame(
-                Zone = vcat(DRdata[:,"Zone"]),    
+            dr_df_df = DataFrame(
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
             )
-            dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DN][d,h]) for t in T for h in H_t[t] ) for d in D]
-            
-            #Retreive power data from solved model
-            power_dr_dn = value.(model[:dr_DN])
+            dr_df_df.DRAnnSum .= [sum(value.(model[:dr_DF][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_df_t_h = hcat([Array(power_df[:,h]) for t in T for h in H_t[t]]...)
+            dr_df_df = hcat(dr_df_df, DataFrame(dr_df_t_h, dr_cols))
+            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_df_df, writeheader=true)
 
-            power_dr_dn_t_h = hcat([Array(power_dr_dn[:,h]) for t in T for h in H_t[t]]...)
-            power_dr_dn_t_h_df = DataFrame(power_dr_dn_t_h, [Symbol("dr_"*"t$t"*"h$h") for t in T for h in H_t[t]])
-
-            dr_dn_df = hcat(dr_dn_df, power_dr_dn_t_h_df)
-
-            CSV.write(joinpath(outpath, "dr_dn_power.csv"), dr_dn_df, writeheader=true)
-        
+            dr_backlog_df = DataFrame(
+                Zone = vcat(DRdata[:,"Zone"]),
+                Technology = vcat(DRdata[:,"Type"]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
+            )
+            dr_backlog_df.DRAnnSum .= [sum(value.(model[:b_DR][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_backlog_t_h = hcat([Array(power_backlog[:,h]) for t in T for h in H_t[t]]...)
+            dr_backlog_df = hcat(dr_backlog_df, DataFrame(dr_backlog_t_h, dr_cols))
+            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
         end
         ##System Cost-----------------------------------------------------------------------------------------------------------
         Cost_df = DataFrame(
@@ -490,7 +496,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Zonedata = input_data["Zonedata"]
         Loaddata = input_data["Loaddata"]
         VOLL = input_data["Singlepar"][1,"VOLL"]
-        if config_set["flexible_demand"]==1
+        if flexible_demand == 1
             DRdata = input_data["DRdata"]
         end
         #Calculate number of elements of input data
@@ -696,7 +702,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
         CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
-        if config_set["flexible_demand"] ==1
+        if flexible_demand == 1
             #DR
             dr_df = DataFrame(
                 Zone = vcat(DRdata[:,"Zone"]),    

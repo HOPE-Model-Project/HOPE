@@ -12,6 +12,7 @@ This is the input dataset for zone-relevant information (e.g., demand, mapping w
 |Zone_id | Name of each zone (should be unique)|
 |Demand (MW) | Peak demand of the zone in MW|
 |State | The state that the zone is belonging to|
+|Zonal PRM *(optional)* | Zonal planning reserve margin. If omitted, system `planning_reserve_margin` is used for all zones.|
 ---
 
 ## gendata
@@ -32,7 +33,7 @@ This is the input dataset for existing generators.
 |Cost ($/MWh) |Operating cost of the generator in $/MWh|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator |
-|AF |The avaliability factor for the generator (it is the fraction of the installed/nameplate capacity of a generator, default = 1)|
+|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 ---
 
 ## gendata_candidate
@@ -53,7 +54,7 @@ This is the input dataset for candidate generators (a set of all generators that
 |Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator|
-|AF |The avaliability factor for the generator (it is the fraction of the installed/nameplate capacity of a generator, default = 1)|
+|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 ---
 
 ## linedata
@@ -123,24 +124,9 @@ This is the input dataset for candidate energy storage units (a set of all stora
 |Discharging Rate |The maximum rates of discharging, unitless|
 ---
 
-## solar_timeseries_regional
+## gen_availability_timeseries
 
-This is the input dataset for the annual hourly solar PV generation profile in each zone. Each zone has 8760 data points and the values are per unit.
-
----
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Month | Months of the year, ranging from 1 to 12|
-|Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
-|Zone 1 | Solar power generation data in zone 1 on a specific period, day, and month|
-|Zone 2 | Solar power generation data in zone 2 on a specific period, day, and month|
-|... |...|
----
-
-## wind_timeseries_regional
-
-This is the input dataset for the annual hourly wind generation profile in each zone. Each zone has 8760 data points and the values are per unit.
+This is the input dataset for the annual hourly generator-level availability profile \(AF_{g,h}\). It applies to all generators (VRE and dispatchable) and contains 8760 rows.
 
 ---
 |**Column Name** | **Description**|
@@ -148,10 +134,13 @@ This is the input dataset for the annual hourly wind generation profile in each 
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
 |Period | Hours of the day, ranging from 1 to 24|
-|Zone 1 | Wind power generation data in zone 1 on a specific period, day, and month|
-|Zone 2 | Wind power generation data in zone 2 on a specific period, day, and month|
-|... |...|
+|G1 | Hourly availability factor of generator index 1|
+|G2 | Hourly availability factor of generator index 2|
+|... | Continue through `G(N)`, where `N = (# existing generators + # candidate generators)` and ordering is `[gendata; gendata_candidate]`|
 ---
+
+Notes:
+- `G1..G(N)` is required by the model for GTEP.
 
 ## load_timeseries_regional
 
@@ -167,6 +156,37 @@ This is the input dataset for the annual hourly load profile in each zone. Each 
 |Zone 2 | Load data in zone 2 on a specific period, day, and month|
 |... |...|
 |NI | Net load import on a specific period, day, and month|
+---
+
+## flexddata
+
+This is the input dataset for demand response (DR) resources used in the backlog DR formulation.
+
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Zone | Zone name|
+|Type | DR technology type (e.g., `Loadshifting`)|
+|Max Power (MW) | Maximum DR power for the zone|
+|Cost ($/MW) | DR operating cost coefficient|
+|CC | Capacity credit of DR resource (default = 1 if omitted)|
+|Shift_Efficiency | Demand shifting efficiency, \(\eta_{DR}\) (default = `1.0`)|
+|Max_Defer_Hours | Maximum defer window, \(\tau_{DR}\), in hours (default = `24.0`)|
+---
+
+## dr_timeseries_regional
+
+This is the input dataset for the annual hourly DR availability profile in each zone. Each zone has 8760 data points and the values are per unit.
+
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Month | Months of the year, ranging from 1 to 12|
+|Day | Days of the month, ranging from 1 to 31|
+|Period | Hours of the day, ranging from 1 to 24|
+|Zone 1 | DR availability in zone 1 on a specific period, day, and month|
+|Zone 2 | DR availability in zone 2 on a specific period, day, and month|
+|... |...|
 ---
 
 ## carbonpolicies
@@ -201,7 +221,7 @@ This is the input dataset for some parameters that can be directly defined based
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |VOLL | Value of lost load, default = 100000 |
-|planning_reserve_margin | percentage of total capacity that is used for reserve, default = 0.02|
+|planning_reserve_margin | System planning reserve margin (PRM), default = 0.02|
 |Big M | For penalty purpose, unitless|
 |PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
 |PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|

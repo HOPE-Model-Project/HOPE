@@ -1,22 +1,45 @@
 #Function use for aggregrating generation data:
 function aggregate_gendata_gtep(df)
+    if !("AF" in names(df))
+        df = copy(df)
+        df[!, :AF] = fill(1.0, nrow(df))
+    end
     #print(df)
-	agg_df = combine(groupby(df, [:Zone,:Type]),
-	Symbol("Pmax (MW)") .=> sum,
-	Symbol("Pmin (MW)") .=> sum,
-	Symbol("Cost (\$/MWh)") .=> mean,
-	:EF .=> mean,
-	:CC .=> mean,
-    :AF .=> mean,
-    :Flag_thermal .=> mean,
-    :Flag_VRE .=> mean,
-    :Flag_RET .=> mean,
-    :Flag_mustrun .=> mean,)
-    rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun] )
+    if "Flag_RPS" in names(df)
+	    agg_df = combine(groupby(df, [:Zone,:Type]),
+	    Symbol("Pmax (MW)") .=> sum,
+	    Symbol("Pmin (MW)") .=> sum,
+	    Symbol("Cost (\$/MWh)") .=> mean,
+	    :EF .=> mean,
+	    :CC .=> mean,
+        :AF .=> mean,
+        :Flag_thermal .=> mean,
+        :Flag_VRE .=> mean,
+        :Flag_RET .=> mean,
+        :Flag_mustrun .=> mean,
+        :Flag_RPS .=> mean,)
+        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean,:Flag_RPS_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun,:Flag_RPS] )
+    else
+	    agg_df = combine(groupby(df, [:Zone,:Type]),
+	    Symbol("Pmax (MW)") .=> sum,
+	    Symbol("Pmin (MW)") .=> sum,
+	    Symbol("Cost (\$/MWh)") .=> mean,
+	    :EF .=> mean,
+	    :CC .=> mean,
+        :AF .=> mean,
+        :Flag_thermal .=> mean,
+        :Flag_VRE .=> mean,
+        :Flag_RET .=> mean,
+        :Flag_mustrun .=> mean,)
+        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun] )
+    end
     agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
     agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
     agg_df[agg_df.Flag_RET .> 0, :Flag_RET] .=1
     agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
+    if "Flag_RPS" in names(agg_df)
+        agg_df[agg_df.Flag_RPS .> 0, :Flag_RPS] .=1
+    end
 	#Note: below line and the derived file is just for developer use
     #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
     return agg_df
@@ -76,6 +99,8 @@ end
 function load_data(config_set::Dict,path::AbstractString)
     Data_case = config_set["DataCase"]
     model_mode = config_set["model_mode"]
+    flexible_demand_raw = get(config_set, "flexible_demand", 0)
+    flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
     
     if model_mode == "GTEP"                 #read data for generation and transmission expansion model
         input_data = Dict()
@@ -100,16 +125,14 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
             end
             #time series
             println("Reading time series")
-            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"wind_timeseries_regional"))
-            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"solar_timeseries_regional"))
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"dr_timeseries_regional"))
             end
             #candidate
@@ -125,6 +148,13 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=DataFrame(XLSX.readtable(joinpath(folderpath, "GTEP_input_total.xlsx"),"single_parameter"))
+            xlsx_path = joinpath(folderpath,"GTEP_input_total.xlsx")
+            sheets = XLSX.sheetnames(xlsx_path)
+            if "gen_availability_timeseries" in sheets
+                input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
+            else
+                throw(ArgumentError("Missing required generator availability timeseries input. Provide sheet 'gen_availability_timeseries' in GTEP_input_total.xlsx."))
+            end
 
             println("xlsx Files Successfully Load From $folderpath")
 
@@ -145,16 +175,14 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.csv"),DataFrame)
             end
             #time series
             println("Reading time series")
-            input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
-            input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
             end
             #candidate
@@ -170,6 +198,12 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv"),DataFrame)
+            af_csv = joinpath(folderpath, "gen_availability_timeseries.csv")
+            if isfile(af_csv)
+                input_data["AFdata"] = CSV.read(af_csv, DataFrame)
+            else
+                throw(ArgumentError("Missing required generator availability timeseries input. Provide file 'gen_availability_timeseries.csv'."))
+            end
 
             println("CSV Files Successfully Load From $folderpath")
         end
@@ -199,7 +233,7 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"storagedata"))
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"flexddata"))
             end
         
@@ -209,7 +243,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"solar_timeseries_regional"))
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath*"PCM_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"dr_timeseries_regional"))
             end
             #policies
@@ -238,7 +272,7 @@ function load_data(config_set::Dict,path::AbstractString)
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.xlsx"),DataFrame)
             end
         
@@ -248,7 +282,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
-            if config_set["flexible_demand"]==1
+            if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional"),DataFrame)
             end
             #policies
