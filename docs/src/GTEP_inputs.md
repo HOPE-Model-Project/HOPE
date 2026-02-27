@@ -126,7 +126,7 @@ This is the input dataset for candidate energy storage units (a set of all stora
 
 ## gen_availability_timeseries
 
-This is the input dataset for the annual hourly generator-level availability profile \(AF_{g,h}\). It applies to all generators (VRE and dispatchable) and contains 8760 rows.
+This is the input dataset for the annual hourly generator-level availability profile \(AF_{g,h}\). It contains 8760 rows in `gen_availability_timeseries.csv`.
 
 ---
 |**Column Name** | **Description**|
@@ -134,13 +134,15 @@ This is the input dataset for the annual hourly generator-level availability pro
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
 |Period | Hours of the day, ranging from 1 to 24|
-|G1 | Hourly availability factor of generator index 1|
-|G2 | Hourly availability factor of generator index 2|
-|... | Continue through `G(N)`, where `N = (# existing generators + # candidate generators)` and ordering is `[gendata; gendata_candidate]`|
+|G1 | Hourly availability factor of generator index 1 (optional if fallback is acceptable)|
+|G2 | Hourly availability factor of generator index 2 (optional if fallback is acceptable)|
+|... | Optional columns through `G(N)`, where `N = (# existing generators + # candidate generators)` and ordering is `[gendata; gendata_candidate]`|
 ---
 
 Notes:
-- `G1..G(N)` is required by the model for GTEP.
+- Only `Month`, `Day`, and `Period` are strictly required.
+- Missing generator columns will fallback to the generator static `AF` in `gendata/gendata_candidate` (default `1` if missing there).
+- Recommended: provide hourly profiles for all VRE/RPS-relevant generators to avoid unintended static fallback.
 
 ## load_timeseries_regional
 

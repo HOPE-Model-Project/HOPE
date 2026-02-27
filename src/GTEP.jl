@@ -127,12 +127,23 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		Ordered_zone_nm =[Idx_zone_dict[i] for i=1:Num_zone]
 		#Ordered generator labels for generator-level availability input
 		Ordered_gen_nm = ["G$(g)" for g in 1:(Num_gen+Num_Cgen)]
-		required_af_cols = vcat(["Month", "Day", "Period"], Ordered_gen_nm)
-		missing_af_cols = setdiff(required_af_cols, names(AFdata))
-		if !isempty(missing_af_cols)
-			throw(ArgumentError("Missing required columns in generator availability input: $(collect(missing_af_cols)). Expected format: Month, Day, Period, G1..G$(Num_gen+Num_Cgen)."))
+		required_af_time_cols = ["Month", "Day", "Period"]
+		missing_af_time_cols = setdiff(required_af_time_cols, names(AFdata))
+		if !isempty(missing_af_time_cols)
+			throw(ArgumentError("Missing required time columns in generator availability input: $(collect(missing_af_time_cols)). Expected at least Month, Day, Period."))
 		end
-		AFdata = select(AFdata, required_af_cols)
+		AF_g_static_prefill = [Float64(coalesce(v, 1.0)) for v in [Gendata[:,"AF"];Gendata_candidate[:,"AF"]]]
+		AF_fill_map = Dict(zip(Ordered_gen_nm, AF_g_static_prefill))
+		# Allow sparse AF columns: missing generator columns fallback to static AF (default 1.0).
+		provided_af_cols = Set(String.(intersect(names(AFdata), Ordered_gen_nm)))
+		missing_gen_af_cols = setdiff(Ordered_gen_nm, names(AFdata))
+		if !isempty(missing_gen_af_cols)
+			for col in missing_gen_af_cols
+				AFdata[!, col] = fill(AF_fill_map[col], nrow(AFdata))
+			end
+			println("Info: $(length(missing_gen_af_cols)) generators are missing hourly AF columns; static AF fallback will be used.")
+		end
+		AFdata = select(AFdata, vcat(required_af_time_cols, Ordered_gen_nm))
 		
 		#DR related
 		DR_CC = ones(Float64, Num_load)
@@ -227,6 +238,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if !isempty(missing_vre_in_rps)
 			println("Warning: enforcing G_VRE ⊆ G_RPS by adding $(length(missing_vre_in_rps)) VRE units into G_RPS.")
 			G_RPS = sort(unique(vcat(G_RPS, missing_vre_in_rps)))
+		end
+		missing_rps_profile_cols = [Ordered_gen_nm[g] for g in G_RPS if !(Ordered_gen_nm[g] in provided_af_cols)]
+		if !isempty(missing_rps_profile_cols)
+			println("Warning: AF timeseries missing for $(length(missing_rps_profile_cols)) RPS/VRE generators; static AF fallback will be used.")
 		end
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
 		G_RET_raw=findall(x -> x in [1], Gendata[:,"Flag_RET"])			#Set of existing generation units marked as retirement-eligible, index g, subset of G
