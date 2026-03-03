@@ -403,7 +403,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
 		@variable(model, p_LS[I,H_T]>=0)						#Load shedding of demand d in hour h, MW
 		@variable(model, pt_rps[W]>=0)							#Amount of energy violated RPS policy in state w, MWh
-		@variable(model, pwi[G,W,W_prime]>=0)					#Renewable credits transferred from state w to state w' annually, MWh
+		@variable(model, pwi[G,W,W_prime]>=0)					#State w imported renewable credits from state w' annually, MWh
 		if inv_dcs_bin == 1
 			@variable(model, x[G_new], Bin)							#Decision variable for candidate generator g, binary
 			@variable(model, y[L_new], Bin)							#Decision variable for candidate line l, binary
@@ -581,15 +581,15 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 			
 			#(24) State renewable credits export limitation 
-			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) ], pw[g,w] >= sum(pwi[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
+			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) ], pw[g,w] >= sum(pwi[g,w_prime,w] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
 			
 			#(25) State renewable credits import limitation 
-			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w],g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)], pw[g,w_prime] >= pwi[g,w_prime,w], base_name = "RPS_impt_con")
+			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w],g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)], pw[g,w_prime] >= pwi[g,w,w_prime], base_name = "RPS_impt_con")
 
 			#(26) Renewable credits trading meets state RPS requirements
 			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
-										+ sum(pwi[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
-										- sum(pwi[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
+										+ sum(pwi[g,w,w_prime] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
+										- sum(pwi[g,w_prime,w] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 										+ pt_rps[w] 
 										>= sum(N[t]*sum(sum(P_hd[h,d]*PK[d]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con") 
 			# RPS_con_selfmeet = @constraint(model, [w in setdiff(W,W_RPS)], sum(N[t]*sum(p[g,t,h] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) for h in H_t[t]) for t in T) + pt_rps[w] >= sum(N[t]*sum(sum(P_t[t][h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con_selfmeet")
