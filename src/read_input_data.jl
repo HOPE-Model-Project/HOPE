@@ -66,6 +66,12 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
         agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
         agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
+        for rm_col in (:RM_REG_UP, :RM_REG_DN, :RM_NSPIN)
+            if rm_col in names(df)
+                rm_df = combine(groupby(df, [:Zone,:Type]), rm_col => mean => rm_col)
+                agg_df = leftjoin(agg_df, rm_df, on=[:Zone,:Type])
+            end
+        end
         return agg_df
     else
         agg_df = combine(groupby(df, [:Zone,:Type]),
@@ -92,6 +98,12 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
         agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
         agg_df[agg_df.Flag_UC .> 0, :Flag_UC] .=1
+        for rm_col in (:RM_REG_UP, :RM_REG_DN, :RM_NSPIN)
+            if rm_col in names(df)
+                rm_df = combine(groupby(df, [:Zone,:Type]), rm_col => mean => rm_col)
+                agg_df = leftjoin(agg_df, rm_df, on=[:Zone,:Type])
+            end
+        end
         return agg_df
     end
 end
@@ -241,7 +253,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading time series")
             input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"wind_timeseries_regional"))
             input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"solar_timeseries_regional"))
-            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath*"PCM_input_total.xlsx"),"load_timeseries_regional"))
+            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"dr_timeseries_regional"))
@@ -273,7 +285,7 @@ function load_data(config_set::Dict,path::AbstractString)
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
             if flexible_demand == 1
-                input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.xlsx"),DataFrame)
+                input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.csv"),DataFrame)
             end
         
             #time series
@@ -283,7 +295,7 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
-                input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional"),DataFrame)
+                input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
             end
             #policies
             println("Reading policies")

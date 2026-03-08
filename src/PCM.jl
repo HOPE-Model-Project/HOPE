@@ -69,7 +69,7 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	MUT_con = @constraint(model, [g in G_UC, h in Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
 		
 	#(27) Minimum down time constraint
-	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
+	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
 		
 	#(28) pmin variable bound
 	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
@@ -83,6 +83,36 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 	if model_mode == "GTEP"
 		return "ModeError: Please use function 'create_GTEP_model' or set model mode to be 'PCM'!" 
 	elseif model_mode == "PCM" 
+		# Policy switches (aligned with GTEP):
+		# carbon_policy: 0 off; 1 emissions cap; 2 cap-and-trade
+		carbon_policy_raw = get(config_set, "carbon_policy", 1)
+		carbon_policy = carbon_policy_raw isa Integer ? Int(carbon_policy_raw) : parse(Int, string(carbon_policy_raw))
+		if !(carbon_policy in [0, 1, 2])
+			throw(ArgumentError("Invalid carbon_policy=$(carbon_policy). Expected 0, 1, or 2."))
+		end
+		# clean_energy_policy: 0 off; 1 enforce RPS
+		clean_energy_policy_raw = get(config_set, "clean_energy_policy", 1)
+		clean_energy_policy = clean_energy_policy_raw isa Integer ? Int(clean_energy_policy_raw) : parse(Int, string(clean_energy_policy_raw))
+		if !(clean_energy_policy in [0, 1])
+			throw(ArgumentError("Invalid clean_energy_policy=$(clean_energy_policy). Expected 0 or 1."))
+		end
+		# operation_reserve_mode:
+		# 0 = disable operation reserve constraints
+		# 1 = REG + SPIN reserve (NSPIN disabled)
+		# 2 = REG + SPIN + NSPIN reserve
+		operation_reserve_mode_raw = get(config_set, "operation_reserve_mode", 0)
+		operation_reserve_mode = operation_reserve_mode_raw isa Integer ? Int(operation_reserve_mode_raw) : parse(Int, string(operation_reserve_mode_raw))
+		if !(operation_reserve_mode in [0, 1, 2])
+			throw(ArgumentError("Invalid operation_reserve_mode=$(operation_reserve_mode). Expected 0, 1, or 2."))
+		end
+		# network_model:
+		# 0 = zonal transport
+		# 1 = DCOPF angle-based on zone nodes
+		network_model_raw = get(config_set, "network_model", 0)
+		network_model = network_model_raw isa Integer ? Int(network_model_raw) : parse(Int, string(network_model_raw))
+		if !(network_model in [0, 1])
+			throw(ArgumentError("Invalid network_model=$(network_model). Expected 0 or 1."))
+		end
 	
 		#network
 		Zonedata = input_data["Zonedata"]
@@ -158,7 +188,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		G=[g for g=1:Num_gen]							#Set of all types of generating units, index g
 		K=unique(Gendata[:,"Type"]) 							#Set of technology types, index k
 		H=[h for h=1:8760]										#Set of hours, index h
-		T=[t for t=1:4]	#	[1]#								#Set of time periods (e.g., representative days of seasons), index t
+		T=[t for t=1:length(time_periods)]								#Set of time periods (e.g., representative days of seasons), index t
 		S=[s for s=1:Num_sto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
 		J=I														#Set of zones, index j
@@ -195,7 +225,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
 		LS_i=[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]) for i in I]	#Set of sending transmission corridors of zone i, subset of L
 		LR_i=[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]) for i in I]		#Set of receiving transmission corridors of zone i， subset of L
-		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
+		IL_l = Dict(l => [Zone_idx_dict[Linedata[l, "From_zone"]], Zone_idx_dict[Linedata[l, "To_zone"]] ] for l in L)
+		L_from_i = Dict(l => IL_l[l][1] for l in L)
+		L_to_i = Dict(l => IL_l[l][2] for l in L)
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
 		WER_w = Dict{Any,Vector{Any}}() #Set of states that state w can export renewable credits to (excludes w itself), subset of W
 		WIR_w = Dict{Any,Vector{Any}}() #Set of states that state w can import renewable credits from (excludes w itself), subset of W
@@ -210,6 +242,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
 		#Parameters--------------------------------------------
+		to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
+		singlepar_cols = Set(string.(names(SinglePardata)))
+		get_singlepar(name::AbstractString, default::Float64) = (name in singlepar_cols) ? to_float(SinglePardata[1, name]) : default
+		gendata_cols = Set(string.(names(Gendata)))
+		linedata_cols = Set(string.(names(Linedata)))
 		ALW = Dict((row["Time Period"], row["State"]) => row["Allowance (tons)"] for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
 		#AFRES=Dict([(g, h, i) => Solardata[:,Idx_zone_dict[i]][h] for g in G_PV for h in H for i in I])#(g,h,i)												#Availability factor of renewable energy source g in hour h in zone i, g∈G^PV∪G^W 
 		#AFREW=Dict([(g, h, i) => Winddata[:,Idx_zone_dict[i]][h] for g in G_W for h in H for i in I])#(g,h,i)													#Availability factor of renewable energy source g in hour h in zone i, g∈G^PV∪G^W 
@@ -222,7 +259,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
 		EF=[Gendata[:,"EF"];]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
+		ALW_state = Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"])) #w			#Total annual carbon allowances by state
 		F_max=[Linedata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
+		if "X" in linedata_cols
+			B_l = Dict(l => (to_float(Linedata[l, "X"]) == 0.0 ? 0.0 : 1.0 / to_float(Linedata[l, "X"])) for l in L)
+		elseif "Reactance" in linedata_cols
+			B_l = Dict(l => (to_float(Linedata[l, "Reactance"]) == 0.0 ? 0.0 : 1.0 / to_float(Linedata[l, "Reactance"])) for l in L)
+		else
+			if network_model == 1
+				println("Warning: network_model=1 (DCOPF-angle) but no line reactance column found (X/Reactance). Using unit susceptance B_l=1.0.")
+			end
+			B_l = Dict(l => 1.0 for l in L)
+		end
 		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
 		#N=get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
 		NI=Dict([(i,h) =>NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
@@ -232,9 +280,26 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		PK=Zonedata[:,"Demand (MW)"]#d						#Peak power demand, MW
 		PT_rps=SinglePardata[1, "PT_RPS"]											#RPS volitation penalty, $/MWh
 		PT_emis=SinglePardata[1, "PT_emis"]										#Carbon emission volitation penalty, $/t
+		reg_up_requirement = get_singlepar("reg_up_requirement", 0.0)
+		reg_dn_requirement = get_singlepar("reg_dn_requirement", 0.0)
+		spin_requirement = get_singlepar("spin_requirement", 0.03)
+		nspin_requirement = get_singlepar("nspin_requirement", 0.0)
+		delta_reg = get_singlepar("delta_reg", 1.0 / 12.0)
+		delta_spin = get_singlepar("delta_spin", 1.0 / 6.0)
+		delta_nspin = get_singlepar("delta_nspin", 1.0 / 2.0)
+		theta_max = get_singlepar("theta_max", 1.0e3)
+		reference_bus_raw = get(config_set, "reference_bus", 1)
+		reference_bus = reference_bus_raw isa Integer ? Int(reference_bus_raw) : parse(Int, string(reference_bus_raw))
+		if reference_bus < 1 || reference_bus > length(I)
+			throw(ArgumentError("Invalid reference_bus=$(reference_bus). Expected integer in [1,$(length(I))]."))
+		end
+		for (nm, v) in [("reg_up_requirement", reg_up_requirement), ("reg_dn_requirement", reg_dn_requirement), ("spin_requirement", spin_requirement), ("nspin_requirement", nspin_requirement), ("delta_reg", delta_reg), ("delta_spin", delta_spin), ("delta_nspin", delta_nspin)]
+			if v < 0
+				throw(ArgumentError("Invalid $(nm)=$(v). Expected non-negative value."))
+			end
+		end
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];]#g						#Maximum power generation of unit g, MW
-		to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
 		RPS = Dict{Any,Float64}() #w							#Renewable portfolio standard in state w, unitless
 		for w in W
 			rps_vals = unique([to_float(v) for v in RPSdata[RPSdata[:, "From_state"] .== w, "RPS"]])
@@ -247,7 +312,10 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			end
 		end
 		#RM=0.02#											#Planning reserve margin, unitless
-		RM_SPIN_g = Dict(zip(G,Gendata[:,Symbol("RM_SPIN")]))
+		RM_SPIN_g = Dict(zip(G,[to_float(v) for v in Gendata[:,Symbol("RM_SPIN")]]))
+		RM_REG_UP_g = "RM_REG_UP" in gendata_cols ? Dict(zip(G, [to_float(v) for v in Gendata[:, "RM_REG_UP"]])) : Dict(g => RM_SPIN_g[g] for g in G)
+		RM_REG_DN_g = "RM_REG_DN" in gendata_cols ? Dict(zip(G, [to_float(v) for v in Gendata[:, "RM_REG_DN"]])) : Dict(g => RM_SPIN_g[g] for g in G)
+		RM_NSPIN_g = "RM_NSPIN" in gendata_cols ? Dict(zip(G, [to_float(v) for v in Gendata[:, "RM_NSPIN"]])) : Dict(g => RM_SPIN_g[g] for g in G)
 		RU_g = Dict(zip(G,Gendata[:,Symbol("RU")]))
 		RD_g = Dict(zip(G,Gendata[:,Symbol("RD")]))
 		SECAP=[Storagedata[:,"Capacity (MWh)"];]#s		#Maximum energy capacity of storage unit s, MWh
@@ -280,8 +348,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 
 		model=Model(OPTIMIZER)
 		#Variables---------------------------------------------
-		@variable(model, a[G,T]>=0) 							#Bidding carbon allowance of unit g in time period t, ton
-		@variable(model, b[G,T]>=0) 							#Banking of allowance of g in time period t, ton
+		if carbon_policy == 2
+			@variable(model, a[G]>=0) 						#Bidding carbon allowance of unit g, ton
+		end
 	#	@variable(model, f[G,L,T,H])							#Active power in transmission corridor/line l in h from resrource g, MW
 		@variable(model, f[L,H])							#Active power in transmission corridor/line l in h, MW
 		@variable(model, em_emis[W]>=0)							#Carbon emission violated emission limit in state  w, ton
@@ -289,10 +358,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, p[G,H]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
 		@variable(model, p_LS[I,H]>=0)						#Load shedding of demand in zone i in hour h, MW
-		@variable(model, pt_rps[W,H]>=0)							#Amount of active power violated RPS policy in state w, MW
+		@variable(model, pt_rps[W]>=0)							#Amount of energy violated RPS policy in state w, MWh
 		@variable(model, pwe[G,W,W_prime]>=0)					#Renewable credits generated by unit g in state w and exported from w to w' annually, MWh	
-		@variable(model, r_G[G,H]>=0)							#Spining reserve for g in h				#r_(g,h)^G
-		@variable(model, r_S[S,H]>=0)							#Spining reserve for s in h				#r_(s,h)^S
+		@variable(model, r_G_REG_UP[G,H]>=0)					#REG_UP reserve provided by generator g in hour h, MW
+		@variable(model, r_G_REG_DN[G,H]>=0)					#REG_DN reserve provided by generator g in hour h, MW
+		@variable(model, r_G_SPIN[G,H]>=0)						#SPIN reserve provided by generator g in hour h, MW
+		@variable(model, r_G_NSPIN[G,H]>=0)					#NSPIN reserve provided by generator g in hour h, MW
+		@variable(model, r_S_REG_UP[S,H]>=0)					#REG_UP reserve provided by storage s in hour h, MW
+		@variable(model, r_S_REG_DN[S,H]>=0)					#REG_DN reserve provided by storage s in hour h, MW
+		@variable(model, r_S_SPIN[S,H]>=0)						#SPIN reserve provided by storage s in hour h, MW
+		@variable(model, r_S_NSPIN[S,H]>=0)					#NSPIN reserve provided by storage s in hour h, MW
+		if network_model == 1
+			@variable(model, theta[I,H])						#Voltage angle of zone-node i in hour h, rad
+		end
 		@variable(model, soc[S,H]>=0)						#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
 		@variable(model, dc[S,H]>=0)						#Discharging power of storage s into grid in hour h, MW
@@ -331,42 +409,117 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			#+ slack_pos[h,i]-slack_neg[h,i]
 			== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h],base_name = "PB_con"); 
 		
-		#TC_con =  @constraint(model, [i in I, t in T, h in H_t[t]], - sum(f[l,t,h] for l in LS_i[i]) == sum(f[l,t,h] for l in LR_i[i]),base_name = "TC_con" )
+		if network_model == 1
+			FAngle_con = @constraint(model, [l in L, h in H], f[l,h] == B_l[l] * (model[:theta][L_from_i[l],h] - model[:theta][L_to_i[l],h]), base_name = "FAngle_con")
+			RefAngle_con = @constraint(model, [h in H], model[:theta][reference_bus,h] == 0, base_name = "RefAngle_con")
+			ThetaBound_con = @constraint(model, [i in I, h in H], -theta_max <= model[:theta][i,h] <= theta_max, base_name = "ThetaBound_con")
+		end
 		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
+		if operation_reserve_mode == 2
+			@expression(model, ReserveUpG[g in G, h in H], r_G_REG_UP[g,h] + r_G_SPIN[g,h] + r_G_NSPIN[g,h])
+			@expression(model, ReserveDnG[g in G, h in H], r_G_REG_DN[g,h])
+			@expression(model, ReserveUpS[s in S, h in H], r_S_REG_UP[s,h] + r_S_SPIN[s,h] + r_S_NSPIN[s,h])
+			@expression(model, ReserveDnS[s in S, h in H], r_S_REG_DN[s,h])
+		elseif operation_reserve_mode == 1
+			@expression(model, ReserveUpG[g in G, h in H], r_G_REG_UP[g,h] + r_G_SPIN[g,h])
+			@expression(model, ReserveDnG[g in G, h in H], r_G_REG_DN[g,h])
+			@expression(model, ReserveUpS[s in S, h in H], r_S_REG_UP[s,h] + r_S_SPIN[s,h])
+			@expression(model, ReserveDnS[s in S, h in H], r_S_REG_DN[s,h])
+		else
+			@expression(model, ReserveUpG[g in G, h in H], 0)
+			@expression(model, ReserveDnG[g in G, h in H], 0)
+			@expression(model, ReserveUpS[s in S, h in H], 0)
+			@expression(model, ReserveDnS[s in S, h in H], 0)
+		end
+		@expression(model, Load_system[h in H], sum(sum(P_t[h,d]*PK[d] for d in D_i[i]) for i in I))
+		@expression(model, REG_UP_requirement[h in H], reg_up_requirement * Load_system[h])
+		@expression(model, REG_DN_requirement[h in H], reg_dn_requirement * Load_system[h])
+		@expression(model, SPIN_requirement[h in H], spin_requirement * Load_system[h])
+		@expression(model, NSPIN_requirement[h in H], nspin_requirement * Load_system[h])
+		if operation_reserve_mode == 2
+			REG_UP_req_con = @constraint(model, [h in H], sum(r_G_REG_UP[g,h] for g in G_F) + sum(r_S_REG_UP[s,h] for s in S) >= REG_UP_requirement[h], base_name = "REG_UP_req_con")
+			REG_DN_req_con = @constraint(model, [h in H], sum(r_G_REG_DN[g,h] for g in G_F) + sum(r_S_REG_DN[s,h] for s in S) >= REG_DN_requirement[h], base_name = "REG_DN_req_con")
+			SPIN_req_con = @constraint(model, [h in H], sum(r_G_SPIN[g,h] for g in G_F) + sum(r_S_SPIN[s,h] for s in S) >= SPIN_requirement[h], base_name = "SPIN_req_con")
+			NSPIN_req_con = @constraint(model, [h in H], sum(r_G_NSPIN[g,h] for g in G_F) + sum(r_S_NSPIN[s,h] for s in S) >= NSPIN_requirement[h], base_name = "NSPIN_req_con")
+		elseif operation_reserve_mode == 1
+			REG_UP_req_con = @constraint(model, [h in H], sum(r_G_REG_UP[g,h] for g in G_F) + sum(r_S_REG_UP[s,h] for s in S) >= REG_UP_requirement[h], base_name = "REG_UP_req_con")
+			REG_DN_req_con = @constraint(model, [h in H], sum(r_G_REG_DN[g,h] for g in G_F) + sum(r_S_REG_DN[s,h] for s in S) >= REG_DN_requirement[h], base_name = "REG_DN_req_con")
+			SPIN_req_con = @constraint(model, [h in H], sum(r_G_SPIN[g,h] for g in G_F) + sum(r_S_SPIN[s,h] for s in S) >= SPIN_requirement[h], base_name = "SPIN_req_con")
+			NSPIN_off_con = @constraint(model, [g in G, h in H], r_G_NSPIN[g,h] == 0, base_name = "NSPIN_off_con")
+			NSPIN_S_off_con = @constraint(model, [s in S, h in H], r_S_NSPIN[s,h] == 0, base_name = "NSPIN_S_off_con")
+		else
+			REG_UP_off_con = @constraint(model, [g in G, h in H], r_G_REG_UP[g,h] == 0, base_name = "REG_UP_off_con")
+			REG_DN_off_con = @constraint(model, [g in G, h in H], r_G_REG_DN[g,h] == 0, base_name = "REG_DN_off_con")
+			SPIN_off_con = @constraint(model, [g in G, h in H], r_G_SPIN[g,h] == 0, base_name = "SPIN_off_con")
+			NSPIN_off_con = @constraint(model, [g in G, h in H], r_G_NSPIN[g,h] == 0, base_name = "NSPIN_off_con")
+			REG_UP_S_off_con = @constraint(model, [s in S, h in H], r_S_REG_UP[s,h] == 0, base_name = "REG_UP_S_off_con")
+			REG_DN_S_off_con = @constraint(model, [s in S, h in H], r_S_REG_DN[s,h] == 0, base_name = "REG_DN_S_off_con")
+			SPIN_S_off_con = @constraint(model, [s in S, h in H], r_S_SPIN[s,h] == 0, base_name = "SPIN_S_off_con")
+			NSPIN_S_off_con = @constraint(model, [s in S, h in H], r_S_NSPIN[s,h] == 0, base_name = "NSPIN_S_off_con")
+		end
+		ReserveThermalOnly_REGUP_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_REG_UP[g,h] == 0, base_name = "ReserveThermalOnly_REGUP_con")
+		ReserveThermalOnly_REGDN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_REG_DN[g,h] == 0, base_name = "ReserveThermalOnly_REGDN_con")
+		ReserveThermalOnly_SPIN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_SPIN[g,h] == 0, base_name = "ReserveThermalOnly_SPIN_con")
+		ReserveThermalOnly_NSPIN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_NSPIN[g,h] == 0, base_name = "ReserveThermalOnly_NSPIN_con")
 		
 		#(4) Transissim power flow limit for existing lines	
 		TLe_con = @constraint(model, [l in L_exist,h in H], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
 
 		if config_set["unit_commitment"] == 0
 			#(5) Maximum capacity limits for existing power generator
-			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
-	
-			#(6) Spining reserve
-			SPIN_con = @constraint(model, [g in G_exist, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
+			#(5b) Downward headroom for thermal generators with REG_DN reserve
+			HeadroomDN_con = @constraint(model, [g in G_F, h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_con")
+			#(6) Reserve capability limits for thermal generators
+			REG_UP_con = @constraint(model, [g in G_F, h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_UP_con")
+			REG_DN_con = @constraint(model, [g in G_F, h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_DN_con")
+			SPIN_con = @constraint(model, [g in G_F, h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
+			NSPIN_con = @constraint(model, [g in G_F, h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "NSPIN_con")
+			RegUPRampResp_con = @constraint(model, [g in G_F, h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegUPRampResp_con")
+			SpinRampResp_con = @constraint(model, [g in G_F, h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_spin, base_name = "SpinRampResp_con")
+			NSpinRampResp_con = @constraint(model, [g in G_F, h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin, base_name = "NSpinRampResp_con")
+			RegDNRampResp_con = @constraint(model, [g in G_F, h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegDNRampResp_con")
 		
 			#(7) Ramp up limits
-			RP_UP_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]<= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
+			RP_UP_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
 		
 			#(8) Ramp down limits
-			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
+			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
 		else
 			#(5) Maximum capacity limits for existing power generator
-			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
-			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] +r_G[g,h] ,base_name = "CLeL_con")
-			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] +r_G[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
-			#(6) Spining reserve
-			SPIN_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
-			SPINUC_con = @constraint(model, [g in G_UC, h in H], r_G[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "SPINUC_con")
+			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] ,base_name = "CLeL_con")
+			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
+			#(5b) Downward headroom for thermal generators with REG_DN reserve
+			HeadroomDN_nonUC_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_nonUC_con")
+			HeadroomDN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], model[:pmin][g,h] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_UC_con")
+			#(6) Reserve capability limits for thermal generators
+			REG_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_UP_con")
+			REG_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_DN_con")
+			SPIN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
+			NSPIN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "NSPIN_con")
+			REG_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "REG_UP_UC_con")
+			REG_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "REG_DN_UC_con")
+			SPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "SPINUC_con")
+			NSPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "NSPINUC_con")
+			RegUPRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegUPRampResp_con")
+			SpinRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_spin, base_name = "SpinRampResp_con")
+			NSpinRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin, base_name = "NSpinRampResp_con")
+			RegDNRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegDNRampResp_con")
+			RegUPRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg*model[:o][g,h], base_name = "RegUPRampResp_UC_con")
+			SpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_spin*model[:o][g,h], base_name = "SpinRampResp_UC_con")
+			NSpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin*model[:o][g,h], base_name = "NSpinRampResp_UC_con")
+			RegDNRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg*model[:o][g,h], base_name = "RegDNRampResp_UC_con")
 	
 			#(7) Ramp up limits
-			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]<= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
-			RP_UP_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  p[g,h] +r_G[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1])<= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
+			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
+			RP_UP_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
 		
 			#(8) Ramp down limits
-			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] +r_G[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
-			RP_DN_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  (p[g,h]-model[:pmin][g,h]) - (r_G[g,h]+p[g,h-1] - model[:pmin][g,h-1])>= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
+			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h] -p[g,h-1] >= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
+			RP_DN_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
 			
 		end
 
@@ -379,7 +532,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		#(10) Renewables generation availability for the existing plants: p_(g,h)≤AFRE_(g,h)∙P_g^max; ∀h∈H_t,g∈G^E∩(G^PV∪G^W)  
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_con")
-		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_tg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
+		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
 		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AFRE_hg[g][h,i]*P_max[g]-p[g,h])
 		
 		
@@ -389,15 +542,24 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		###Storages###
 		##############
 		#(11) Storage charging rate limit for existing units
-		ChLe_con=@constraint(model, [ h in H, s in S_exist], c[s,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
+		ChLe_con=@constraint(model, [ h in H, s in S_exist], c[s,h] + ReserveDnS[s,h] <= SC[s]*SCAP[s],base_name = "ChLe_con")
 		
 		#(12) Storage discharging rate limit for existing units
-		DChLe_con=@constraint(model, [ h in H,  s in S_exist], c[s,h]/SC[s] + dc[s,h]/SD[s] <= SCAP[s],base_name = "DChLe_con")
+		DChLe_con=@constraint(model, [ h in H,  s in S_exist], dc[s,h] + ReserveUpS[s,h] <= SD[s]*SCAP[s],base_name = "DChLe_con")
 		
 		#(13) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
 		SoCLe_con=@constraint(model, [ h in H, s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
-		#(14) Spining reserve provided by storage 〖dc〗_(s,h)+r_(s,h)^S  ≤〖SD〗_s∙〖SCAP〗_s;   ∀ h∈H
-		SR_ES_con = @constraint(model, [h in H, s in S_exist], dc[s,h] + r_S[s,h] <= SD[s]* SCAP[s],base_name = "SR_ES_con")
+		#(14) Storage reserve deliverability within response windows
+		if operation_reserve_mode == 2
+			SR_DELIVER_REGUP_con = @constraint(model, [h in H, s in S_exist], r_S_REG_UP[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGUP_con")
+			SR_DELIVER_REGDN_con = @constraint(model, [h in H, s in S_exist], r_S_REG_DN[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGDN_con")
+			SR_DELIVER_SPIN_con = @constraint(model, [h in H, s in S_exist], r_S_SPIN[s,h]*delta_spin <= soc[s,h],base_name = "SR_DELIVER_SPIN_con")
+			SR_DELIVER_NSPIN_con = @constraint(model, [h in H, s in S_exist], r_S_NSPIN[s,h]*delta_nspin <= soc[s,h],base_name = "SR_DELIVER_NSPIN_con")
+		elseif operation_reserve_mode == 1
+			SR_DELIVER_REGUP_con = @constraint(model, [h in H, s in S_exist], r_S_REG_UP[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGUP_con")
+			SR_DELIVER_REGDN_con = @constraint(model, [h in H, s in S_exist], r_S_REG_DN[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGDN_con")
+			SR_DELIVER_SPIN_con = @constraint(model, [h in H, s in S_exist], r_S_SPIN[s,h]*delta_spin <= soc[s,h],base_name = "SR_DELIVER_SPIN_con")
+		end
 		#(15) Storage operation constraints
 		SoC_con=@constraint(model, [h in setdiff(H, [1]),s in S_exist], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
 		#Ch_1_con=@constraint(model, [s in S], c[s,1] ==0)
@@ -413,43 +575,49 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		##RPSPolices##
 		##############
-		#(17) RPS, state level total Defining
-		RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
-							pw[g,w] == sum(p[g,h] for h in H), base_name = "RPS_pw_con")
+		if clean_energy_policy == 1
+			#(17) RPS, state-level renewable generation accounting
+			RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
+								pw[g,w] == sum(p[g,h] for h in H), base_name = "RPS_pw_con")
 
-		
-		#(18) State renewable credits export limitation 
-		RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) ], pw[g,w] >= sum(pwe[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
+			#(18) State renewable credits export limitation 
+			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
+								pw[g,w] >= sum(pwe[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
 
-		#(19) State renewable credits import limitation 
-		RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w],g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)], pw[g,w_prime] >= pwe[g,w_prime,w], base_name = "RPS_impt_con")
+			#(19) State renewable credits import limitation 
+			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w], g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)],
+								pw[g,w_prime] >= pwe[g,w_prime,w], base_name = "RPS_impt_con")
 
-		#(20) Renewable credits trading meets state RPS requirements
-		RPS_con = @constraint(model, [w in W], sum(pwe[g,w_prime,w]  for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
+			#(20) Renewable credits trading meets state RPS requirements
+			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
+									+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
 									- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
-									+ sum(pt_rps[w,h] for h in H)
-									>= sum(sum(P_t[h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H), base_name = "RPS_con") 
+									+ pt_rps[w]
+									>= sum(sum(P_t[h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H), base_name = "RPS_con")
+		else
+			RPS_off_con = @constraint(model, [w in W], pt_rps[w] == 0, base_name = "RPS_off_con")
+		end
 		
 		###############
 		#CarbonPolices#				
 		###############
-		#(21) State carbon emission limit
-		CL_con = @constraint(model, [w in W], sum(sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H)) for i in I_w[w])<=ELMT[w], base_name = "CL_con")
-
-
-		
-		#=
-		##Cap & Trade##
-		#(22) State carbon allowance cap
-		SCAL_con = @constraint(model, [w in W, t in T], sum(a[g,t] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) - em_emis[w] <= ALW[t,w],base_name = "SCAL_con")
-
-		#(23) Balance between allowances and write_emissions
-		BAL_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...), G_F), t in setdiff(T,[1])], sum(EF[g]*p[g,h] for h in H_t[t]) == a[g,t]+b[g,t-1]-b[g,t],base_name = "BAL_con")
-
-		#(24) No cross-year banking
-		NCrY_in_con = @constraint(model, [g in G_F], b[g,1] == b[g,end],base_name="NCrY_in_con")
-		NCrY_end_con = @constraint(model, [g in G_F], b[g,end] == 0, base_name="NCrY_end_con")
-		=#
+		@expression(model, StateCarbonEmission[w in W],
+			sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H) for i in I_w[w]))
+		if carbon_policy == 2
+			#(21B) State carbon allowance cap
+			SCAL_con = @constraint(model, [w in W],
+				sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) <= get(ALW_state, w, 0.0),
+				base_name = "SCAL_con")
+			#(22B) Allowances must cover annual emissions (with slack penalty)
+			BAL_con = @constraint(model, [w in W],
+				StateCarbonEmission[w] <= sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) + em_emis[w],
+				base_name = "BAL_con")
+		elseif carbon_policy == 1
+			#(21A) State annual carbon emission limit
+			CL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= ELMT[w] + em_emis[w], base_name = "CL_con")
+		else
+			NoCarbon_con = @constraint(model, [w in W], em_emis[w] == 0, base_name = "NoCarbon_con")
+		end
 		if config_set["flexible_demand"] == 1
 			#Demand response program (load shifting)
 			#(25) DR balance
@@ -477,14 +645,22 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 					)								
 
 		#Loss of load penalty
-		@expression(model, LoadShedding, sum(VOLL*sum(p_LS[d,h] for h in H) for d in D))
+		@expression(model, LoadShedding, sum(VOLL*sum(p_LS[i,h] for h in H) for i in I))
 
 		#RPS volitation penalty
-		@expression(model, RPSPenalty, PT_rps*sum(pt_rps[w,h] for w in W for h in H))
+		if clean_energy_policy == 1
+			@expression(model, RPSPenalty, PT_rps*sum(pt_rps[w] for w in W))
+		else
+			@expression(model, RPSPenalty, 0)
+		end
 
 		#Carbon cap volitation penalty
-		@expression(model, CarbonCapPenalty, PT_emis*sum(em_emis[w] for w in W))
-		@expression(model, CarbonEmission[w in W], sum(EF[g]*p[g,h] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F) for t in T for h in H_t[t] ))
+		if carbon_policy == 0
+			@expression(model, CarbonCapPenalty, 0)
+		else
+			@expression(model, CarbonCapPenalty, PT_emis*sum(em_emis[w] for w in W))
+		end
+		@expression(model, CarbonEmission[w in W], StateCarbonEmission[w])
 		#Slack variable penalty
 		#@expression(model, SlackPenalty, BM *sum(slack_pos[h,i]+slack_neg[h,i] for h in H for i in I))
 
