@@ -15,7 +15,11 @@ using Statistics
 
 ##using solver#
 
-#using Gurobi
+try
+    using Gurobi
+catch
+    # Keep HOPE loadable in environments without Gurobi.
+end
 #using CPLEX
 using Cbc
 #using HiGHS
@@ -26,6 +30,7 @@ using GLPK
 #include HOPE module scripts
 include("constants.jl");            #shared constants and configuration
 include("utils.jl");                #utility functions
+include("network_utils.jl");        #network/DCOPF helper utilities
 include("read_input_data.jl");		#read input data module
 include("GTEP.jl");					#capacity expansion model
 include("PCM.jl");					#production cost model

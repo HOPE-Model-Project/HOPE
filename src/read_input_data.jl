@@ -231,41 +231,66 @@ function load_data(config_set::Dict,path::AbstractString)
         if any(endswith.(files, ".xlsx"))
             println("The directory $folderpath contains .xlsx file, then try to read input data from PCM_input_total.xlsx")
             #xlsx_file = XLSX.readxlsx(path*Data_case*"PCM_input_total.xlsx")
+            xlsx_path = joinpath(folderpath,"PCM_input_total.xlsx")
 
             #network
             println("Reading network")
-            input_data["Zonedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"zonedata"))
-            input_data["Linedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"linedata"))
+            input_data["Zonedata"]=DataFrame(XLSX.readtable(xlsx_path,"zonedata"))
+            input_data["Linedata"]=DataFrame(XLSX.readtable(xlsx_path,"linedata"))
+            try
+                input_data["Busdata"] = DataFrame(XLSX.readtable(xlsx_path, "busdata"))
+                println("Reading optional busdata")
+            catch
+                # Optional sheet: busdata
+            end
+            try
+                input_data["Branchdata"] = DataFrame(XLSX.readtable(xlsx_path, "branchdata"))
+                println("Reading optional branchdata")
+            catch
+                # Optional sheet: branchdata
+            end
+            try
+                input_data["PTDFdata"] = DataFrame(XLSX.readtable(xlsx_path, "ptdf_matrix"))
+                println("Reading optional ptdf_matrix")
+            catch
+                # Optional sheet: ptdf_matrix
+            end
+            try
+                input_data["PTDFNodalData"] = DataFrame(XLSX.readtable(xlsx_path, "ptdf_matrix_nodal"))
+                println("Reading optional ptdf_matrix_nodal")
+            catch
+                # Optional sheet: ptdf_matrix_nodal
+            end
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
-                input_data["Gendata"] = aggregate_gendata_pcm(DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"gendata")),config_set)
+                input_data["Gendata"] = aggregate_gendata_pcm(DataFrame(XLSX.readtable(xlsx_path,"gendata")),config_set)
             else
-                input_data["Gendata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"gendata"))
+                input_data["Gendata"]=DataFrame(XLSX.readtable(xlsx_path,"gendata"))
             end 
             
-            input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"storagedata"))
+            input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path,"storagedata"))
             if flexible_demand == 1
-                input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"flexddata"))
+                input_data["DRdata"]=DataFrame(XLSX.readtable(xlsx_path,"flexddata"))
             end
         
             #time series
             println("Reading time series")
-            input_data["Winddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"wind_timeseries_regional"))
-            input_data["Solardata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"solar_timeseries_regional"))
-            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"load_timeseries_regional"))
+            input_data["Winddata"]=DataFrame(XLSX.readtable(xlsx_path,"wind_timeseries_regional"))
+            input_data["Solardata"]=DataFrame(XLSX.readtable(xlsx_path,"solar_timeseries_regional"))
+            input_data["Loaddata"]=DataFrame(XLSX.readtable(xlsx_path,"load_timeseries_regional"))
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
-                input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"dr_timeseries_regional"))
+                input_data["DRtsdata"]=DataFrame(XLSX.readtable(xlsx_path,"dr_timeseries_regional"))
             end
             #policies
             println("Reading polices")
-            input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"carbonpolicies"))
+            input_data["CBPdata"]=DataFrame(XLSX.readtable(xlsx_path,"carbonpolicies"))
             #rpspolicydata=
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"PCM_input_total.xlsx"),"rpspolicies"))
+            input_data["RPSdata"]=DataFrame(XLSX.readtable(xlsx_path,"rpspolicies"))
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=DataFrame(XLSX.readtable(joinpath(folderpath, "PCM_input_total.xlsx"),"single_parameter"))
+            input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path,"single_parameter"))
 
             println("xlsx Files Successfully Load From $folderpath")
 
@@ -275,6 +300,26 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading network")
             input_data["Zonedata"]=CSV.read(joinpath(folderpath,"zonedata.csv"),DataFrame)
             input_data["Linedata"]=CSV.read(joinpath(folderpath,"linedata.csv"),DataFrame)
+            bus_csv_path = joinpath(folderpath, "busdata.csv")
+            if isfile(bus_csv_path)
+                input_data["Busdata"] = CSV.read(bus_csv_path, DataFrame)
+                println("Reading optional busdata.csv")
+            end
+            branch_csv_path = joinpath(folderpath, "branchdata.csv")
+            if isfile(branch_csv_path)
+                input_data["Branchdata"] = CSV.read(branch_csv_path, DataFrame)
+                println("Reading optional branchdata.csv")
+            end
+            ptdf_csv_path = joinpath(folderpath, "ptdf_matrix.csv")
+            if isfile(ptdf_csv_path)
+                input_data["PTDFdata"] = CSV.read(ptdf_csv_path, DataFrame)
+                println("Reading optional ptdf_matrix.csv")
+            end
+            ptdf_nodal_csv_path = joinpath(folderpath, "ptdf_matrix_nodal.csv")
+            if isfile(ptdf_nodal_csv_path)
+                input_data["PTDFNodalData"] = CSV.read(ptdf_nodal_csv_path, DataFrame)
+                println("Reading optional ptdf_matrix_nodal.csv")
+            end
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1

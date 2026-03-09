@@ -18,14 +18,55 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
     model_mode = config_set["model_mode"]
 	## Start solve timer
 	solver_start_time = time()
-	solver_time = time()
 	optimize!(model)
-	## Record solver time
+
+	# Optional second pass for PCM MILP: fix discrete vars and re-solve LP for dual prices.
+	# This mirrors GenX's WriteShadowPrices workflow.
+	if model_mode == "PCM"
+		unit_commitment_raw = get(config_set, "unit_commitment", 0)
+		unit_commitment_mode = unit_commitment_raw isa Integer ? Int(unit_commitment_raw) : parse(Int, string(unit_commitment_raw))
+		write_shadow_prices_raw = get(config_set, "write_shadow_prices", 0)
+		write_shadow_prices = write_shadow_prices_raw isa Integer ? Int(write_shadow_prices_raw) : parse(Int, string(write_shadow_prices_raw))
+		solver_name = lowercase(string(get(config_set, "solver", "")))
+
+		if unit_commitment_mode == 1 && write_shadow_prices == 1
+			if solver_name == "cbc"
+				println("write_shadow_prices=1 requested, but CBC does not provide dual prices for this workflow. Skipping LP re-solve.")
+			else
+				pr_status = primal_status(model)
+				if pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+					println("write_shadow_prices=1: fixing discrete variables and re-solving LP for dual prices...")
+					local undo_relax = nothing
+					try
+						undo_relax = fix_discrete_variables(model)
+						optimize!(model)
+						if has_duals(model)
+							println("LP re-solve complete. Dual prices are available for output.")
+						else
+							println("LP re-solve complete, but dual prices are still unavailable from solver/model state.")
+						end
+					catch e
+						println("Warning: LP re-solve for shadow prices failed. Keeping MILP solution. Error: $(e)")
+						if undo_relax !== nothing
+							try
+								undo_relax()
+							catch
+							end
+						end
+					end
+				else
+					println("Skipping LP re-solve for shadow prices because no feasible MILP point is available (primal_status=$(pr_status)).")
+				end
+			end
+		end
+	end
+
+	## Record solver time (includes optional second pass)
 	solver_time = time() - solver_start_time
 
 	##read input for print	
 	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
-	H=[h for h=1:8760]
+	H=[h for h=1:size(input_data["Loaddata"],1)]
 	PT_rps = 10^9
 	RPSdata = input_data["RPSdata"]
 	RPS=Dict(zip(RPSdata[:,:From_state],RPSdata[:,:RPS]))

@@ -2,6 +2,26 @@
 
 The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used. 
       
+## network_model setting
+
+In `HOPE_model_settings.yml`, set:
+- `network_model: 0` for no network constraints (copper plate).
+- `network_model: 1` for zonal transport.
+- `network_model: 2` for nodal DCOPF (angle-based).
+- `network_model: 3` for nodal DCOPF (PTDF-based).
+
+When using nodal modes (`2`/`3`), provide nodal mapping via `busdata` and `branchdata` (or ensure `linedata` includes equivalent bus columns).
+
+## internal network helper utilities
+
+These functions are implemented in `src/network_utils.jl` and used by `src/PCM.jl`:
+
+- `first_existing_col`: finds the first available column name among aliases (for robust input parsing).
+- `resolve_reference_index`: resolves reference bus/zone from either integer index or ID value.
+- `compute_ptdf_from_incidence`: computes PTDF matrix from branch incidence and reactance.
+- `compute_zone_ptdf_from_linedata`: convenience wrapper to build zonal PTDF from `linedata` (reserved for a future zonal-PTDF mode; not used in current PCM flow).
+
+They are automatically called in PCM network preprocessing; users do not need to call them directly.
 
 ## zonedata
 
@@ -51,9 +71,53 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
-|From_zone | Ending zone of the inter-zonal transmission line|
+|To_zone | Ending zone of the inter-zonal transmission line|
+|X or Reactance | Line reactance (required for DCOPF-angle mode and for PTDF auto-computation if `ptdf_matrix` is not provided)|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 ---
+
+## busdata (optional for zonal modes, recommended for nodal modes)
+
+This dataset defines nodal buses and bus-to-zone mapping.
+
+Required columns for nodal modes:
+- `Bus_id`
+- `Zone_id`
+
+Optional columns:
+- `Load_share` (or bus demand-like columns) to distribute zonal load/DR/load-shed to buses.
+
+CSV name: `busdata.csv`  
+XLSX sheet name: `busdata`
+
+## branchdata (optional; used preferentially in nodal modes)
+
+This dataset defines nodal transmission branches.
+
+Recommended columns:
+- `from_bus`/`to_bus` (or MATPOWER-style `F_BUS`/`T_BUS`)
+- `Capacity (MW)` (line thermal limit)
+- `X` or `Reactance` (for DC angle/PTDF physics)
+
+If `branchdata` is provided and `network_model` is nodal, HOPE uses it as network branch input.
+
+CSV name: `branchdata.csv`  
+XLSX sheet name: `branchdata`
+
+## ptdf_matrix_nodal (optional)
+
+This optional dataset is used only when `network_model = 3` (nodal PTDF-based DCOPF).
+
+If this file/sheet is provided, HOPE reads the PTDF matrix directly.  
+If not provided, HOPE computes nodal PTDF from branch endpoints/reactance and `reference_bus`.
+
+Required format:
+- One row per line, in the **same row order as `linedata`**.
+- One column per bus, with column names exactly matching `busdata.Bus_id` (or inferred bus labels).
+- Cell value = PTDF coefficient for that line and bus (reference bus convention).
+
+CSV name: `ptdf_matrix_nodal.csv`  
+XLSX sheet name: `ptdf_matrix_nodal`
 
 ## storagedata
 
@@ -148,14 +212,24 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values. 
 
+Implementation note: PCM reads these fields through an internal helper (`get_singlepar`) that returns the file value when present, otherwise a built-in default. This keeps backward compatibility when older cases do not include newly added single-parameter columns.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |VOLL | Value of lost load, default = 100000 |
 |planning_reserve_margin | percentage of total capacity that is used for reserve, default = 0.02|
-|Big M | For penalty purpose, unitless|
+|BigM | For penalty purpose, unitless|
 |PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
 |PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|
+|reg_up_requirement | Hourly REG-UP requirement as fraction of system load, default = 0|
+|reg_dn_requirement | Hourly REG-DN requirement as fraction of system load, default = 0|
+|spin_requirement | Hourly SPIN requirement as fraction of system load, default = 0.03|
+|nspin_requirement | Hourly NSPIN requirement as fraction of system load, default = 0|
+|delta_reg | REG reserve sustained-duration factor in energy constraints (hours), default = 1/12|
+|delta_spin | SPIN reserve sustained-duration factor in energy constraints (hours), default = 1/6|
+|delta_nspin | NSPIN reserve sustained-duration factor in energy constraints (hours), default = 1/2|
+|theta_max | Voltage-angle bound used in angle-based nodal DCOPF, default = 1000|
 |Inv_bugt_gen | Budget for newly installed generators, default = 10000000000000000|
 |Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
 |Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|

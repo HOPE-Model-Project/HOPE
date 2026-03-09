@@ -46,11 +46,154 @@ function mkdir_overwrite(path::AbstractString)
     end
 end
 
+function parse_setting_int(config_set::Dict, key::String, default_value::Int)
+    raw = get(config_set, key, default_value)
+    return raw isa Integer ? Int(raw) : parse(Int, string(raw))
+end
+
+"""
+Build nodal mapping metadata for PCM output post-processing.
+Returns bus labels, bus->zone index mapping, zone->bus index lists, and bus load-share weights.
+"""
+function build_pcm_nodal_output_maps(input_data::Dict)
+    Zonedata = input_data["Zonedata"]
+    Linedata = haskey(input_data, "Branchdata") ? input_data["Branchdata"] : input_data["Linedata"]
+    Busdata = haskey(input_data, "Busdata") ? input_data["Busdata"] : nothing
+
+    Num_zone = length(Zonedata[:, "Zone_id"])
+    I = [i for i in 1:Num_zone]
+    Idx_zone_dict = Dict(zip([i for i in 1:Num_zone], Zonedata[:, "Zone_id"]))
+    Zone_idx_dict = Dict(zip(Zonedata[:, "Zone_id"], [i for i in 1:Num_zone]))
+    linedata_cols = Set(string.(names(Linedata)))
+    from_zone_col = first_existing_col(linedata_cols, ["From_zone", "from_zone"])
+    to_zone_col = first_existing_col(linedata_cols, ["To_zone", "to_zone"])
+    from_bus_col = first_existing_col(linedata_cols, ["from_bus", "From_bus", "f_bus", "F_BUS"])
+    to_bus_col = first_existing_col(linedata_cols, ["to_bus", "To_bus", "t_bus", "T_BUS"])
+
+    linedata_local = Linedata
+    if (from_zone_col === nothing || to_zone_col === nothing) && Busdata !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
+        bus_cols = Set(string.(names(Busdata)))
+        bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
+        bus_zone_col = first_existing_col(bus_cols, ["Zone_id", "zone_id", "Zone", "zone"])
+        if bus_id_col !== nothing && bus_zone_col !== nothing
+            bus_zone_map = Dict(Busdata[r, bus_id_col] => Busdata[r, bus_zone_col] for r in 1:size(Busdata, 1))
+            linedata_local = copy(Linedata)
+            linedata_local[!, "From_zone"] = [haskey(bus_zone_map, Linedata[l, from_bus_col]) ? bus_zone_map[Linedata[l, from_bus_col]] : missing for l in 1:size(Linedata, 1)]
+            linedata_local[!, "To_zone"] = [haskey(bus_zone_map, Linedata[l, to_bus_col]) ? bus_zone_map[Linedata[l, to_bus_col]] : missing for l in 1:size(Linedata, 1)]
+            from_zone_col = "From_zone"
+            to_zone_col = "To_zone"
+        end
+    end
+    if from_bus_col === nothing || to_bus_col === nothing
+        if from_zone_col === nothing || to_zone_col === nothing
+            throw(ArgumentError("Unable to build nodal output mapping: missing from/to bus and from/to zone columns in linedata/branchdata."))
+        end
+        linedata_local = copy(linedata_local)
+        linedata_local[!, "from_bus"] = [linedata_local[l, from_zone_col] for l in 1:size(linedata_local, 1)]
+        linedata_local[!, "to_bus"] = [linedata_local[l, to_zone_col] for l in 1:size(linedata_local, 1)]
+        from_bus_col = "from_bus"
+        to_bus_col = "to_bus"
+    end
+
+    bus_labels = Any[]
+    bus_to_zone_idx = Dict{Any,Int}()
+    if Busdata !== nothing
+        bus_cols = Set(string.(names(Busdata)))
+        bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
+        bus_zone_col = first_existing_col(bus_cols, ["Zone_id", "zone_id", "Zone", "zone"])
+        if bus_id_col !== nothing && bus_zone_col !== nothing
+            bus_labels = [Busdata[r, bus_id_col] for r in 1:size(Busdata, 1)]
+            for r in 1:size(Busdata, 1)
+                zone_nm = Busdata[r, bus_zone_col]
+                if haskey(Zone_idx_dict, zone_nm)
+                    bus_to_zone_idx[Busdata[r, bus_id_col]] = Zone_idx_dict[zone_nm]
+                end
+            end
+        end
+    end
+    if isempty(bus_labels)
+        bus_labels = collect(unique(vcat([linedata_local[l, from_bus_col] for l in 1:size(linedata_local, 1)], [linedata_local[l, to_bus_col] for l in 1:size(linedata_local, 1)])))
+    end
+    for l in 1:size(linedata_local, 1)
+        from_bus = linedata_local[l, from_bus_col]
+        to_bus = linedata_local[l, to_bus_col]
+        if from_zone_col !== nothing && haskey(Zone_idx_dict, linedata_local[l, from_zone_col])
+            bus_to_zone_idx[from_bus] = Zone_idx_dict[linedata_local[l, from_zone_col]]
+        end
+        if to_zone_col !== nothing && haskey(Zone_idx_dict, linedata_local[l, to_zone_col])
+            bus_to_zone_idx[to_bus] = Zone_idx_dict[linedata_local[l, to_zone_col]]
+        end
+    end
+    for b in bus_labels
+        if !haskey(bus_to_zone_idx, b)
+            bus_to_zone_idx[b] = 1
+        end
+    end
+
+    N = [n for n in 1:length(bus_labels)]
+    bus_idx_dict = Dict(bus_labels[n] => n for n in N)
+    bus_zone_of_n = Dict{Int,Int}(n => bus_to_zone_idx[bus_labels[n]] for n in N)
+    N_i = [[n for n in N if bus_zone_of_n[n] == i] for i in I]
+    bus_weight = Dict{Int,Float64}()
+    for i in I
+        nodes = N_i[i]
+        if isempty(nodes)
+            continue
+        end
+        for n in nodes
+            bus_weight[n] = 1.0 / length(nodes)
+        end
+    end
+
+    if Busdata !== nothing
+        bus_cols = Set(string.(names(Busdata)))
+        bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
+        load_share_col = first_existing_col(bus_cols, ["Load_share", "load_share", "Demand_share", "demand_share"])
+        load_mw_col = first_existing_col(bus_cols, ["Demand (MW)", "Load (MW)", "Pd", "PD"])
+        if bus_id_col !== nothing && (load_share_col !== nothing || load_mw_col !== nothing)
+            for i in I
+                nodes = N_i[i]
+                if isempty(nodes)
+                    continue
+                end
+                raw = zeros(Float64, length(nodes))
+                for (k_idx, n_idx) in enumerate(nodes)
+                    bid = bus_labels[n_idx]
+                    row_idx = findfirst(Busdata[:, bus_id_col] .== bid)
+                    if row_idx === nothing
+                        raw[k_idx] = 0.0
+                    else
+                        raw_val = load_share_col !== nothing ? Busdata[row_idx, load_share_col] : Busdata[row_idx, load_mw_col]
+                        raw[k_idx] = raw_val isa Number ? Float64(raw_val) : parse(Float64, string(raw_val))
+                    end
+                end
+                den = sum(raw)
+                if den > 0.0
+                    for (k_idx, n_idx) in enumerate(nodes)
+                        bus_weight[n_idx] = raw[k_idx] / den
+                    end
+                end
+            end
+        end
+    end
+
+    return (
+        bus_labels = bus_labels,
+        bus_idx_dict = bus_idx_dict,
+        bus_zone_of_n = bus_zone_of_n,
+        N_i = N_i,
+        bus_weight = bus_weight,
+        idx_zone_dict = Idx_zone_dict
+    )
+end
+
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)
 	mkdir_overwrite(outpath)
     model_mode = config_set["model_mode"]
     flexible_demand_raw = get(config_set, "flexible_demand", 0)
     flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
+    summary_table_raw = get(config_set, "summary_table", get(config_set, "summary_tables", 0))
+    summary_table = summary_table_raw isa Integer ? Int(summary_table_raw) : parse(Int, string(summary_table_raw))
     println() 
     println("HOPE model ($model_mode mode) is successfully solved!")
     if model_mode == "GTEP"
@@ -490,12 +633,14 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         )
     
     elseif model_mode == "PCM" 
+        network_model = parse_setting_int(config_set, "network_model", 0)
         Gendata = input_data["Gendata"]
         Storagedata = input_data["Storagedata"]
-        Linedata = input_data["Linedata"]
+        Linedata = (network_model in [2, 3] && haskey(input_data, "Branchdata")) ? input_data["Branchdata"] : input_data["Linedata"]
         Zonedata = input_data["Zonedata"]
         Loaddata = input_data["Loaddata"]
         VOLL = input_data["Singlepar"][1,"VOLL"]
+        nodal_output_map = network_model in [2, 3] ? build_pcm_nodal_output_maps(input_data) : nothing
         if flexible_demand == 1
             DRdata = input_data["DRdata"]
         end
@@ -515,7 +660,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         D_i=[[d] for d in D]
         G=[g for g=1:Num_Egen]
         S=[s for s=1:Num_sto]
-        H=[h for h=1:8760]
+        H=[h for h=1:size(Loaddata,1)]
         L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
         I=[i for i=1:Num_zone]									#Set of zones, index i
         G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]	
@@ -525,15 +670,75 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		G_W=[G_W_E;]                                               #Set of all wind, subsets of G
         S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]
         S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
-        LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i])] for i in I]
+        LS_i=[Int[] for i in I]
   
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
+        W = unique(Zonedata[:, "State"])
+        I_w = Dict(zip(W, [findall(Zonedata[:, "State"] .== w) for w in W]))
         #Param
         Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
         VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
 		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s		
         unit_converter = 10^6
+        linedata_cols = Set(string.(names(Linedata)))
+        from_zone_col = first_existing_col(linedata_cols, ["From_zone", "from_zone"])
+        to_zone_col = first_existing_col(linedata_cols, ["To_zone", "to_zone"])
+        from_bus_col = first_existing_col(linedata_cols, ["from_bus", "From_bus", "f_bus", "F_BUS"])
+        to_bus_col = first_existing_col(linedata_cols, ["to_bus", "To_bus", "t_bus", "T_BUS"])
+        summary_outpath = joinpath(outpath, "Analysis")
+        Summary_Price_Hourly_df = DataFrame(Level=String[], ID=String[], Zone=String[], State=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+        Summary_Congestion_Line_Hourly_df = DataFrame(
+            Line=Int[],
+            From_bus=String[],
+            To_bus=String[],
+            From_zone=String[],
+            To_zone=String[],
+            Hour=Int[],
+            Flow_MW=Float64[],
+            Limit_MW=Float64[],
+            Loading_pct=Float64[],
+            ShadowPrice=Union{Missing,Float64}[],
+            BindingSide=String[],
+            CongestionRent=Union{Missing,Float64}[]
+        )
+        Summary_Congestion_Line_Annual_df = DataFrame(
+            Line=Int[],
+            From_bus=String[],
+            To_bus=String[],
+            From_zone=String[],
+            To_zone=String[],
+            HoursBinding=Int[],
+            AvgAbsShadow=Union{Missing,Float64}[],
+            MaxAbsShadow=Union{Missing,Float64}[],
+            AnnCongestionRent=Float64[],
+            AvgLoading_pct=Float64[],
+            P95Loading_pct=Float64[]
+        )
+        Summary_System_Hourly_df = DataFrame(
+            Hour=Int[],
+            Load_MW=Float64[],
+            Generation_MW=Float64[],
+            StorageCharge_MW=Float64[],
+            StorageDischarge_MW=Float64[],
+            LoadShedding_MW=Float64[],
+            Curtailment_MW=Float64[],
+            AvgLMP_LoadWeighted=Union{Missing,Float64}[],
+            TotalEmissions_ton=Float64[]
+        )
+        Summary_Congestion_Driver_Node_Hourly_df = DataFrame(
+            Bus=String[],
+            Zone=String[],
+            State=String[],
+            Hour=Int[],
+            Line=Int[],
+            From_bus=String[],
+            To_bus=String[],
+            PTDF=Float64[],
+            DeltaPTDF=Float64[],
+            ShadowPrice=Float64[],
+            Contribution=Float64[]
+        )
 
         ##Load shedding
         P_ls_df = DataFrame(
@@ -572,15 +777,34 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , writeheader=true)
         
         #Power OutputDF
-        P_gen_df = DataFrame(
-            Technology = vcat(Gendata[:,"Type"]),
-            Zone = vcat(Gendata[:,"Zone"]),
-            EC_Category = repeat(["Existing"],Num_Egen), # existing capacity
-            AnnSum = Array{Union{Missing,Float64}}(undef, Num_Egen)  #Annual generation output
-        )
+        if network_model in [2, 3] && nodal_output_map !== nothing
+            gendata_cols_local = Set(string.(names(Gendata)))
+            gen_bus_col = first_existing_col(gendata_cols_local, ["Bus_id", "bus_id", "Bus", "bus"])
+            gen_bus = if gen_bus_col !== nothing
+                [Gendata[g, gen_bus_col] for g in G]
+            else
+                [begin
+                    zone_idx = Zone_idx_dict[Gendata[g, "Zone"]]
+                    zone_nodes = nodal_output_map.N_i[zone_idx]
+                    isempty(zone_nodes) ? missing : nodal_output_map.bus_labels[zone_nodes[1]]
+                end for g in G]
+            end
+            P_gen_df = DataFrame(
+                Technology = vcat(Gendata[:, "Type"]),
+                Zone = vcat(Gendata[:, "Zone"]),
+                Bus = gen_bus,
+                EC_Category = repeat(["Existing"], Num_Egen), # existing capacity
+                AnnSum = Array{Union{Missing,Float64}}(undef, Num_Egen)  #Annual generation output
+            )
+        else
+            P_gen_df = DataFrame(
+                Technology = vcat(Gendata[:, "Type"]),
+                Zone = vcat(Gendata[:, "Zone"]),
+                EC_Category = repeat(["Existing"], Num_Egen), # existing capacity
+                AnnSum = Array{Union{Missing,Float64}}(undef, Num_Egen)  #Annual generation output
+            )
+        end
         P_gen_df.AnnSum .= [sum(value.(model[:p][g,h]) for h in H) for g in G]
-        #New_built_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
-        #P_gen_df[New_built_idx,:New_Build] .= 1
         #Retreive power data from solved model
         power = value.(model[:p])
         power_h = hcat([Array(power[:,h]) for h in H]...)
@@ -588,32 +812,160 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_gen_df = hcat(P_gen_df, power_h_df)
         
         CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, writeheader=true)
+
+        #Emissions output (supports policy and post-processing checks)
+        EF = [Gendata[:, "EF"];]
+        E_zone_df = DataFrame(
+            Zone = Zonedata[:, "Zone_id"],
+            State = Zonedata[:, "State"],
+            Emissions_ton = [sum(EF[g] * sum(power[g,h] for h in H; init=0) for g in G_i[i]; init=0) for i in I]
+        )
+        CSV.write(joinpath(outpath, "emissions_zone.csv"), E_zone_df, writeheader=true)
+        E_state_df = DataFrame(
+            State = W,
+            Emissions_ton = [sum(E_zone_df[i, :Emissions_ton] for i in I_w[w]; init=0) for w in W]
+        )
+        CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, writeheader=true)
         
         ##Power price
-        # Obtain hourly power price, utilize power balance constraint's shadow price
+        # Obtain hourly power price from the active power-balance equation
+        P_price_df = DataFrame()
+        P_price_nodal_df = DataFrame()
+        P_price_decomp_nodal_df = DataFrame()
+        P_price_decomp_zonal_df = DataFrame()
+        price_zone_matrix = nothing
+        price_node_matrix = nothing
+        duals_available = config_set["solver"] != "cbc" && has_duals(model)
         if config_set["solver"] == "cbc"
-            P_price_df = DataFrame()
             println("Cbc solver does not support for calaculating electricity price")
-        else
-            P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+        elseif !duals_available
+            println("Dual values are unavailable (likely due integer UC). Skip LMP/congestion-dual outputs; set unit_commitment=2 for price analysis.")
+        elseif network_model == 1 && haskey(model, :PB_con)
             dual_matrix = dual.(model[:PB_con])
-            dual_h = [[dual_matrix[i,h] for h in H] for i in I]
-            #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
-            dual_h = transpose(hcat(dual_h...))
-            dual_h_df = DataFrame(dual_h, [Symbol("h$h")  for h in H])
-            P_price_df = hcat(P_price_df,dual_h_df)
+            # JuMP dual sign is opposite to market LMP sign for this balance orientation.
+            price_zone_matrix = -[dual_matrix[i,h] for i in I, h in H]
+            dual_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
+            P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), dual_h_df)
             CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            ref_zone_raw = get(config_set, "reference_bus", 1)
+            ref_zone_idx = resolve_reference_index(ref_zone_raw, length(I), Dict(Idx_zone_dict[i] => i for i in I), "zone")
+            decomp_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for i in I, (h_idx, h) in enumerate(H)
+                lmp = price_zone_matrix[i,h_idx]
+                energy = price_zone_matrix[ref_zone_idx,h_idx]
+                push!(decomp_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, lmp - energy, 0.0))
+            end
+            P_price_decomp_zonal_df = decomp_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+        elseif network_model == 2 && haskey(model, :PBNode_con) && nodal_output_map !== nothing
+            N = [n for n in 1:length(nodal_output_map.bus_labels)]
+            dual_matrix = dual.(model[:PBNode_con])
+            price_node_matrix = -[dual_matrix[n,h] for n in N, h in H]
+            nodal_h_df = DataFrame(price_node_matrix, [Symbol("h$h") for h in H])
+            P_price_nodal_df = DataFrame(
+                Bus = [nodal_output_map.bus_labels[n] for n in N],
+                Zone = [Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]] for n in N],
+                State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N]
+            )
+            P_price_nodal_df = hcat(P_price_nodal_df, nodal_h_df)
+            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, writeheader=true)
+            price_zone_matrix = [sum(nodal_output_map.bus_weight[n] * price_node_matrix[n,h] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h in H]
+            zonal_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
+            P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), zonal_h_df)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, writeheader=true)
+            ref_bus_raw = get(config_set, "reference_bus", 1)
+            ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
+            decomp_rows = DataFrame(Bus=Any[], Zone=String[], State=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for n in N, (h_idx, h) in enumerate(H)
+                lmp = price_node_matrix[n,h_idx]
+                energy = price_node_matrix[ref_bus_idx,h_idx]
+                push!(decomp_rows, (nodal_output_map.bus_labels[n], string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]]), string(Zonedata[nodal_output_map.bus_zone_of_n[n], "State"]), Int(h), lmp, energy, lmp - energy, 0.0))
+            end
+            P_price_decomp_nodal_df = decomp_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, writeheader=true)
+            ref_zone_idx = nodal_output_map.bus_zone_of_n[ref_bus_idx]
+            decomp_zone_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for i in I, (h_idx, h) in enumerate(H)
+                lmp = price_zone_matrix[i,h_idx]
+                energy = price_zone_matrix[ref_zone_idx,h_idx]
+                push!(decomp_zone_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, lmp - energy, 0.0))
+            end
+            P_price_decomp_zonal_df = decomp_zone_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+        elseif network_model == 3 && haskey(model, :PTDFInjDef_con) && nodal_output_map !== nothing
+            N = [n for n in 1:length(nodal_output_map.bus_labels)]
+            dual_matrix = dual.(model[:PTDFInjDef_con])
+            price_node_matrix = -[dual_matrix[n,h] for n in N, h in H]
+            nodal_h_df = DataFrame(price_node_matrix, [Symbol("h$h") for h in H])
+            P_price_nodal_df = DataFrame(
+                Bus = [nodal_output_map.bus_labels[n] for n in N],
+                Zone = [Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]] for n in N],
+                State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N]
+            )
+            P_price_nodal_df = hcat(P_price_nodal_df, nodal_h_df)
+            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, writeheader=true)
+            price_zone_matrix = [sum(nodal_output_map.bus_weight[n] * price_node_matrix[n,h] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h in H]
+            zonal_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
+            P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), zonal_h_df)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, writeheader=true)
+            ref_bus_raw = get(config_set, "reference_bus", 1)
+            ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
+            decomp_rows = DataFrame(Bus=Any[], Zone=String[], State=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for n in N, (h_idx, h) in enumerate(H)
+                lmp = price_node_matrix[n,h_idx]
+                energy = price_node_matrix[ref_bus_idx,h_idx]
+                push!(decomp_rows, (nodal_output_map.bus_labels[n], string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]]), string(Zonedata[nodal_output_map.bus_zone_of_n[n], "State"]), Int(h), lmp, energy, lmp - energy, 0.0))
+            end
+            P_price_decomp_nodal_df = decomp_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, writeheader=true)
+            ref_zone_idx = nodal_output_map.bus_zone_of_n[ref_bus_idx]
+            decomp_zone_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for i in I, (h_idx, h) in enumerate(H)
+                lmp = price_zone_matrix[i,h_idx]
+                energy = price_zone_matrix[ref_zone_idx,h_idx]
+                push!(decomp_zone_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, lmp - energy, 0.0))
+            end
+            P_price_decomp_zonal_df = decomp_zone_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+        elseif network_model == 0 && haskey(model, :SystemPB_con)
+            dual_vec = dual.(model[:SystemPB_con])
+            sys_price = reshape([-dual_vec[h] for h in H], 1, length(H))
+            P_price_df = hcat(DataFrame(Region = ["System"]), DataFrame(sys_price, [Symbol("h$h") for h in H]))
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            decomp_rows = DataFrame(Region=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
+            for (h_idx, h) in enumerate(H)
+                push!(decomp_rows, ("System", Int(h), sys_price[1,h_idx], sys_price[1,h_idx], 0.0, 0.0))
+            end
+            P_price_decomp_zonal_df = decomp_rows
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+        else
+            println("No compatible power-balance duals found for configured network_model=$network_model; skipping power price output.")
         end
 
 
         ##Transmission line-----------------------------------------------------------------------------------------------------------
         #Power flow OutputDF
-        P_flow_df = DataFrame(
-            From_zone = vcat(Linedata[:,"From_zone"]),
-            To_zone = vcat(Linedata[:,"To_zone"]),
-            EC_Category = [repeat(["Existing"],Num_Eline)...],
-            AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline)
-        )
+        if network_model in [2, 3] && from_bus_col !== nothing && to_bus_col !== nothing
+            P_flow_df = DataFrame(
+                From_bus = vcat(Linedata[:, from_bus_col]),
+                To_bus = vcat(Linedata[:, to_bus_col]),
+                EC_Category = [repeat(["Existing"], Num_Eline)...],
+                AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline)
+            )
+            if from_zone_col !== nothing && to_zone_col !== nothing
+                insertcols!(P_flow_df, 3, :From_zone => vcat(Linedata[:, from_zone_col]))
+                insertcols!(P_flow_df, 4, :To_zone => vcat(Linedata[:, to_zone_col]))
+            end
+        else
+            P_flow_df = DataFrame(
+                From_zone = from_zone_col === nothing ? repeat(["Unknown"], Num_Eline) : vcat(Linedata[:, from_zone_col]),
+                To_zone = to_zone_col === nothing ? repeat(["Unknown"], Num_Eline) : vcat(Linedata[:, to_zone_col]),
+                EC_Category = [repeat(["Existing"], Num_Eline)...],
+                AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline)
+            )
+        end
         P_flow_df.AnnSum .= [sum(value.(model[:f][l,h]) for h in H ) for l in L]
         
         #Retreive power data from solved model
@@ -622,6 +974,73 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         flow_t_h_df = DataFrame(flow_t_h, [Symbol("h$h") for h in H])
         P_flow_df = hcat(P_flow_df, flow_t_h_df )
         CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
+        
+        #Congestion rent output (line-by-line)
+        hourly_rent = nothing
+        line_rent_df = DataFrame(
+            Line = L,
+            AnnCongestionRent = Array{Union{Missing,Float64}}(undef, Num_Eline)
+        )
+        if network_model in [2, 3] && price_node_matrix !== nothing && nodal_output_map !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
+            line_rent_df[!, :From_bus] = vcat(Linedata[:, from_bus_col])
+            line_rent_df[!, :To_bus] = vcat(Linedata[:, to_bus_col])
+            hourly_rent = Array{Float64}(undef, Num_Eline, length(H))
+            for l in L
+                n_from = get(nodal_output_map.bus_idx_dict, Linedata[l, from_bus_col], nothing)
+                n_to = get(nodal_output_map.bus_idx_dict, Linedata[l, to_bus_col], nothing)
+                for (h_idx, h) in enumerate(H)
+                    if n_from === nothing || n_to === nothing
+                        hourly_rent[l, h_idx] = 0.0
+                    else
+                        hourly_rent[l, h_idx] = (price_node_matrix[n_to, h_idx] - price_node_matrix[n_from, h_idx]) * flow[l,h]
+                    end
+                end
+                line_rent_df[l, :AnnCongestionRent] = sum(hourly_rent[l, :])
+            end
+            line_rent_h_df = DataFrame(hourly_rent, [Symbol("h$h") for h in H])
+            line_rent_df = hcat(line_rent_df, line_rent_h_df)
+        elseif price_zone_matrix !== nothing && from_zone_col !== nothing && to_zone_col !== nothing
+            line_rent_df[!, :From_zone] = vcat(Linedata[:, from_zone_col])
+            line_rent_df[!, :To_zone] = vcat(Linedata[:, to_zone_col])
+            hourly_rent = Array{Float64}(undef, Num_Eline, length(H))
+            for l in L
+                from_i = get(Zone_idx_dict, Linedata[l, from_zone_col], nothing)
+                to_i = get(Zone_idx_dict, Linedata[l, to_zone_col], nothing)
+                for (h_idx, h) in enumerate(H)
+                    if from_i === nothing || to_i === nothing
+                        hourly_rent[l, h_idx] = 0.0
+                    else
+                        hourly_rent[l, h_idx] = (price_zone_matrix[to_i, h_idx] - price_zone_matrix[from_i, h_idx]) * flow[l,h]
+                    end
+                end
+                line_rent_df[l, :AnnCongestionRent] = sum(hourly_rent[l, :])
+            end
+            line_rent_h_df = DataFrame(hourly_rent, [Symbol("h$h") for h in H])
+            line_rent_df = hcat(line_rent_df, line_rent_h_df)
+        else
+            line_rent_df.AnnCongestionRent .= 0.0
+        end
+        CSV.write(joinpath(outpath, "line_congestion_rent.csv"), line_rent_df, writeheader=true)
+        shadow_h = nothing
+        line_shadow_df = DataFrame()
+        if duals_available && haskey(model, :TLe_con)
+            dual_tle = dual.(model[:TLe_con])
+            shadow_h = [dual_tle[l,h] for l in L, h in H]
+            line_shadow_df = DataFrame(
+                Line = L,
+                AnnAbsShadowPrice = [sum(abs(shadow_h[l, h_idx]) for h_idx in 1:length(H); init=0.0) for l in L]
+            )
+            if network_model in [2, 3] && from_bus_col !== nothing && to_bus_col !== nothing
+                line_shadow_df[!, :From_bus] = vcat(Linedata[:, from_bus_col])
+                line_shadow_df[!, :To_bus] = vcat(Linedata[:, to_bus_col])
+            elseif from_zone_col !== nothing && to_zone_col !== nothing
+                line_shadow_df[!, :From_zone] = vcat(Linedata[:, from_zone_col])
+                line_shadow_df[!, :To_zone] = vcat(Linedata[:, to_zone_col])
+            end
+            line_shadow_h_df = DataFrame(shadow_h, [Symbol("h$h") for h in H])
+            line_shadow_df = hcat(line_shadow_df, line_shadow_h_df)
+            CSV.write(joinpath(outpath, "line_shadow_price.csv"), line_shadow_df, writeheader=true)
+        end
         
         ##Storage---------------------------------------------------------------------------------------------------------------------
         #=
@@ -783,16 +1202,320 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
         rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
+
+        if summary_table == 1
+            mkpath(summary_outpath)
+            println("Generating summary analysis tables in $summary_outpath ...")
+
+            to_float_local(v) = v isa Number ? Float64(v) : parse(Float64, string(v))
+
+            ## Summary_Price_Hourly -------------------------------------------------------------
+            if nrow(P_price_decomp_nodal_df) > 0
+                for r in eachrow(P_price_decomp_nodal_df)
+                    push!(Summary_Price_Hourly_df, (
+                        "Node",
+                        string(r.Bus),
+                        string(r.Zone),
+                        string(r.State),
+                        Int(r.Hour),
+                        Float64(r.LMP),
+                        Float64(r.Energy),
+                        Float64(r.Congestion),
+                        Float64(r.Loss)
+                    ))
+                end
+            end
+            if nrow(P_price_decomp_zonal_df) > 0
+                if "Zone" in names(P_price_decomp_zonal_df)
+                    for r in eachrow(P_price_decomp_zonal_df)
+                        zone_nm = string(r.Zone)
+                        state_nm = haskey(Zone_idx_dict, zone_nm) ? string(Zonedata[Zone_idx_dict[zone_nm], "State"]) : ""
+                        push!(Summary_Price_Hourly_df, (
+                            "Zone",
+                            zone_nm,
+                            zone_nm,
+                            state_nm,
+                            Int(r.Hour),
+                            Float64(r.LMP),
+                            Float64(r.Energy),
+                            Float64(r.Congestion),
+                            Float64(r.Loss)
+                        ))
+                    end
+                elseif "Region" in names(P_price_decomp_zonal_df)
+                    for r in eachrow(P_price_decomp_zonal_df)
+                        push!(Summary_Price_Hourly_df, (
+                            "System",
+                            string(r.Region),
+                            "",
+                            "",
+                            Int(r.Hour),
+                            Float64(r.LMP),
+                            Float64(r.Energy),
+                            Float64(r.Congestion),
+                            Float64(r.Loss)
+                        ))
+                    end
+                end
+            end
+            if nrow(Summary_Price_Hourly_df) > 0
+                CSV.write(joinpath(summary_outpath, "Summary_Price_Hourly.csv"), Summary_Price_Hourly_df, writeheader=true)
+            end
+
+            ## Summary_Congestion_Line_Hourly --------------------------------------------------
+            cap_col = first_existing_col(linedata_cols, ["Capacity (MW)", "Line Capacity (MW)", "RateA", "RATE_A", "rateA"])
+            line_limits = cap_col === nothing ? fill(0.0, Num_Eline) : [to_float_local(Linedata[l, cap_col]) for l in L]
+            for l in L
+                from_bus_val = from_bus_col === nothing ? "" : string(Linedata[l, from_bus_col])
+                to_bus_val = to_bus_col === nothing ? "" : string(Linedata[l, to_bus_col])
+                from_zone_val = from_zone_col === nothing ? "" : string(Linedata[l, from_zone_col])
+                to_zone_val = to_zone_col === nothing ? "" : string(Linedata[l, to_zone_col])
+                if (from_zone_col === nothing || to_zone_col === nothing) && nodal_output_map !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
+                    n_from = get(nodal_output_map.bus_idx_dict, Linedata[l, from_bus_col], nothing)
+                    n_to = get(nodal_output_map.bus_idx_dict, Linedata[l, to_bus_col], nothing)
+                    if n_from !== nothing
+                        from_zone_val = string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n_from]])
+                    end
+                    if n_to !== nothing
+                        to_zone_val = string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n_to]])
+                    end
+                end
+                limit_mw = line_limits[l]
+                for (h_idx, h) in enumerate(H)
+                    flow_mw = Float64(flow[l, h])
+                    loading_pct = limit_mw > 0 ? 100.0 * abs(flow_mw) / limit_mw : 0.0
+                    tol = max(1.0e-4, 1.0e-5 * max(1.0, abs(limit_mw)))
+                    binding_side = if limit_mw > 0 && abs(flow_mw - limit_mw) <= tol
+                        "Upper"
+                    elseif limit_mw > 0 && abs(flow_mw + limit_mw) <= tol
+                        "Lower"
+                    else
+                        "None"
+                    end
+                    shadow_val = shadow_h === nothing ? missing : Float64(shadow_h[l, h_idx])
+                    rent_val = hourly_rent === nothing ? missing : Float64(hourly_rent[l, h_idx])
+                    push!(Summary_Congestion_Line_Hourly_df, (
+                        Int(l),
+                        from_bus_val,
+                        to_bus_val,
+                        from_zone_val,
+                        to_zone_val,
+                        Int(h),
+                        flow_mw,
+                        limit_mw,
+                        loading_pct,
+                        shadow_val,
+                        binding_side,
+                        rent_val
+                    ))
+                end
+            end
+            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Hourly.csv"), Summary_Congestion_Line_Hourly_df, writeheader=true)
+
+            ## Summary_Congestion_Line_Annual --------------------------------------------------
+            for l in L
+                rows_l = findall(Summary_Congestion_Line_Hourly_df[!, :Line] .== l)
+                if isempty(rows_l)
+                    continue
+                end
+                from_bus_val = Summary_Congestion_Line_Hourly_df[rows_l[1], :From_bus]
+                to_bus_val = Summary_Congestion_Line_Hourly_df[rows_l[1], :To_bus]
+                from_zone_val = Summary_Congestion_Line_Hourly_df[rows_l[1], :From_zone]
+                to_zone_val = Summary_Congestion_Line_Hourly_df[rows_l[1], :To_zone]
+                loading_vals = Float64.(Summary_Congestion_Line_Hourly_df[rows_l, :Loading_pct])
+                shadow_vals = collect(skipmissing(Summary_Congestion_Line_Hourly_df[rows_l, :ShadowPrice]))
+                rent_vals = collect(skipmissing(Summary_Congestion_Line_Hourly_df[rows_l, :CongestionRent]))
+                hours_binding = count(x -> x != "None", Summary_Congestion_Line_Hourly_df[rows_l, :BindingSide])
+                avg_abs_shadow = isempty(shadow_vals) ? missing : mean(abs.(shadow_vals))
+                max_abs_shadow = isempty(shadow_vals) ? missing : maximum(abs.(shadow_vals))
+                ann_rent = isempty(rent_vals) ? 0.0 : sum(rent_vals)
+                avg_loading = isempty(loading_vals) ? 0.0 : mean(loading_vals)
+                p95_loading = isempty(loading_vals) ? 0.0 : quantile(loading_vals, 0.95)
+                push!(Summary_Congestion_Line_Annual_df, (
+                    Int(l),
+                    string(from_bus_val),
+                    string(to_bus_val),
+                    string(from_zone_val),
+                    string(to_zone_val),
+                    Int(hours_binding),
+                    avg_abs_shadow,
+                    max_abs_shadow,
+                    Float64(ann_rent),
+                    Float64(avg_loading),
+                    Float64(p95_loading)
+                ))
+            end
+            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Annual.csv"), Summary_Congestion_Line_Annual_df, writeheader=true)
+
+            ## Summary_System_Hourly -----------------------------------------------------------
+            zone_load = zeros(Float64, Num_zone, length(H))
+            for i in I, (h_idx, h) in enumerate(H)
+                zone_nm = Ordered_zone_nm[i]
+                zone_load[i, h_idx] = to_float_local(Loaddata[h, zone_nm]) * to_float_local(Zonedata[i, "Demand (MW)"])
+            end
+            system_load = [sum(zone_load[:, h_idx]) for h_idx in 1:length(H)]
+            gen_hour = [sum(power[g, h] for g in G; init=0.0) for h in H]
+            storage_charge_hour = [sum(value(model[:c][s, h]) for s in S; init=0.0) for h in H]
+            storage_discharge_hour = [sum(value(model[:dc][s, h]) for s in S; init=0.0) for h in H]
+            loadshed_hour = [sum(power_ls[d, h] for d in D; init=0.0) for h in H]
+            ct_exist = value.(model[:RenewableCurtailExist])
+            curtail_hour = [sum(ct_exist[:, :, h]; init=0.0) for h in H]
+            avg_lmp_hour = Vector{Union{Missing,Float64}}(undef, length(H))
+            fill!(avg_lmp_hour, missing)
+            if price_node_matrix !== nothing && nodal_output_map !== nothing
+                for (h_idx, _) in enumerate(H)
+                    denom = system_load[h_idx]
+                    if denom <= 0
+                        avg_lmp_hour[h_idx] = missing
+                        continue
+                    end
+                    num = 0.0
+                    for i in I
+                        zl = zone_load[i, h_idx]
+                        for n in nodal_output_map.N_i[i]
+                            num += nodal_output_map.bus_weight[n] * zl * price_node_matrix[n, h_idx]
+                        end
+                    end
+                    avg_lmp_hour[h_idx] = num / denom
+                end
+            elseif price_zone_matrix !== nothing
+                for (h_idx, _) in enumerate(H)
+                    denom = system_load[h_idx]
+                    if denom <= 0
+                        avg_lmp_hour[h_idx] = missing
+                        continue
+                    end
+                    num = sum(zone_load[i, h_idx] * price_zone_matrix[i, h_idx] for i in I; init=0.0)
+                    avg_lmp_hour[h_idx] = num / denom
+                end
+            elseif nrow(P_price_df) > 0
+                for (h_idx, h) in enumerate(H)
+                    h_sym = Symbol("h$h")
+                    if h_sym in names(P_price_df)
+                        avg_lmp_hour[h_idx] = to_float_local(P_price_df[1, h_sym])
+                    end
+                end
+            end
+            EF_vec = [to_float_local(v) for v in Gendata[:, "EF"]]
+            emissions_hour = [sum(EF_vec[g] * power[g, h] for g in G; init=0.0) for h in H]
+            for (h_idx, h) in enumerate(H)
+                push!(Summary_System_Hourly_df, (
+                    Int(h),
+                    Float64(system_load[h_idx]),
+                    Float64(gen_hour[h_idx]),
+                    Float64(storage_charge_hour[h_idx]),
+                    Float64(storage_discharge_hour[h_idx]),
+                    Float64(loadshed_hour[h_idx]),
+                    Float64(curtail_hour[h_idx]),
+                    avg_lmp_hour[h_idx],
+                    Float64(emissions_hour[h_idx])
+                ))
+            end
+            CSV.write(joinpath(summary_outpath, "Summary_System_Hourly.csv"), Summary_System_Hourly_df, writeheader=true)
+
+            ## Summary_Congestion_Driver_Node_Hourly (nodal only) ------------------------------
+            if network_model in [2, 3] && nodal_output_map !== nothing && shadow_h !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
+                N = [n for n in 1:length(nodal_output_map.bus_labels)]
+                ptdf_matrix_summary = zeros(Float64, Num_Eline, length(N))
+                ptdf_ok = true
+                ref_bus_raw = get(config_set, "reference_bus", 1)
+                ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
+                ptdf_nodal_data = haskey(input_data, "PTDFNodalData") ? input_data["PTDFNodalData"] : (haskey(input_data, "PTDFdata") ? input_data["PTDFdata"] : nothing)
+                if network_model == 3 && ptdf_nodal_data !== nothing
+                    ptdf_cols = Set(string.(names(ptdf_nodal_data)))
+                    missing_bus_cols = [string(nodal_output_map.bus_labels[n]) for n in N if !(string(nodal_output_map.bus_labels[n]) in ptdf_cols)]
+                    if isempty(missing_bus_cols) && size(ptdf_nodal_data, 1) == Num_Eline
+                        for n in N
+                            ptdf_matrix_summary[:, n] .= [to_float_local(v) for v in ptdf_nodal_data[:, string(nodal_output_map.bus_labels[n])]]
+                        end
+                    else
+                        ptdf_ok = false
+                        println("Skip Summary_Congestion_Driver_Node_Hourly: invalid/missing nodal PTDF input columns or row count.")
+                    end
+                else
+                    x_col = first_existing_col(linedata_cols, ["X", "Reactance", "x"])
+                    x_vals = x_col === nothing ? fill(1.0, Num_Eline) : [to_float_local(Linedata[l, x_col]) for l in L]
+                    from_idx = Vector{Int}(undef, Num_Eline)
+                    to_idx = Vector{Int}(undef, Num_Eline)
+                    for l in L
+                        n_from = get(nodal_output_map.bus_idx_dict, Linedata[l, from_bus_col], nothing)
+                        n_to = get(nodal_output_map.bus_idx_dict, Linedata[l, to_bus_col], nothing)
+                        if n_from === nothing || n_to === nothing
+                            ptdf_ok = false
+                            break
+                        end
+                        from_idx[l] = n_from
+                        to_idx[l] = n_to
+                    end
+                    if ptdf_ok
+                        ptdf_matrix_summary .= compute_ptdf_from_incidence(from_idx, to_idx, x_vals, length(N), ref_bus_idx)
+                    else
+                        println("Skip Summary_Congestion_Driver_Node_Hourly: unable to map line endpoint buses to nodal indices.")
+                    end
+                end
+
+                if ptdf_ok
+                    for (h_idx, h) in enumerate(H)
+                        for l in L
+                            sh = Float64(shadow_h[l, h_idx])
+                            if abs(sh) <= 1.0e-8
+                                continue
+                            end
+                            ref_ptdf = ptdf_matrix_summary[l, ref_bus_idx]
+                            from_bus_val = string(Linedata[l, from_bus_col])
+                            to_bus_val = string(Linedata[l, to_bus_col])
+                            for n in N
+                                delta_ptdf = ptdf_matrix_summary[l, n] - ref_ptdf
+                                contrib = sh * delta_ptdf
+                                if abs(contrib) <= 1.0e-8
+                                    continue
+                                end
+                                zone_idx_n = nodal_output_map.bus_zone_of_n[n]
+                                push!(Summary_Congestion_Driver_Node_Hourly_df, (
+                                    string(nodal_output_map.bus_labels[n]),
+                                    string(Idx_zone_dict[zone_idx_n]),
+                                    string(Zonedata[zone_idx_n, "State"]),
+                                    Int(h),
+                                    Int(l),
+                                    from_bus_val,
+                                    to_bus_val,
+                                    Float64(ptdf_matrix_summary[l, n]),
+                                    Float64(delta_ptdf),
+                                    Float64(sh),
+                                    Float64(contrib)
+                                ))
+                            end
+                        end
+                    end
+                end
+                if nrow(Summary_Congestion_Driver_Node_Hourly_df) > 0
+                    CSV.write(joinpath(summary_outpath, "Summary_Congestion_Driver_Node_Hourly.csv"), Summary_Congestion_Driver_Node_Hourly_df, writeheader=true)
+                end
+            end
+        end
+
         Results_dict = Dict(
             "power_loadshedding" => P_ls_df,
             "power_renewable_curtailment" =>P_ct_df,
             "power_hourly" => P_gen_df,
             "power_price" => P_price_df,
+            "power_price_nodal" => P_price_nodal_df,
+            "power_price_decomposition_nodal" => P_price_decomp_nodal_df,
+            "power_price_decomposition_zonal" => P_price_decomp_zonal_df,
             "power_flow" => P_flow_df,
+            "line_congestion_rent" => line_rent_df,
+            "line_shadow_price" => line_shadow_df,
             "es_power_charge" => P_es_c_df,
             "es_power_discharge" => P_es_dc_df,
             "es_power_soc" => P_es_soc_df,
-            "system_cost" => Cost_df)
+            "emissions_zone" => E_zone_df,
+            "emissions_state" => E_state_df,
+            "system_cost" => Cost_df,
+            "Summary_Price_Hourly" => Summary_Price_Hourly_df,
+            "Summary_Congestion_Line_Hourly" => Summary_Congestion_Line_Hourly_df,
+            "Summary_Congestion_Line_Annual" => Summary_Congestion_Line_Annual_df,
+            "Summary_System_Hourly" => Summary_System_Hourly_df,
+            "Summary_Congestion_Driver_Node_Hourly" => Summary_Congestion_Driver_Node_Hourly_df)
     end
 	println("Write solved results in the folder $outpath 'output' DONE!")
 

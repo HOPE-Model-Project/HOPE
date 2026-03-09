@@ -1,13 +1,15 @@
-DataCase: Data_PJM_GTEP_subzones/      #String the folder name of data, default Data/ GTEP example: "Data_100RPS/"; PCM eample: "Data_PCM2035/"
-model_mode: GTEP                  #"GTEP" or "PCM" or ...
-aggregated!: 1                    #1 aggregate technology resource; 0 Does Not
-representative_day!: 1            #1 use representative days and set time_periods please; 0 Does Not
-inv_dcs_bin: 0                    #1 use integer variable for investment decisions; 0 Does Not
-operation_reserve_mode: 0         #0 disable operation reserve; 1 enable SPIN reserve constraints (GTEP only)
-time_periods:                     #representative day clustering, could define yourself
-    1 : (3, 20, 6, 20)            # March 20th to June 20th;  1;srping
-    2 : (6, 21, 9, 21)            # June 21st to September 21st;  2;summer
-    3 : (9, 22, 12, 20)           # September 22nd to December 20th;  3;fall
-    4 : (12, 21, 3, 19)           # December 21st to March 19th;  4;winter
-solver: cbc                       #String, solver: cbc, clp, scip, highs, cplex, gurobi
-debug: 0                          #Flag for turning on the Method of Debug, 0 = not active; 1 = active conflict method; 2 = active penalty method #(please refer to https://jump.dev/JuMP.jl/stable/tutorials/getting_started/debugging/, https://jump.dev/JuMP.jl/stable/manual/solutions/#Conflicts for more detal)
+DataCase: Data_PJM_GTEP_subzones/ # Input data folder under the case directory
+model_mode: GTEP                  # Model type: GTEP or PCM
+aggregated!: 1                    # 1 use aggregated technology data; 0 use full input technologies
+representative_day!: 1            # 1 representative-day formulation; 0 full chronological hours
+inv_dcs_bin: 0                    # 1 integer investment decisions; 0 continuous/relaxed
+operation_reserve_mode: 0         # GTEP: 0 none; 1 SPIN reserve
+write_shadow_prices: 0            # PCM only: 1 MILP->fixed-LP re-solve for dual/LMP (requires PCM UC=1); ignored in GTEP
+summary_table: 0                 # 1 generate Analysis/Summary_*.csv tables; 0 disable
+time_periods:                     # Representative-day seasonal windows
+    1 : (3, 20, 6, 20)            # March 20th to June 20th; 1 spring
+    2 : (6, 21, 9, 21)            # June 21st to September 21st; 2 summer
+    3 : (9, 22, 12, 20)           # September 22nd to December 20th; 3 fall
+    4 : (12, 21, 3, 19)           # December 21st to March 19th; 4 winter
+solver: cbc                       # Solver name: cbc, clp, highs, scip, cplex, gurobi
+debug: 0                          # 0 off; 1 conflict refiner; 2 penalty-based debug

@@ -144,6 +144,13 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
         )
     end
     if solver == "gurobi"
+        if !isdefined(@__MODULE__, :Gurobi)
+            try
+                @eval using Gurobi
+            catch e
+                error("solver='gurobi' requested, but Gurobi.jl is unavailable in this environment. Install/activate Gurobi.jl and a valid Gurobi license. Original error: $(e)")
+            end
+        end
         # Optional solver parameters ############################################
         MyFeasibilityTol = 1e-6 # Constraint (primal) feasibility tolerances. See https://www.gurobi.com/documentation/8.1/refman/feasibilitytol.html
             if(haskey(solver_settings, "Feasib_Tol")) MyFeasibilityTol = solver_settings["Feasib_Tol"] end
