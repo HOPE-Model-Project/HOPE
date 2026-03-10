@@ -663,6 +663,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         H=[h for h=1:size(Loaddata,1)]
         L=[l for l=1:Num_Eline]						#Set of transmission corridors, index l
         I=[i for i=1:Num_zone]									#Set of zones, index i
+        to_float_setting(v) = v isa Number ? Float64(v) : parse(Float64, string(v))
+        singlepar_df = input_data["Singlepar"]
+        singlepar_cols = Set(string.(names(singlepar_df)))
+        theta_max_for_diag = ("theta_max" in singlepar_cols) ? to_float_setting(singlepar_df[1, "theta_max"]) : 1.0e3
         G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]	
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
 		G_PV=[G_PV_E;]											#Set of all solar, subsets of G
@@ -739,6 +743,13 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             ShadowPrice=Float64[],
             Contribution=Float64[]
         )
+        if network_model == 2 && haskey(model, :theta) && theta_max_for_diag > 0.0
+            theta_vals = value.(model[:theta])
+            max_abs_theta = maximum(abs.(theta_vals))
+            if max_abs_theta >= 0.999 * theta_max_for_diag
+                println("Warning: theta_max appears binding in angle-based DCOPF (max |theta|=$(round(max_abs_theta, digits=6)), theta_max=$(theta_max_for_diag)). Consider increasing theta_max or checking angle/flow scaling.")
+            end
+        end
 
         ##Load shedding
         P_ls_df = DataFrame(
@@ -1414,83 +1425,85 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             CSV.write(joinpath(summary_outpath, "Summary_System_Hourly.csv"), Summary_System_Hourly_df, writeheader=true)
 
             ## Summary_Congestion_Driver_Node_Hourly (nodal only) ------------------------------
-            if network_model in [2, 3] && nodal_output_map !== nothing && shadow_h !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
-                N = [n for n in 1:length(nodal_output_map.bus_labels)]
-                ptdf_matrix_summary = zeros(Float64, Num_Eline, length(N))
-                ptdf_ok = true
-                ref_bus_raw = get(config_set, "reference_bus", 1)
-                ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
-                ptdf_nodal_data = haskey(input_data, "PTDFNodalData") ? input_data["PTDFNodalData"] : (haskey(input_data, "PTDFdata") ? input_data["PTDFdata"] : nothing)
-                if network_model == 3 && ptdf_nodal_data !== nothing
-                    ptdf_cols = Set(string.(names(ptdf_nodal_data)))
-                    missing_bus_cols = [string(nodal_output_map.bus_labels[n]) for n in N if !(string(nodal_output_map.bus_labels[n]) in ptdf_cols)]
-                    if isempty(missing_bus_cols) && size(ptdf_nodal_data, 1) == Num_Eline
-                        for n in N
-                            ptdf_matrix_summary[:, n] .= [to_float_local(v) for v in ptdf_nodal_data[:, string(nodal_output_map.bus_labels[n])]]
-                        end
-                    else
-                        ptdf_ok = false
-                        println("Skip Summary_Congestion_Driver_Node_Hourly: invalid/missing nodal PTDF input columns or row count.")
-                    end
-                else
-                    x_col = first_existing_col(linedata_cols, ["X", "Reactance", "x"])
-                    x_vals = x_col === nothing ? fill(1.0, Num_Eline) : [to_float_local(Linedata[l, x_col]) for l in L]
-                    from_idx = Vector{Int}(undef, Num_Eline)
-                    to_idx = Vector{Int}(undef, Num_Eline)
-                    for l in L
-                        n_from = get(nodal_output_map.bus_idx_dict, Linedata[l, from_bus_col], nothing)
-                        n_to = get(nodal_output_map.bus_idx_dict, Linedata[l, to_bus_col], nothing)
-                        if n_from === nothing || n_to === nothing
-                            ptdf_ok = false
-                            break
-                        end
-                        from_idx[l] = n_from
-                        to_idx[l] = n_to
-                    end
-                    if ptdf_ok
-                        ptdf_matrix_summary .= compute_ptdf_from_incidence(from_idx, to_idx, x_vals, length(N), ref_bus_idx)
-                    else
-                        println("Skip Summary_Congestion_Driver_Node_Hourly: unable to map line endpoint buses to nodal indices.")
-                    end
-                end
-
-                if ptdf_ok
-                    for (h_idx, h) in enumerate(H)
-                        for l in L
-                            sh = Float64(shadow_h[l, h_idx])
-                            if abs(sh) <= 1.0e-8
-                                continue
-                            end
-                            ref_ptdf = ptdf_matrix_summary[l, ref_bus_idx]
-                            from_bus_val = string(Linedata[l, from_bus_col])
-                            to_bus_val = string(Linedata[l, to_bus_col])
+            if network_model in [2, 3]
+                if nodal_output_map !== nothing && shadow_h !== nothing && from_bus_col !== nothing && to_bus_col !== nothing
+                    N = [n for n in 1:length(nodal_output_map.bus_labels)]
+                    ptdf_matrix_summary = zeros(Float64, Num_Eline, length(N))
+                    ptdf_ok = true
+                    ref_bus_raw = get(config_set, "reference_bus", 1)
+                    ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
+                    ptdf_nodal_data = haskey(input_data, "PTDFNodalData") ? input_data["PTDFNodalData"] : (haskey(input_data, "PTDFdata") ? input_data["PTDFdata"] : nothing)
+                    if network_model == 3 && ptdf_nodal_data !== nothing
+                        ptdf_cols = Set(string.(names(ptdf_nodal_data)))
+                        missing_bus_cols = [string(nodal_output_map.bus_labels[n]) for n in N if !(string(nodal_output_map.bus_labels[n]) in ptdf_cols)]
+                        if isempty(missing_bus_cols) && size(ptdf_nodal_data, 1) == Num_Eline
                             for n in N
-                                delta_ptdf = ptdf_matrix_summary[l, n] - ref_ptdf
-                                contrib = sh * delta_ptdf
-                                if abs(contrib) <= 1.0e-8
+                                ptdf_matrix_summary[:, n] .= [to_float_local(v) for v in ptdf_nodal_data[:, string(nodal_output_map.bus_labels[n])]]
+                            end
+                        else
+                            ptdf_ok = false
+                            println("Skip Summary_Congestion_Driver_Node_Hourly: invalid/missing nodal PTDF input columns or row count.")
+                        end
+                    else
+                        x_col = first_existing_col(linedata_cols, ["X", "Reactance", "x"])
+                        x_vals = x_col === nothing ? fill(1.0, Num_Eline) : [to_float_local(Linedata[l, x_col]) for l in L]
+                        from_idx = Vector{Int}(undef, Num_Eline)
+                        to_idx = Vector{Int}(undef, Num_Eline)
+                        for l in L
+                            n_from = get(nodal_output_map.bus_idx_dict, Linedata[l, from_bus_col], nothing)
+                            n_to = get(nodal_output_map.bus_idx_dict, Linedata[l, to_bus_col], nothing)
+                            if n_from === nothing || n_to === nothing
+                                ptdf_ok = false
+                                break
+                            end
+                            from_idx[l] = n_from
+                            to_idx[l] = n_to
+                        end
+                        if ptdf_ok
+                            ptdf_matrix_summary .= compute_ptdf_from_incidence(from_idx, to_idx, x_vals, length(N), ref_bus_idx)
+                        else
+                            println("Skip Summary_Congestion_Driver_Node_Hourly: unable to map line endpoint buses to nodal indices.")
+                        end
+                    end
+
+                    if ptdf_ok
+                        for (h_idx, h) in enumerate(H)
+                            for l in L
+                                sh = Float64(shadow_h[l, h_idx])
+                                if abs(sh) <= 1.0e-8
                                     continue
                                 end
-                                zone_idx_n = nodal_output_map.bus_zone_of_n[n]
-                                push!(Summary_Congestion_Driver_Node_Hourly_df, (
-                                    string(nodal_output_map.bus_labels[n]),
-                                    string(Idx_zone_dict[zone_idx_n]),
-                                    string(Zonedata[zone_idx_n, "State"]),
-                                    Int(h),
-                                    Int(l),
-                                    from_bus_val,
-                                    to_bus_val,
-                                    Float64(ptdf_matrix_summary[l, n]),
-                                    Float64(delta_ptdf),
-                                    Float64(sh),
-                                    Float64(contrib)
-                                ))
+                                ref_ptdf = ptdf_matrix_summary[l, ref_bus_idx]
+                                from_bus_val = string(Linedata[l, from_bus_col])
+                                to_bus_val = string(Linedata[l, to_bus_col])
+                                for n in N
+                                    delta_ptdf = ptdf_matrix_summary[l, n] - ref_ptdf
+                                    contrib = sh * delta_ptdf
+                                    if abs(contrib) <= 1.0e-8
+                                        continue
+                                    end
+                                    zone_idx_n = nodal_output_map.bus_zone_of_n[n]
+                                    push!(Summary_Congestion_Driver_Node_Hourly_df, (
+                                        string(nodal_output_map.bus_labels[n]),
+                                        string(Idx_zone_dict[zone_idx_n]),
+                                        string(Zonedata[zone_idx_n, "State"]),
+                                        Int(h),
+                                        Int(l),
+                                        from_bus_val,
+                                        to_bus_val,
+                                        Float64(ptdf_matrix_summary[l, n]),
+                                        Float64(delta_ptdf),
+                                        Float64(sh),
+                                        Float64(contrib)
+                                    ))
+                                end
                             end
                         end
                     end
+                else
+                    println("Skip Summary_Congestion_Driver_Node_Hourly: missing nodal mapping, line endpoint columns, or shadow prices.")
                 end
-                if nrow(Summary_Congestion_Driver_Node_Hourly_df) > 0
-                    CSV.write(joinpath(summary_outpath, "Summary_Congestion_Driver_Node_Hourly.csv"), Summary_Congestion_Driver_Node_Hourly_df, writeheader=true)
-                end
+                CSV.write(joinpath(summary_outpath, "Summary_Congestion_Driver_Node_Hourly.csv"), Summary_Congestion_Driver_Node_Hourly_df, writeheader=true)
             end
         end
 

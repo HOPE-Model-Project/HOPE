@@ -352,7 +352,7 @@ function build_case(spec::CaseSpec, project_root::String)
         "delta_reg" => [1.0 / 12.0],
         "delta_spin" => [1.0 / 6.0],
         "delta_nspin" => [0.5],
-        "theta_max" => [3.14],
+        "theta_max" => [1000.0],
     )
     CSV.write(joinpath(data_dir, "single_parameter.csv"), single_parameter)
 

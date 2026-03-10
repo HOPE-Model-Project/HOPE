@@ -405,6 +405,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 
 		#Parameters--------------------------------------------
 		to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
+		to_float_or_default(x, default::Float64) = (x === missing || x === nothing || (x isa AbstractString && isempty(strip(x)))) ? default : to_float(x)
 		singlepar_cols = Set(string.(names(SinglePardata)))
 		get_singlepar(name::AbstractString, default::Float64) = (name in singlepar_cols) ? to_float(SinglePardata[1, name]) : default
 		gendata_cols = Set(string.(names(Gendata)))
@@ -422,7 +423,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		EF=[Gendata[:,"EF"];]#g				#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		ALW_state = Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"])) #w			#Total annual carbon allowances by state
-		F_max=[Linedata[!,"Capacity (MW)"];]#l			#Maximum capacity of transmission corridor/line l, MW
+		F_max=[to_float(v) for v in Linedata[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
 		if "X" in linedata_cols
 			B_l = Dict(l => (to_float(Linedata[l, "X"]) == 0.0 ? 0.0 : 1.0 / to_float(Linedata[l, "X"])) for l in L)
 		elseif "Reactance" in linedata_cols
@@ -450,6 +451,32 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		delta_spin = get_singlepar("delta_spin", 1.0 / 6.0)
 		delta_nspin = get_singlepar("delta_nspin", 1.0 / 2.0)
 		theta_max = get_singlepar("theta_max", 1.0e3)
+		# Optional line angle-difference limit in radians.
+		# If omitted or <= 0, the per-line angle-difference limit is disabled.
+		delta_theta_max_default = get_singlepar("delta_theta_max", -1.0)
+		delta_theta_col = "delta_theta_max" in linedata_cols ? "delta_theta_max" : nothing
+		delta_theta_max_l = Dict{Int,Float64}()
+		for l in L
+			if delta_theta_col === nothing
+				delta_theta_max_l[l] = delta_theta_max_default
+			else
+				delta_theta_max_l[l] = to_float_or_default(Linedata[l, delta_theta_col], delta_theta_max_default)
+			end
+		end
+		line_angle_limit_active = Dict(l => delta_theta_max_l[l] > 0.0 for l in L)
+		L_theta_diff = [l for l in L if line_angle_limit_active[l]]
+		if network_model in [2, 3] && !isempty(L_theta_diff)
+			println("Line angle-difference limits are enabled via delta_theta_max.")
+		end
+		# PTDF mode has no theta variable; enforce angle-difference limits by tightening line flow bounds.
+		F_max_eff = copy(F_max)
+		if network_model == 3
+			for l in L
+				if line_angle_limit_active[l]
+					F_max_eff[l] = min(F_max_eff[l], abs(B_l[l]) * delta_theta_max_l[l])
+				end
+			end
+		end
 		reference_bus_raw = get(config_set, "reference_bus", 1)
 		reference_bus = if network_model in [2, 3]
 			resolve_reference_index(reference_bus_raw, length(N), Bus_idx_dict, "bus")
@@ -621,6 +648,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			FAngle_con = @constraint(model, [l in L, h in H], f[l,h] == B_l[l] * (model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h]), base_name = "FAngle_con")
 			RefAngle_con = @constraint(model, [h in H], model[:theta][reference_bus,h] == 0, base_name = "RefAngle_con")
 			ThetaBound_con = @constraint(model, [n in N, h in H], -theta_max <= model[:theta][n,h] <= theta_max, base_name = "ThetaBound_con")
+			if !isempty(L_theta_diff)
+				ThetaDiffLine_con = @constraint(model, [l in L_theta_diff, h in H], -delta_theta_max_l[l] <= model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] <= delta_theta_max_l[l], base_name = "ThetaDiffLine_con")
+			end
 		else
 			# Nodal DCOPF PTDF-based
 			@expression(model, NodeLoad[n in N, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
@@ -682,7 +712,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		ReserveThermalOnly_NSPIN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_NSPIN[g,h] == 0, base_name = "ReserveThermalOnly_NSPIN_con")
 		
 		#(4) Transissim power flow limit for existing lines	
-		@constraint(model, TLe_con[l in L_exist,h in H], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
+		@constraint(model, TLe_con[l in L_exist,h in H], -F_max_eff[l] <= f[l,h] <= F_max_eff[l],base_name = "TLe_con")
 
 		if config_set["unit_commitment"] == 0
 			#(5) Maximum capacity limits for existing power generator
