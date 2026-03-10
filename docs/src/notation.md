@@ -6,95 +6,71 @@ CurrentModule = HOPE
 # Nomenclature
 
 ## Sets and Indices
----
-|**Notation** | **Description**|
-| :------------ | :-----------|
-|$D$ |Set of demand, index $d$|
-|$G$ |Set of all types of generating units, index $g$|
-|$H$ |Set of hours, index $h$|
-|$K$ |Set of technology types, index $k$|
-|$T$ |Set of time periods (e.g., representative days of seasons), index $t$|
-|$S$ |Set of storage units, index $s$|
-|$I,J$ |Set of zones, index $i,j$|
-|$L$ |Set of transmission corridors, index $l$|
-|$W$ |Set of states, index $w/w’$|
----
-## Subsets
----
-|**Notation** | **Description**|
-| :------------ | :-----------|
-|$D_{i}$ | Set of demand connected to zone $i$, a subset of $D$|
-|$G^{PV}$, $G^{W}$, $G^{F}$ | Set of solar, wind, and dispatchable generators, respectively, subsets of $G$|
-|$G^{RPS}$ | Set of generators could provide RPS credits, subsets of $G$| 
-|$G^{L}_{l}$ | Set of generators linked to line $i$, subset of $G$|  
-|$G_{i}$ | Set of generating units connected to zone $i$, subset of $G$|  
-|$G^{E}/G^{+}$ | Set of existing/candidate generation units, index $g$, subset of $G$|
-|$H_{t}$ | Set of hours in time period (day) $t$, index $h$, subset of $H$|
-|$S^{E}/S^{+}$ | Set of existing/candidate storage units, subset of $S$|
-|$S_{i}$ | Set of storage units connected to zone $i$, subset of $S$|
-|$L^{E}/L^{+}$ | Set of existing/candidate transmission corridors|
-|$LS_{l}/LR_{l}$ | Set of sending/receiving corridors for zone $i$, subset of $L$|
-|$WIR_{w}$ | Set of states that state w can import renewable credits from (includes $w$ itself), subset of $W$|
-|$WER_{w}$ | Set of states that state w can export renewable credits to (excludes $w$ itself), subset of $W$|
----
-## Parameters
----
-|**Notation** | **Description**|
-| :------------ | :-----------|
-|$ALW_{t,w}$ | Total carbon allowance in time period $t$ in state $w$, ton|
-|$AFRE_{g,h,i}$ | Availability factor of renewable energy source $g$ in hour $h$ in zone $i$, $g \in G^{PV} \bigcup G^{W}$|
-|$CC_{g/s}$ | Capacity credit of resource $g/s$, unitless|
-|$CP_{g}$ | Carbon price of generation $g \in\ G^{F}$, M$/t|
-|$DR_{i,t,h}^{ref}$ | Reference demand of demand response aggregator in time-period $t$ in hour $h$, MW|
-|$DR_{i}^{MAX}$ | Maximum capacity limit for demand consumption of DR aggregator in zone $i$, MW|
-|$DRC$| Cost of demand response, unitless|
-|$EF_{g}$ | Carbon emission factor of generator $g$, t/MWh|
-|$ELMT_{w}$ | Carbon emission limits at state $w, t$|
-|$F^{max}_{l}$ | Maximum capacity of transmission corridor/line $l$, MW|
-|$\tilde{I}_{g}$ | Investment cost of candidate generator $g$, M$|
-|$\tilde{I}_{l}$ | Investment cost of  transmission line $l$, M$|
-|$\tilde{I}_{s}$ | Investment cost of  storage unit $s$, M$|
-|$IBG$ | Total investment budget for generators|
-|$IBL$ | Total investment budget for transmission lines|
-|$IBS$ | Total investment budget for storages|
-|$N_{t}$ | Number of time periods (days) represented by time period (day) $t$ per year, $/sum_{t /in T} N_{t} |H_{t}| = 8760$|
-|$NI_{i.h}$ | Net interchange in zone $i$ in hour $$h, MWh|
-|$P_{d,h}$ | Active power demand, MW|
-|$PK$ | Peak power demand, MW|
-|$PT^{rps}$ | RPS volitation penalty, $/MWh|
-|$PT^{emis}$ | Carbon emission volitation penalty, $/t|
-|$P_{g}^{min}/P_{g}^{max}$ | Minimum/Maximum power generation of unit $g$, MW|
-|$RPS_{w}$ | Renewable portfolio standard in state $w$, %, unitless|
-|$RM$ | Planning reserve margin, unitless|
-|$SCAP_{s}$ | Maximum capacity of storage unit $s$, MW|
-|$SECAP_{s}$ | Maximum energy capacity of storage unit $s$, MWh|
-|$SC_{s}/SD_{s}$ |  The maximum rates of charging/discharging, unitless|
-|$VCG_{g}$ | Variable cost of generation unit $g$, $/ MWh|
-|$VCS_{g}$ | Variable (degradation) cost of storage unit $s$, $/ MWh|
-|$VOLL_{d}$ | Value of loss of load $d$, $/MWh|
-|$\epsilon_{ch}$ | Charging efficiency of storage unit $s$, unitless|
-|$\epsilon_{dis}$ | Discharging efficiency of storage unit $s$, unitless|
----
-## Variables
----
-|**Notation** | **Description**|
-| :------------ | :-----------|
-|$a_{g,t}$ | Bidding carbon allowance of unit $g$ in time period $t$, ton|
-|$b_{g,t}$ | Banking of allowance of g in time period $t$, ton|
-|$dr_{i,t,h}^{UP/DN}$ | Upwards/downwards demand change relative to reference demand during $h$ in time period $t$ in zone $i$, MW|
-|$dr_{i,t,h}^{DR}$ | Demand from DR aggregator during $h$ in time period $t$ in zone $i$, MW|
-|$p_{g,t,h}$ | Active power generation of unit $g$ in time period $t$ hour $h$, MW|
-|$pw_{g,w}$ | Total renewable generation of unit $g$ in state $w$, MWh|
-|$p^{LS}_{d,t,h}$ | Load shedding of demand $d$ in time period $t$ in hour $h$, MW|
-|$pt^{rps}_{w}$ | Amount of active power violated RPS policy in state $w$, MW|
-|$pwi_{g,w,w'}$ | State $w$ imported renewable credits of from state $w'$ annually, MWh|
-|$f_{l,t,h}$ | Active power of generator $g$ through transmission corridor/line $l$ in time period $t$ and hour $h$, MW|
-|$em^{emis}_{w}$ | Carbon emission violated emission limit in state $w$, ton|
-|$x_{g}$ | Decision variable for candidate generator $g$, binary|
-|$y_{l}$ | Decision variable for candidate line $l$, binary|
-|$z_{s}$ | Decision variable for candidate storage $s$, binary|
-|$soc_{s,t,h}$ | State of charge level of storage $s$ in time period $t$ in hour $h$, MWh|
-|$c_{s,t,h}$ | Charging power of storage $s$ from grid in time period $t$ in hour $h$, MW|
-|$dc_{s,t,h}$ | Discharging power of storage $s$ from grid in time period $t$ in hour $h$, MW|
----
 
+| Notation | Description |
+| :-- | :-- |
+| `D` | Demand entities, index `d` |
+| `G` | Generators, index `g` |
+| `S` | Storage units, index `s` |
+| `L` | Lines/corridors, index `l` |
+| `I` | Zones, index `i` |
+| `N` | Buses/nodes (PCM nodal modes), index `n` |
+| `W` | States, index `w` |
+| `H` | Hours, index `h` |
+| `T` | Representative periods, index `t` |
+| `R` | Reserve product set (PCM), e.g., `REG_UP`, `REG_DN`, `SPIN`, `NSPIN` |
+
+## Common Subsets
+
+| Notation | Description |
+| :-- | :-- |
+| `G_F` | Thermal generators eligible for operating reserves |
+| `G_UC` | UC-modeled generators (PCM) |
+| `G_RPS` | RPS-eligible generators |
+| `G_i` | Generators in zone `i` |
+| `G_n` | Generators at bus `n` |
+| `S_i` | Storage in zone `i` |
+| `S_n` | Storage at bus `n` |
+| `S_SD`, `S_LD` | Short-/long-duration storage sets (GTEP representative-day mode) |
+| `WER_w` | States that state `w` can export REC to |
+| `WIR_w` | States that state `w` can import REC from |
+
+## Key Parameters
+
+| Notation | Description |
+| :-- | :-- |
+| `P^max_g`, `P^min_g` | Generator max/min power |
+| `F^max_l` | Line thermal limit |
+| `F^{eff}_l` | Effective line limit after optional angle-difference tightening |
+| `AF_{g,h}` | Generator availability factor |
+| `CC_g`, `CC_s` | Capacity credits |
+| `RPS_w` | State RPS target |
+| `ELMT_w` | State emissions cap (carbon policy option A) |
+| `ALW_w` | State allowance cap (carbon policy option B) |
+| `spin_requirement` | Fractional SPIN requirement (GTEP) |
+| `reg_up_requirement`, `reg_dn_requirement`, `spin_requirement`, `nspin_requirement` | PCM reserve requirements (fraction of load) |
+| `delta_reg`, `delta_spin`, `delta_nspin` | Reserve response windows |
+| `theta_max` | Optional absolute bus-angle guard in angle-based DCOPF |
+| `delta_theta_max_l` | Optional per-line angle-difference limit |
+| `PTDF_{l,n}` | PTDF coefficient (line `l`, node `n`) |
+
+## Key Decision Variables
+
+| Notation | Description |
+| :-- | :-- |
+| `p_{g,h}` | Generator dispatch |
+| `f_{l,h}` | Line flow |
+| `p^{LS}` | Load shedding |
+| `c_{s,h}`, `dc_{s,h}` | Storage charge/discharge |
+| `soc_{s,h}` | Storage state of charge |
+| `x_g`, `y_l`, `z_s` | GTEP build decisions (gen/line/storage) |
+| `x_RET_g` | GTEP retirement decision for eligible existing units |
+| `pwe_{g,w,w'}` | REC exported from state `w` to `w'` by unit `g` |
+| `pt^{rps}_w` | RPS slack |
+| `em^{emis}_w` | Carbon slack |
+| `r^{SPIN}_{G,g,h}`, `r^{SPIN}_{S,s,h}` | GTEP SPIN reserves from generator/storage |
+| `r^{REG_UP}_{G,g,h}`, `r^{REG_DN}_{G,g,h}`, `r^{SPIN}_{G,g,h}`, `r^{NSPIN}_{G,g,h}` | PCM generator reserve variables |
+| `r^{REG_UP}_{S,s,h}`, `r^{REG_DN}_{S,s,h}`, `r^{SPIN}_{S,s,h}`, `r^{NSPIN}_{S,s,h}` | PCM storage reserve variables |
+| `theta_{n,h}` | Bus angle (PCM angle-based nodal mode) |
+| `inj_{n,h}` | Net bus injection (PCM PTDF mode) |
+| `o_{g,h}`, `su_{g,h}`, `sd_{g,h}` | UC commitment/startup/shutdown variables |

@@ -60,20 +60,20 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 		@variable(model, 0<= sd[G_UC,H]<=1)					#Shut-down action for g at the beginning of h, 0-1
 		@variable(model, 0<= su[G_UC,H]<=1)					#Start-up action for g at the beginning of h, 0-1
 	end
-	#UC constraints
-	#(24) Minimum run limit
+	# UC constraints (aligned with docs/src/PCM.md Section 3)
+	# [PCM-C3.UC1] Minimum run limit
 	MRL_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= (1-FOR_g[g])*P_min[g]*o[g,h],base_name = "MRL_con")
 		
-	#(25) State transition constraint
+	# [PCM-C3.UC2] State transition
 	STT_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])], o[g,h] - o[g,h-1] == su[g,h] - sd[g,h],base_name = "STT_con")
 		
-	#(26) Minimum up time constraint 
+	# [PCM-C3.UC3] Minimum up time
 	MUT_con = @constraint(model, [g in G_UC, h in Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
 		
-	#(27) Minimum down time constraint
+	# [PCM-C3.UC4] Minimum down time
 	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
 		
-	#(28) pmin variable bound
+	# [PCM-C3.UC5] pmin bound to dispatch
 	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
 	# Startup-cost objective term is assembled in create_PCM_model to avoid duplicate model names.
 end
@@ -614,21 +614,32 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			uc_set = config_set["unit_commitment"]
 			print("Invalid settings $uc_set for unit_commitment! Please set it tobe '0' or '1' or '2'!")
 		end
-		#Constraints--------------------------------------------
+		# Constraints --------------------------------------------
+		# Constraint-ID map (aligned with docs/src/PCM.md and Word formulation):
+		# [PCM-C1.0] Copper-plate power balance
+		# [PCM-C1.1] Zonal transport balance
+		# [PCM-C1.2] Nodal DCOPF angle-based
+		# [PCM-C1.3] Nodal DCOPF PTDF-based
+		# [PCM-C1.NI] NI upper-bound coupling
+		# [PCM-C2] Operating reserve block (REG/SPIN/NSPIN, mode-dependent)
+		# [PCM-C3] Generator operating limits, headroom, reserve capability, and ramps (UC-aware)
+		# [PCM-C4] Storage operation and reserve deliverability
+		# [PCM-C5] RPS + REC trading and carbon policy blocks (mode-dependent)
+		# [PCM-C6] Flexible demand constraints
 		if flexible_demand != 0
 			@expression(model, DR_OPT[i in I, h in H], sum(dr[d,h]-DR_t[h,d]*DR_MAX[d] for d in D_i[i]))
 		else
 			@expression(model, DR_OPT[i in I, h in H], 0)
 		end
 		if network_model == 0
-			# Copper-plate: one system-wide balance, no network flow constraints
+			# [PCM-C1.0] Copper-plate: one system-wide balance, no network flow constraints
 			SystemPB_con = @constraint(model, [h in H],
 				sum(p[g,h] for g in G) + sum(dc[s,h] - c[s,h] for s in S) + sum(NI_h[h,i] for i in I)
 				== sum(sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h] for i in I),
 				base_name = "SystemPB_con")
 			NoNetworkFlow_con = @constraint(model, [l in L, h in H], f[l,h] == 0, base_name = "NoNetworkFlow_con")
 		elseif network_model == 1
-			# Zonal transport
+			# [PCM-C1.1] Zonal transport
 			@constraint(model, PB_con[i in I, h in H], sum(p[g,h] for g in G_i[i])
 				+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 				- sum(f[l,h] for l in LS_i[i])
@@ -636,7 +647,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				+ NI_h[h,i]
 				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h],base_name = "PB_con")
 		elseif network_model == 2
-			# Nodal DCOPF angle-based
+			# [PCM-C1.2] Nodal DCOPF angle-based
 			@expression(model, NodeLoad[n in N, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
 			@expression(model, NodeNI[n in N, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
 			@constraint(model, PBNode_con[n in N, h in H], sum(p[g,h] for g in G_n[n])
@@ -652,7 +663,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				ThetaDiffLine_con = @constraint(model, [l in L_theta_diff, h in H], -delta_theta_max_l[l] <= model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] <= delta_theta_max_l[l], base_name = "ThetaDiffLine_con")
 			end
 		else
-			# Nodal DCOPF PTDF-based
+			# [PCM-C1.3] Nodal DCOPF PTDF-based
 			@expression(model, NodeLoad[n in N, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
 			@expression(model, NodeNI[n in N, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
 			@expression(model, NetInj[n in N, h in H], sum(p[g,h] for g in G_n[n])
@@ -663,6 +674,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@constraint(model, PTDFBalance_con[h in H], sum(model[:inj][n,h] for n in N) == 0, base_name = "PTDFBalance_con")
 			@constraint(model, FPTDF_con[l in L, h in H], f[l,h] == sum(PTDF_l_n[(l,n)] * model[:inj][n,h] for n in N), base_name = "FPTDF_con")
 		end
+		# [PCM-C1.NI] NI upper bound
 		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
 		if operation_reserve_mode == 2
 			@expression(model, ReserveUpG[g in G, h in H], r_G_REG_UP[g,h] + r_G_SPIN[g,h] + r_G_NSPIN[g,h])
@@ -686,17 +698,20 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@expression(model, SPIN_requirement[h in H], spin_requirement * Load_system[h])
 		@expression(model, NSPIN_requirement[h in H], nspin_requirement * Load_system[h])
 		if operation_reserve_mode == 2
+			# [PCM-C2.A] REG + SPIN + NSPIN requirements active
 			REG_UP_req_con = @constraint(model, [h in H], sum(r_G_REG_UP[g,h] for g in G_F) + sum(r_S_REG_UP[s,h] for s in S) >= REG_UP_requirement[h], base_name = "REG_UP_req_con")
 			REG_DN_req_con = @constraint(model, [h in H], sum(r_G_REG_DN[g,h] for g in G_F) + sum(r_S_REG_DN[s,h] for s in S) >= REG_DN_requirement[h], base_name = "REG_DN_req_con")
 			SPIN_req_con = @constraint(model, [h in H], sum(r_G_SPIN[g,h] for g in G_F) + sum(r_S_SPIN[s,h] for s in S) >= SPIN_requirement[h], base_name = "SPIN_req_con")
 			NSPIN_req_con = @constraint(model, [h in H], sum(r_G_NSPIN[g,h] for g in G_F) + sum(r_S_NSPIN[s,h] for s in S) >= NSPIN_requirement[h], base_name = "NSPIN_req_con")
 		elseif operation_reserve_mode == 1
+			# [PCM-C2.B] REG + SPIN active; NSPIN forced off
 			REG_UP_req_con = @constraint(model, [h in H], sum(r_G_REG_UP[g,h] for g in G_F) + sum(r_S_REG_UP[s,h] for s in S) >= REG_UP_requirement[h], base_name = "REG_UP_req_con")
 			REG_DN_req_con = @constraint(model, [h in H], sum(r_G_REG_DN[g,h] for g in G_F) + sum(r_S_REG_DN[s,h] for s in S) >= REG_DN_requirement[h], base_name = "REG_DN_req_con")
 			SPIN_req_con = @constraint(model, [h in H], sum(r_G_SPIN[g,h] for g in G_F) + sum(r_S_SPIN[s,h] for s in S) >= SPIN_requirement[h], base_name = "SPIN_req_con")
 			NSPIN_off_con = @constraint(model, [g in G, h in H], r_G_NSPIN[g,h] == 0, base_name = "NSPIN_off_con")
 			NSPIN_S_off_con = @constraint(model, [s in S, h in H], r_S_NSPIN[s,h] == 0, base_name = "NSPIN_S_off_con")
 		else
+			# [PCM-C2.OFF] Operating reserve disabled
 			REG_UP_off_con = @constraint(model, [g in G, h in H], r_G_REG_UP[g,h] == 0, base_name = "REG_UP_off_con")
 			REG_DN_off_con = @constraint(model, [g in G, h in H], r_G_REG_DN[g,h] == 0, base_name = "REG_DN_off_con")
 			SPIN_off_con = @constraint(model, [g in G, h in H], r_G_SPIN[g,h] == 0, base_name = "SPIN_off_con")
@@ -711,16 +726,16 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		ReserveThermalOnly_SPIN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_SPIN[g,h] == 0, base_name = "ReserveThermalOnly_SPIN_con")
 		ReserveThermalOnly_NSPIN_con = @constraint(model, [g in setdiff(G, G_F), h in H], r_G_NSPIN[g,h] == 0, base_name = "ReserveThermalOnly_NSPIN_con")
 		
-		#(4) Transissim power flow limit for existing lines	
+		# [PCM-C1] Existing line flow limits (active for network models 1/2/3)
 		@constraint(model, TLe_con[l in L_exist,h in H], -F_max_eff[l] <= f[l,h] <= F_max_eff[l],base_name = "TLe_con")
 
 		if config_set["unit_commitment"] == 0
-			#(5) Maximum capacity limits for existing power generator
+			# [PCM-C3.A] Generator operating limits without UC
 			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
-			#(5b) Downward headroom for thermal generators with REG_DN reserve
+			# [PCM-C3.HD] Downward headroom (non-UC)
 			HeadroomDN_con = @constraint(model, [g in G_F, h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_con")
-			#(6) Reserve capability limits for thermal generators
+			# [PCM-C3.R] Reserve capability and response limits (non-UC)
 			REG_UP_con = @constraint(model, [g in G_F, h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_UP_con")
 			REG_DN_con = @constraint(model, [g in G_F, h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_DN_con")
 			SPIN_con = @constraint(model, [g in G_F, h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
@@ -730,21 +745,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			NSpinRampResp_con = @constraint(model, [g in G_F, h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin, base_name = "NSpinRampResp_con")
 			RegDNRampResp_con = @constraint(model, [g in G_F, h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegDNRampResp_con")
 		
-			#(7) Ramp up limits
+			# [PCM-C3.RU] Ramp-up (non-UC)
 			RP_UP_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
 		
-			#(8) Ramp down limits
+			# [PCM-C3.RD] Ramp-down (non-UC)
 			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
 		else
-			#(5) Maximum capacity limits for existing power generator
+			# [PCM-C3.B] Generator operating limits with UC
 			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
 			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] ,base_name = "CLeL_con")
 			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
-			#(5b) Downward headroom for thermal generators with REG_DN reserve
+			# [PCM-C3.HD] Downward headroom (UC-aware)
 			HeadroomDN_nonUC_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_nonUC_con")
 			HeadroomDN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], model[:pmin][g,h] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_UC_con")
-			#(6) Reserve capability limits for thermal generators
+			# [PCM-C3.R] Reserve capability and response limits (UC-aware)
 			REG_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_UP_con")
 			REG_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_DN_con")
 			SPIN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
@@ -762,24 +777,24 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			NSpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin*model[:o][g,h], base_name = "NSpinRampResp_UC_con")
 			RegDNRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg*model[:o][g,h], base_name = "RegDNRampResp_UC_con")
 	
-			#(7) Ramp up limits
+			# [PCM-C3.RU] Ramp-up (UC-aware and non-UC variants)
 			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
 			RP_UP_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
 		
-			#(8) Ramp down limits
+			# [PCM-C3.RD] Ramp-down (UC-aware and non-UC variants)
 			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h] -p[g,h-1] >= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
 			RP_DN_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
 			
 		end
 
-		#(9) Load shedding limit	
+		# [PCM-C1/C3] Load shedding bound
 		LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h]<= sum(P_t[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
 		
 		
 		##############
 		##Renewbales##
 		##############
-		#(10) Renewables generation availability for the existing plants: p_(g,h)≤AFRE_(g,h)∙P_g^max; ∀h∈H_t,g∈G^E∩(G^PV∪G^W)  
+		# [PCM-C3] Renewable availability for existing VRE
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_con")
 		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
 		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AFRE_hg[g][h,i]*P_max[g]-p[g,h])
@@ -790,15 +805,15 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		###Storages###
 		##############
-		#(11) Storage charging rate limit for existing units
+		# [PCM-C4] Storage charge limit with downward reserve coupling
 		ChLe_con=@constraint(model, [ h in H, s in S_exist], c[s,h] + ReserveDnS[s,h] <= SC[s]*SCAP[s],base_name = "ChLe_con")
 		
-		#(12) Storage discharging rate limit for existing units
+		# [PCM-C4] Storage discharge limit with upward reserve coupling
 		DChLe_con=@constraint(model, [ h in H,  s in S_exist], dc[s,h] + ReserveUpS[s,h] <= SD[s]*SCAP[s],base_name = "DChLe_con")
 		
-		#(13) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
+		# [PCM-C4] Storage SOC bound
 		SoCLe_con=@constraint(model, [ h in H, s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
-		#(14) Storage reserve deliverability within response windows
+		# [PCM-C4] Storage reserve deliverability over response windows
 		if operation_reserve_mode == 2
 			SR_DELIVER_REGUP_con = @constraint(model, [h in H, s in S_exist], r_S_REG_UP[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGUP_con")
 			SR_DELIVER_REGDN_con = @constraint(model, [h in H, s in S_exist], r_S_REG_DN[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGDN_con")
@@ -809,12 +824,12 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			SR_DELIVER_REGDN_con = @constraint(model, [h in H, s in S_exist], r_S_REG_DN[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGDN_con")
 			SR_DELIVER_SPIN_con = @constraint(model, [h in H, s in S_exist], r_S_SPIN[s,h]*delta_spin <= soc[s,h],base_name = "SR_DELIVER_SPIN_con")
 		end
-		#(15) Storage operation constraints
+		# [PCM-C4] Storage SOC transition
 		SoC_con=@constraint(model, [h in setdiff(H, [1]),s in S_exist], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
 		#Ch_1_con=@constraint(model, [s in S], c[s,1] ==0)
 		#DCh_1_con=@constraint(model, [s in S], dc[s,1] ==0)
 		
-		#(16) Daily 50% of storage level balancing for existing units
+		# [PCM-C4] Cyclic/anchor storage boundary constraints
 		SDBe_st_con=@constraint(model, [s in S_exist], soc[s,1] == soc[s,H[end]],base_name = "SDBe_st_con")
 		#SDBe_ps_con=@constraint(model, [s in S_exist, h in setdiff(H_D, [0,Num_hour])],soc[s,1]==soc[s,h],base_name="SDBe_ps_con")
 		SDBe_ed_con=@constraint(model, [s in S_exist], soc[s,H[end]] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
@@ -825,19 +840,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##RPSPolices##
 		##############
 		if clean_energy_policy == 1
-			#(17) RPS, state-level renewable generation accounting
+			# [PCM-C5.1] State-level renewable generation accounting
 			RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
 								pw[g,w] == sum(p[g,h] for h in H), base_name = "RPS_pw_con")
 
-			#(18) State renewable credits export limitation 
+			# [PCM-C5.2] REC export feasibility (pwe from w to w')
 			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
 								pw[g,w] >= sum(pwe[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
 
-			#(19) State renewable credits import limitation 
+			# [PCM-C5.3] REC import feasibility (pwe from w' to w)
 			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w], g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)],
 								pw[g,w_prime] >= pwe[g,w_prime,w], base_name = "RPS_impt_con")
 
-			#(20) Renewable credits trading meets state RPS requirements
+			# [PCM-C5.4] State RPS balance with REC trading and slack
 			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 									+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
 									- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
@@ -853,29 +868,30 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@expression(model, StateCarbonEmission[w in W],
 			sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H) for i in I_w[w]))
 		if carbon_policy == 2
-			#(21B) State carbon allowance cap
+			# [PCM-C5.B1] Option B: state allowance cap
 			SCAL_con = @constraint(model, [w in W],
 				sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) <= get(ALW_state, w, 0.0),
 				base_name = "SCAL_con")
-			#(22B) Allowances must cover annual emissions (with slack penalty)
+			# [PCM-C5.B2] Option B: allowances + slack cover annual emissions
 			BAL_con = @constraint(model, [w in W],
 				StateCarbonEmission[w] <= sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) + em_emis[w],
 				base_name = "BAL_con")
 		elseif carbon_policy == 1
-			#(21A) State annual carbon emission limit
+			# [PCM-C5.A] Option A: state annual emissions cap with slack
 			CL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= ELMT[w] + em_emis[w], base_name = "CL_con")
 		else
+			# [PCM-C5.OFF] Carbon policy off
 			NoCarbon_con = @constraint(model, [w in W], em_emis[w] == 0, base_name = "NoCarbon_con")
 		end
 		if flexible_demand == 1
-			#Demand response program (load shifting)
-			#(25) DR balance
+			# [PCM-C6] Demand response program (load shifting)
+			# [PCM-C6.1] DR balance
 			DR_con = @constraint(model, [d in D, h in H], dr[d,h] == DR_t[h,d]*DR_MAX[d] + dr_UP[d,h]-dr_DN[d,h], base_name="DR_con")
 
-			#(26) DR daily balance
+			# [PCM-C6.2] DR daily energy balance
 			DR_day_con=@constraint(model, [d in D, h in setdiff(H_D, [0,Num_hour])], sum(dr_UP[d,h1] for h1 in h:h+23)==sum(dr_DN[d,h1] for h1 in h:h+23),base_name="DR_day_con")
 
-			#(27) DR max demand limit
+			# [PCM-C6.3] DR bounds
 			DR_max_con = @constraint(model, [d in D, h in H], DR_t[h,d]*DR_MAX[d]+dr_UP[d,h] <= DR_MAX[d], base_name = "DR_max_con")
 			DR_ref_con =  @constraint(model, [d in D, h in H], dr_DN[d,h] <= DR_t[h,d]*DR_MAX[d], base_name = "DR_ref_con")
 		end

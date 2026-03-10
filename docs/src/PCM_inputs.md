@@ -12,6 +12,11 @@ In `HOPE_model_settings.yml`, set:
 
 When using nodal modes (`2`/`3`), provide nodal mapping via `busdata` and `branchdata` (or ensure `linedata` includes equivalent bus columns).
 
+Related run-control settings:
+- `unit_commitment: 1` makes PCM a MILP.
+- `write_shadow_prices: 1` runs MILP -> fixed-LP re-solve to recover dual/LMP outputs.
+- `summary_table: 1` writes summary analytics to `output/Analysis/Summary_*.csv`.
+
 ## internal network helper utilities
 
 These functions are implemented in `src/network_utils.jl` and used by `src/PCM.jl`:
@@ -72,7 +77,7 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|X or Reactance | Line reactance (required for DCOPF-angle mode and for PTDF auto-computation if `ptdf_matrix` is not provided)|
+|X or Reactance | Line reactance (required for DCOPF-angle mode and for PTDF auto-computation if `ptdf_matrix_nodal` is not provided)|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 ---
 
@@ -98,6 +103,7 @@ Recommended columns:
 - `from_bus`/`to_bus` (or MATPOWER-style `F_BUS`/`T_BUS`)
 - `Capacity (MW)` (line thermal limit)
 - `X` or `Reactance` (for DC angle/PTDF physics)
+- `delta_theta_max` *(optional)*: per-line max angle difference (radians). If omitted/<=0, disabled.
 
 If `branchdata` is provided and `network_model` is nodal, HOPE uses it as network branch input.
 
@@ -229,7 +235,8 @@ Implementation note: PCM reads these fields through an internal helper (`get_sin
 |delta_reg | REG reserve sustained-duration factor in energy constraints (hours), default = 1/12|
 |delta_spin | SPIN reserve sustained-duration factor in energy constraints (hours), default = 1/6|
 |delta_nspin | NSPIN reserve sustained-duration factor in energy constraints (hours), default = 1/2|
-|theta_max | Voltage-angle bound used in angle-based nodal DCOPF, default = 1000|
+|theta_max | Bus angle bound in angle-based nodal DCOPF (numerical guard), default = 1000|
+|delta_theta_max | Optional default line angle-difference limit (radians). If `<=0`, disabled. Can be overridden per line by `branchdata/linedata.delta_theta_max`|
 |Inv_bugt_gen | Budget for newly installed generators, default = 10000000000000000|
 |Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
 |Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|

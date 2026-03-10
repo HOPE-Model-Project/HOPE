@@ -65,7 +65,7 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
-|From_zone | Ending zone of the inter-zonal transmission line|
+|To_zone | Ending zone of the inter-zonal transmission line|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 ---
 
@@ -77,7 +77,7 @@ This is the input dataset for candidate transmission lines (a set of all inter-z
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
-|From_zone | Ending zone of the inter-zonal transmission line|
+|To_zone | Ending zone of the inter-zonal transmission line|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 |Cost (M$) |Investment cost for the generator in million dollars (M$)|
 |X |Reactance of the line in P.U. (optional)|
@@ -227,6 +227,8 @@ This is the input dataset for some parameters that can be directly defined based
 |Big M | For penalty purpose, unitless|
 |PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
 |PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|
+|spin_requirement | Hourly SPIN requirement as fraction of system load (used when `operation_reserve_mode = 1`), default = 0.03|
+|delta_spin | SPIN reserve sustained-duration factor in storage/headroom constraints (hours), default = 1/6|
 |Inv_bugt_gen | Budget for newly installed generators, default = 10000000000000000|
 |Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
 |Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|

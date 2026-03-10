@@ -1,134 +1,211 @@
 ## Overview
 
-The production cost model (PCM) is for system operation analysis under various policies and energy transition scenarios. This model is a Linear Programming Problem.
+The production cost model (PCM) simulates chronological operations given fixed infrastructure.
 
-The objective of this model is to minimize the system's (given by the planning model) total cost, including variable operation costs and penalties for non-compliance with policies. The constraints of this model are power balance, transmission transfer limit, generator operation constraints, storage operation constraints, resource adequacy requirements, and policy constraints (i.e., renewable portfolio standards (RPS) and carbon emission limitations). 
-The continuous decision variables of the PCM model are hourly operations of resources for a target year.
+Model class by configuration:
 
+- `unit_commitment = 0`: LP (no UC binaries)
+- `unit_commitment = 1`: MILP (integer UC)
+- `unit_commitment = 2`: LP relaxation of UC
+
+If `unit_commitment = 1` and `write_shadow_prices = 1`, HOPE solves MILP first, then fixes discrete variables and re-solves LP to recover dual/LMP outputs.
+
+## Active Mode Switches
+
+- `network_model`:
+  - `0`: no network constraints (copper plate)
+  - `1`: zonal transport
+  - `2`: nodal DCOPF angle-based
+  - `3`: nodal DCOPF PTDF-based
+- `operation_reserve_mode`:
+  - `0`: off
+  - `1`: REG + SPIN
+  - `2`: REG + SPIN + NSPIN
+- `clean_energy_policy` (`0`/`1`)
+- `carbon_policy` (`0`/`1`/`2`)
+- `flexible_demand` (`0`/`1`)
 
 # Problem Formulation
-## Objective function
-(1) Minimize total system cost:
-```math
-\begin{aligned}
-        \min_{\Gamma} \quad
-        &\sum_{g \in G, t \in T}VCG_{g} \times N_{t} \times \sum_{h \in H}p_{g,h} + \\
-        &\sum_{s \in S, t \in T} VCS \times \sum_{h \in H} (c_{s,h} + dc_{s,h}) + \\
-        &\sum_{d \in D, t \in T} VOLL_{d} \times \sum_{h \in H} p_{d,h}^{LS} + \\
-        &\sum_{g \in G^{F}, t \in T} CP_{g} \times \sum_{h \in H} p_{g,h} + \\
-        &\sum_{w \in W, h \in H} PT^{rps} \times pt_{w,h}^{rps} + \\
-        &\sum_{t \in T} \sum_{w \in W, h \in H} PT^{emis} \times em_{w,h}^{emis}
-\end{aligned}
-```
+
+## Objective
 
 ```math
-\Gamma = \Bigl\{ a_{g,t}, b_{g,t}, f_{l,h}, p_{g,h}, p_{d,h}^{LS}, c_{s,h}, dc_{s,h}, soc_{s,h}, pt_{h}^{rps}, em^{emis}_{h}, r_{g,h}^{G}, r_{g,h}^{S} \Bigr\}
-```
-## Constraints
-
-(2) Power balance:
-```math
-\sum_{g \in G_{i}} P_{g,h} + \sum_{s \in S_{i}} (dc_{s,h} - c_{s,h}) - \sum_{l \in LS_{i}} f_{l,h} \\
-= \sum_{d \in D_{i}} (P_{d,h} - P_{d,h}^{LS}); \forall i \in I, h \in H
+\min \; C^{startup} + C^{op}_{gen} + C^{op}_{sto} + C^{DR} + C^{LS} + C^{RPS\_pen} + C^{CO2\_pen}
 ```
 
-(3) Transmission:
+with startup cost active only when UC is enabled.
+
+## Constraint Blocks
+
+Constraint IDs in code comments use the same labels below (for example, `PCM-C1.2` in `src/PCM.jl`).
+
+### 1. [PCM-C1] Power balance and network by `network_model`
+
+#### [PCM-C1.0] `network_model = 0` (copper plate)
+
+One system balance per hour:
+
 ```math
-- F_{l}^{max} \le f_{l,h} \le F_{l}^{max};  \forall l \in L, h \in H
+\sum_g p_{g,h} + \sum_s (dc_{s,h} - c_{s,h})
+= \sum_i Load_{i,h} + \sum_i DR^{opt}_{i,h} - \sum_i p^{LS}_{i,h}
 ```
 
-(4) Operation:
+No transmission constraints are enforced.
+
+#### [PCM-C1.1] `network_model = 1` (zonal transport)
+
+Zonal balance:
+
 ```math
-P_{g}^{min} \le p_{g,h} + r_{g,h}^{G} \le (1 - FOR_{g}) \times P_{g}^{max}; \forall g \in G
+\sum_{g \in G_i} p_{g,h}
++ \sum_{s \in S_i}(dc_{s,h}-c_{s,h})
+- \sum_{l \in LS_i} f_{l,h}
++ \sum_{l \in LR_i} f_{l,h}
++ NI_{i,h}
+= Load_{i,h} + DR^{opt}_{i,h} - p^{LS}_{i,h}
 ```
 
-(5) Spinning reserve limit:
+Corridor flow bounds:
+
 ```math
-r_{g,h}^{G} \le RM_{g}^{SPIN} \times (1 - FOR_{g}) \times P_{g}^{max}; \forall g \in G^{F}
+-F^{eff}_l \le f_{l,h} \le F^{eff}_l
 ```
 
-(6) Ramp limits - 1:
+#### [PCM-C1.2] `network_model = 2` (nodal DCOPF, angle-based)
+
+Nodal balance per bus `n`:
+
 ```math
-(p_{g,h} + r_{g,h}^{G}) - p_{g, h-1} \le RU_{g} \times (1 - FOR_{g}) \times P_{g}^{max}; \forall g \in G^{F}, h \in H
+\sum_{g \in G_n} p_{g,h}
++ \sum_{s \in S_n}(dc_{s,h}-c_{s,h})
+- \sum_{l \in LS_n} f_{l,h}
++ \sum_{l \in LR_n} f_{l,h}
+= Load_{n,h} - p^{LS}_{n,h}
 ```
 
-(7) Ramp limits - 2:
+DC line physics:
+
 ```math
-(p_{g,h} + r_{g,h}^{G}) - p_{g, h-1} \ge -RU_{g} \times (1 - FOR_{g}) \times P_{g}^{max}; \forall g \in G^{F}, h \in H
+f_{l,h} = B_l(\theta_{from(l),h} - \theta_{to(l),h})
 ```
 
-(8) Load shedding limit:
+Reference angle and optional bounds:
+
 ```math
-0 \le p_{d,h}^{LS} \le P_{d}; \forall d \in D
+\theta_{ref,h}=0,\quad -\theta^{max} \le \theta_{n,h} \le \theta^{max}
 ```
 
-(9) Renewables generation availability:
+Optional per-line angle-difference limits (if enabled in data):
+
 ```math
-p_{g,h} \le AFRE_{g,h,i} \times P_{g}^{max}; \forall h \in H, g \in G_{PV} \cup G^{W}), i \in I
+-\Delta\theta^{max}_l \le \theta_{from(l),h} - \theta_{to(l),h} \le \Delta\theta^{max}_l
 ```
 
-(10) Storage charging rate limit:
+#### [PCM-C1.3] `network_model = 3` (nodal DCOPF, PTDF-based)
+
+Nodal injection definition:
+
 ```math
-\frac{c_{s,h}}{SC_{s}} \le SCAP_{s};  \forall h \in H
+inj_{n,h} = \sum_{g \in G_n} p_{g,h} + \sum_{s \in S_n}(dc_{s,h}-c_{s,h}) - Load_{n,h} + p^{LS}_{n,h}
 ```
 
-(11) Storage discharging rate limit:
+Injection balance:
+
 ```math
-\frac{dc_{s,h}}{SD_{s}} \le SCAP_{s};  \forall h \in H
+\sum_n inj_{n,h}=0
 ```
 
-(12) Storage operation limit - 1:
+PTDF flow mapping:
+
 ```math
-0 \le soc_{s,h} \le SECAP_{s};  \forall h \in H, s \in S
+f_{l,h} = \sum_n PTDF_{l,n}\,inj_{n,h}
 ```
 
-(13) Storage operation limit - 2:
+and `-F^{eff}_l <= f_{l,h} <= F^{eff}_l`.
+
+`F^{eff}_l` equals thermal limit by default and can be tightened by angle-difference limits via:
+
 ```math
-dc_{s,h} + r_{s,h}^{S} \le SD_{s} \times SCAP_{s};  \forall h \in H
+F^{eff}_l = \min\left(F^{max}_l,\; |B_l|\Delta\theta^{max}_l\right)
 ```
 
-(14) Storage operation limit - 3:
+### 2. [PCM-C2] Operating reserve
+
+Reserve variables:
+
+- Thermal generators: `r_G_REG_UP`, `r_G_REG_DN`, `r_G_SPIN`, `r_G_NSPIN`
+- Storage: `r_S_REG_UP`, `r_S_REG_DN`, `r_S_SPIN`, `r_S_NSPIN`
+
+System requirements by mode:
+
+- Mode `1`: REG_UP, REG_DN, SPIN active; NSPIN fixed to zero
+- Mode `2`: REG_UP, REG_DN, SPIN, NSPIN all active
+- Mode `0`: all reserve variables fixed to zero
+
+Thermal eligibility:
+
+- Reserve requirements are supplied by thermal units (`G_F`) and storage.
+- Non-thermal generators are forced to zero reserve provision.
+
+Headroom/downward room and reserve capability limits are enforced with UC-aware variants for units in `G_UC`.
+
+Ramp-response limits link reserve products to response windows:
+
 ```math
-soc_{s,h} = soc_{s,h-1} + \epsilon_{ch} \times c_{s,t,h} - \frac{dc_{s,t,h}}{\epsilon_{dis}};  \forall h \in H
+r \le RampRate \cdot P^{max} \cdot \Delta
 ```
 
-(15) RPS policy - State renewable credits export limitation:
+for `Delta = delta_reg`, `delta_spin`, `delta_nspin`.
+
+### 3. [PCM-C3] Generator and UC blocks
+
+Base dispatch limits use energy plus upward reserve terms.
+
+If UC is enabled:
+
+- commitment state `o`
+- startup/shutdown `su`, `sd`
+- minimum-run variable `pmin`
+- transition, min up/down, and UC-adjusted ramp constraints.
+
+### 4. [PCM-C4] Storage blocks
+
+- Charge and discharge are co-limited with downward/upward reserve, respectively.
+- SOC dynamics:
+
 ```math
-pw_{g,w} \ge \sum_{w' \in WER_{w}} pwi_{g,w,w'};  \forall g \in (\bigcup_{i \in I_{w'}} G_{i}) \cap (G^{RPS}), w \in W
+soc_{s,h} = soc_{s,h-1} + \eta^{ch}_s c_{s,h} - dc_{s,h}/\eta^{dis}_s
 ```
 
-(16) RPS policy - State renewable credits import limitation:
+- Cyclic yearly SOC closure.
+- Reserve deliverability from SOC over response windows:
+
 ```math
-pw_{g,w'} \ge pwi_{g,w,w'};  \forall g \in (\bigcup_{i \in I_{w'}} G_{i}) \cap (G^{RPS}), w \in W, w' \in WIR_{w}
+r_{S,s,h}\cdot \Delta \le soc_{s,h}
 ```
 
-(17) RPS policy - Renewable credits trading meets state RPS requirements:
-```math
-\begin{aligned}
-\sum_{g \in (\bigcup_{i \in I_{w'}} G_{i}) \cap (G^{RPS}), w' \in WIR_{w}} pwi_{g,w,w'}
-- \sum_{g \in (\bigcup_{i \in I_{w'}} G_{i}) \cap (G^{RPS}), w' \in WER_{w}} pwi_{g,w',w} + \sum_{w \in W, h \in H} pt_{w,h}^{rps} \\
-\ge \sum_{i \in I_{w},h \in H} \sum_{d \in D_{i}} p_{d,h} \times RPS_{w};\\
-w \in W
-\end{aligned}
-```
+### 5. [PCM-C5] RPS and carbon policies
 
-(18) Cap & Trade - State carbon allowance cap:
-```math
-\sum_{g \in (\bigcup_{i \in I_{w}} G_{i}) \cap G^{F}} a+{g,t} - \sum_{t \in T} N_{t} em_{w,h}^{emis} \le ALW_{t,w};  w \in W
-```
+RPS uses `pwe[g,w,w']` (REC exports from state `w` to `w'`), with:
 
-(19) Cap & Trade - Balance between allowances and emissions:
-```math
-\sum_{h \in H} EF_{g} \times p_{g,h} = a_{g,t} + b_{g,t-1} = b_{g,t};  g \in (\bigcup_{i \in I_{w}} G_{i}) \cap G_{F}, w \in W, t \in T
-```
+- state renewable generation accounting `pw`
+- REC export/import feasibility
+- state RPS balance with slack `pt_rps[w]`.
 
-(20) Cap & Trade - No cross-year banking:
-```math
-b_{g,1} = b_{g,end} = 0; g \in G_{F}
-```
+Carbon policy options:
 
-(21) Nonnegative variable:
-```math
-a_{g,t}, b_{g,t}, p_{g,h}, p_{d,h}^{LS}, c_{s,h}, soc_{s,h}, pt^{rps}, pw_{g,w}, pwi_{g,w,w'}, em^{emis} \\
-\ge 0
-```
+- `carbon_policy = 1`: state annual emissions cap with slack
+- `carbon_policy = 2`: state allowance cap and allowance-emission balance with slack.
+
+### 6. [PCM-C6] Flexible demand
+
+If enabled, DR variables/constraints are added to zone-level load representation and objective penalty terms.
+
+## LMP and Congestion Outputs
+
+When duals are available, PCM writes:
+
+- zonal/nodal prices
+- nodal price decomposition (energy, congestion, loss)
+- line shadow prices and congestion rent
+- optional summary analytics in `output/Analysis/Summary_*.csv` when `summary_table = 1`.

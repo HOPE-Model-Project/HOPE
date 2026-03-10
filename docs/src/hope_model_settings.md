@@ -5,31 +5,35 @@ CurrentModule = HOPE
 
 # HOPE Model Settings Explanation
 
-The `Hope_model_settings.yml` file configures system-level settings for running a HOPE case, including scenario settings (folder names), model mode settings, technology aggregation or not, using representative day or 8760 hourly time steps, integer or continuous for decision investment decisions, periods for setting representative days, planning reserve margin, value of loss of load, solver, debug flag, etc.   
+The `HOPE_model_settings.yml` file configures model switches and run controls.
 
-There are two columns: 1) the first column contains the names of setting parameters; 2) the second column contains the setting values. The explanation for setting parameters is also provided in the `Hope_model_settings.yml` file.   
-      
 ---
-|**Parameter Name** | **Parameter Value (examples)**| **Description**|
+|**Parameter Name** | **Example**| **Description**|
 | :------------ | :-----------|:-----------|
-|`DataCase:` | `Data_100RPS/`| #String, the folder name of data, default Data/ GTEP example: `Data_100RPS/`; PCM example: `Data_PCM2035/`|
-|`model_mode:`| `GTEP` | #String, HOPE model mode: `GTEP` or `PCM` or ...|
-|`aggregated!:`| `1` | #Binary, `1` aggregate technology resource; `0` Does Not|
-|`representative_day!:`| `1` |  #Binary, `1` use representative days (need to set time_periods); `0` Does Not|
-|`flexible_demand:`| `1` | #Binary, `1` enable DR backlog formulation; `0` disable DR|
-|`inv_dcs_bin:`| `0` | #Binary, `1` use integer variable for investment decisions; `0` Does Not|
-|`carbon_policy:`| `1` | #Int, `0` no carbon policy; `1` Option A state emissions cap; `2` Option B cap-and-trade|
-|`clean_energy_policy:`| `1` | #Int, `0` turn off RPS constraints; `1` turn on RPS constraints|
-|`operation_reserve_mode:`| `0` | #Int, `0` disable reserves; `1` REG+SPIN; `2` REG+SPIN+NSPIN|
-|`network_model:`| `1` | #Int, `0` no network constraints; `1` zonal transport; `2` nodal DCOPF angle-based; `3` nodal DCOPF PTDF-based|
-|`reference_bus:`| `1` | #Int/String, reference bus (nodal modes) or reference zone (zonal PTDF usage)|
-|`planning_reserve_mode:`| `1` | #Int, `0` disable planning reserve constraints; `1` system-level RA; `2` zonal-level RA|
-|`storage_ld_duration_hours:`| `12` | #Float, duration threshold (MWh/MW) to classify long-duration storage `S_LD` in representative-day mode; units below threshold are `S_SD`|
-|`time_periods:`| `1 : (3, 20, 6, 20)` <br> `2 : (6, 21, 9, 21)` <br> `3 : (9, 22, 12, 20)` <br> `4 : (12, 21, 3, 19)` | # `1: spring, March 20th to June 20th`;  <br> #  `2: summer, June 21st to September 21st`;  <br> #  `3: fall, September 22nd to December 20th`;  <br> # `4: winter, December 21st to March 19th`. |
-|`planning_reserve_margin:`| `0.02` |#Float, system planning reserve margin (PRM)|
-|`value_of_loss_of_load:`| `100000` | #Float, value of loss of load d, $/MWh|
-|`solver:`| `cbc` | #String, solver: `cbc`, `glpk`, `cplex`, `gurobi`, etc.|
-|`debug:` | `0` | #Binary, flag for turning on the Method of Debug, `0` = not active; `1` = active conflict method (works for `gurobi` and `cplex`); `2` = active penalty method|
+|`DataCase:` | `Data_100RPS/`| Input data folder under the case directory.|
+|`model_mode:`| `GTEP` | HOPE mode: `GTEP` or `PCM`.|
+|`aggregated!:`| `1` | `1` aggregate technology resource input; `0` full technology input.|
+|`representative_day!:`| `1` | `1` representative-day setup; `0` full chronology.|
+|`time_periods:`| `1 : (3, 20, 6, 20)` | Seasonal windows used by representative-day/time matching workflows.|
+|`flexible_demand:`| `1` | `1` enable DR formulation; `0` disable.|
+|`inv_dcs_bin:`| `0` | `GTEP`: `1` binary investment decisions; `0` relaxed investments.|
+|`unit_commitment:`| `1` | `PCM`: `0` no UC; `1` integer UC; `2` convexified UC.|
+|`carbon_policy:`| `1` | `0` off; `1` emissions cap; `2` cap-and-trade style.|
+|`clean_energy_policy:`| `1` | `0` off; `1` enforce RPS-style constraints.|
+|`planning_reserve_mode:`| `1` | `GTEP`: `0` off; `1` system-level RA; `2` zonal RA.|
+|`operation_reserve_mode:`| `2` | `GTEP`: `0` off, `1` SPIN only. `PCM`: `0` off, `1` REG+SPIN, `2` REG+SPIN+NSPIN.|
+|`network_model:`| `3` | `PCM`: `0` no network, `1` zonal transport, `2` nodal DCOPF angle-based, `3` nodal DCOPF PTDF-based.|
+|`reference_bus:`| `1` | `PCM` nodal modes: reference bus for angle and nodal price decomposition.|
+|`storage_ld_duration_hours:`| `12` | `GTEP`: long-duration storage threshold (MWh/MW).|
+|`write_shadow_prices:`| `0` | `1` run MILP -> fixed-LP re-solve to recover dual/LMP outputs. `PCM` requires `unit_commitment=1`; `GTEP` requires `inv_dcs_bin=1`.|
+|`summary_table:`| `0` | `PCM`: `1` generate `output/Analysis/Summary_*.csv`; `0` disable.|
+|`solver:`| `gurobi` | Solver name (`cbc`, `clp`, `glpk`, `gurobi`, `cplex`, etc.).|
+|`debug:` | `0` | `0` off; `1` conflict refiner; `2` penalty-based debug.|
 ---
+
+Notes:
+- Parameters like `VOLL`, `planning_reserve_margin`, reserve requirements, `theta_max`, and other numeric constants are read from `single_parameter` input (not from `HOPE_model_settings.yml`).
+- For PCM, `representative_day!` is currently not the primary production workflow; nodal studies are typically run in full chronology.
+- For PCM, nodal-only outputs/summary tables are generated only when `network_model` is `2` or `3`.
 
 

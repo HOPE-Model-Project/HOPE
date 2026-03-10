@@ -322,9 +322,13 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
+        duals_available = config_set["solver"] != "cbc" && has_duals(model)
         if config_set["solver"] == "cbc"
             P_price_df = DataFrame()
             println("Cbc solver does not support for calaculating electricity price")
+        elseif !duals_available
+            P_price_df = DataFrame()
+            println("Dual values are unavailable for GTEP power price output. For MILP runs, set write_shadow_prices=1 (and inv_dcs_bin=1) to run fixed-LP dual recovery.")
         else
             P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
             dual_matrix = dual.(model[:PB_con])

@@ -15,7 +15,7 @@ time_periods:                    # Representative-day seasonal windows
     3 : (9, 22, 12, 20)           # September 22nd to December 20th; 3 fall
     4 : (12, 21, 3, 19)           # December 21st to March 19th; 4 winter
 unit_commitment: 2               # PCM UC mode: 0 no UC; 1 integer UC; 2 convexified UC
-write_shadow_prices: 0           # PCM only: 1 MILP->fixed-LP re-solve for dual/LMP (requires UC=1); 0 disable
+write_shadow_prices: 0            # 1 MILP->fixed-LP re-solve for dual/LMP (PCM requires UC=1; GTEP requires inv_dcs_bin=1); 0 disable
 summary_table: 0                 # 1 generate Analysis/Summary_*.csv tables; 0 disable
 solver: gurobi                   # Solver name: cbc, clp, highs, scip, cplex, gurobi
 debug: 0                         # 0 off; 1 conflict refiner; 2 penalty-based debug

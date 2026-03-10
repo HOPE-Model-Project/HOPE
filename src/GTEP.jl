@@ -462,17 +462,28 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#@constraint(model, [l in L_new], y[l]==0);
 		#@constraint(model, [s in S_new], z[s]==0);
 
-		#Constraints--------------------------------------------
-		#(2) Generator investment budget:∑_(g∈G^+) INV_g ∙x_g ≤IBG
+		# Constraints --------------------------------------------
+		# Constraint-ID map (aligned with docs/src/GTEP.md and Word formulation):
+		# [GTEP-C1] Investment budgets (Word (2)-(4))
+		# [GTEP-C2] Zonal power balance (Word (5))
+		# [GTEP-C3] Transmission flow limits (Word (6)-(7))
+		# [GTEP-C4] Generator operating limits + SPIN headroom (Word (8)-(12))
+		# [GTEP-C5] Storage operation block (Word (13)-(21), with full-year vs representative-day variants)
+		# [GTEP-C6] Planning reserve adequacy block (Word (22), mode-dependent system/zonal/off)
+		# [GTEP-C7] Operating reserve block (SPIN only in GTEP; mode on/off)
+		# [GTEP-C8] RPS + REC trading block using pwe (Word (23)-(26), mode-dependent on/off)
+		# [GTEP-C9A/C9B/C9O] Carbon policy block (Option A / Option B / Off)
+		# [GTEP-C10] Flexible demand backlog block (mode on/off)
+		# [GTEP-C1] Generator investment budget
 		IBG_con = @constraint(model, sum(INV_g[g]*x[g]*P_max[g] for g in G_new) <= IBG, base_name = "IBG_con")
 
-		#(3) Transmission line investment budget:∑_(l∈L^+) INV_l ∙x_l ≤IBL
+		# [GTEP-C1] Transmission investment budget
 		IBL_con = @constraint(model, sum(unit_converter*INV_l[l]*y[l] for l in L_new) <= IBL, base_name = "IBL_con")
 
-		#(4) Storages investment budget:∑_(s∈S^+) INV_s ∙x_s ≤IBS
+		# [GTEP-C1] Storage investment budget
 		IBS_con = @constraint(model, sum(INV_s[s]*z[s]*SCAP[s] for s in S_new) <= IBS, base_name = "IBS_con")
 
-		#(5) Power balance: power generation from generators + power generation from storages + power transmissed + net import = Load demand - Loadshedding	
+		# [GTEP-C2] Zonal power balance (includes NI and optional DR shift term)
 		if flexible_demand != 0
 			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], sum(dr_PB[d,h] - dr_DF[d,h] for d in D_i[i]))
 		else
@@ -489,41 +500,43 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		@expression(model, Load_system[h in H_T], sum(P_hd[h,d]*PK[d] for d in D))
 		@expression(model, SPIN_requirement[h in H_T], spin_requirement * Load_system[h])
 		if operation_reserve_mode == 1
+			# [GTEP-C7] SPIN requirement active
 			SPIN_req_con = @constraint(model, [h in H_T], sum(r_G_SPIN[g,h] for g in G) + sum(r_S_SPIN[s,h] for s in S) >= SPIN_requirement[h], base_name = "SPIN_req_con")
 		else
+			# [GTEP-C7] SPIN disabled by mode switch
 			SPIN_off_g_con = @constraint(model, [g in G, h in H_T], r_G_SPIN[g,h] == 0, base_name = "SPIN_off_g_con")
 			SPIN_off_s_con = @constraint(model, [s in S, h in H_T], r_S_SPIN[s,h] == 0, base_name = "SPIN_off_s_con")
 		end
 		
-		#(6) Transissim power flow limit for existing lines	
+		# [GTEP-C3] Existing line flow limits
 		TLe_con = @constraint(model, [l in L_exist,t in T,h in H_t[t]], -F_max[l] <= f[l,h] <= F_max[l],base_name = "TLe_con")
 
-		#(7) Transissim power flow limit for new lines
+		# [GTEP-C3] Candidate line flow limits with investment coupling
 		TLn_LB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]], -F_max[l] * y[l] <= f[l,h],base_name = "TLn_LB_con")
 		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
 
-		#(8) Maximum capacity limits for existing power generator (energy + spinning reserve headroom)
+		# [GTEP-C4] Existing generator operating limits (energy + SPIN headroom), with retirement and must-run variants
 		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,h] + r_G_SPIN[g,h] <=P_max[g]*AF_gh[g,h],base_name = "CLe_con")
 		CLe_RET_LB_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]], P_min[g] - P_min[g]*x_RET[g] <= p[g,h] + r_G_SPIN[g,h], base_name = "CLe_RET_LB_con")
 		CLe_RET_UP_con = @constraint(model, [g in G_RET,t in T, h in H_t[t]],  p[g,h] + r_G_SPIN[g,h] <= AF_gh[g,h]*P_max[g]- AF_gh[g,h]*P_max[g]*x_RET[g], base_name = "CLe_RET_UP_con")
 		CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR),t in T, h in H_t[t]],  p[g,h] == P_max[g]*AF_gh[g,h], base_name = "CLe_MR_con")
 	
-		#(9) Maximum capacity limits for new power generator (energy + spinning reserve headroom)
+		# [GTEP-C4] Candidate generator operating limits (energy + SPIN headroom), with must-run variant
 		CLn_LB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]], P_min[g]*x[g] <= p[g,h] + r_G_SPIN[g,h], base_name = "CLn_LB_con")
 		CLn_UB_con = @constraint(model, [g in G_new,t in T,h in H_t[t]],  p[g,h] + r_G_SPIN[g,h] <=P_max[g]*x[g]*AF_gh[g,h],base_name = "CLn_UB_con")
 		CLn_MR_con =  @constraint(model, [g in intersect(G_new,G_MR),t in T, h in H_t[t]],  p[g,h] == P_max[g]*x[g]*AF_gh[g,h], base_name = "CLn_MR_con")
-		#(10) Load shedding limit	
+		# [GTEP-C2] Load shedding bound
 		LS_con = @constraint(model, [i in I, t in T, h in H_t[t]], 0 <= p_LS[i,h]<= sum(P_hd[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
 	
 		##############
 		##Renewbales##
 		##############
-		#(11) Renewables/RPS-eligible generation availability for existing plants
+		# [GTEP-C4] Existing RPS-eligible generation availability
 		ReAe_con=@constraint(model, [g in intersect(G_exist,G_RPS), t in T, h in H_t[t]], p[g,h] <= AF_gh[g,h]*P_max[g],base_name = "ReAe_con")
 		ReAe_MR_con=@constraint(model, [g in intersect(intersect(G_exist,G_MR),G_RPS), t in T, h in H_t[t]], p[g,h] == AF_gh[g,h]*P_max[g],base_name = "ReAe_MR_con")
 		@expression(model, RenewableCurtailExist[g in intersect(G_exist,G_RPS), t in T, h in H_t[t]], AF_gh[g,h]*P_max[g]-p[g,h])
 		
-		#(12) Renewables/RPS-eligible generation availability for new installed plants
+		# [GTEP-C4] Candidate RPS-eligible generation availability
 		ReAn_con=@constraint(model, [g in intersect(G_new,G_RPS), t in T, h in H_t[t]], p[g,h]<= x[g]*AF_gh[g,h]*P_max[g],base_name = "ReAn_con")
 		ReAn_MR_con=@constraint(model, [g in intersect(intersect(G_new,G_MR),G_RPS), t in T, h in H_t[t]], p[g,h] == x[g]*AF_gh[g,h]*P_max[g],base_name = "ReAn_MR_con")
 		@expression(model, RenewableCurtailNew[g in intersect(G_new,G_RPS), t in T, h in H_t[t]], AF_gh[g,h]*P_max[g]-p[g,h])
@@ -531,42 +544,42 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		##############
 		###Storages###
 		##############
-		#(13) Storage charging rate limit for existing units
+		# [GTEP-C5] Existing storage charge limit
 		ChLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], c[s,h]/SC[s] <= SCAP[s],base_name = "ChLe_con")
 		
-		#(14) Storage discharging + spinning reserve limit for existing units
+		# [GTEP-C5] Existing storage discharge + SPIN co-limit
 		DChLe_con=@constraint(model, [t in T, h in H_t[t],  s in S_exist], dc[s,h] + r_S_SPIN[s,h] <= SD[s]*SCAP[s],base_name = "DChLe_con")
 		
-		#(15) Storage charging rate limit for new installed units
+		# [GTEP-C5] Candidate storage charge limit
 		ChLn_con=@constraint(model, [t in T, h in H_t[t], s in S_new], c[s,h]/SC[s] <= z[s]*SCAP[s],base_name = "ChLn_con")
 		
-		#(16) Storage discharging + spinning reserve limit for new installed units
+		# [GTEP-C5] Candidate storage discharge + SPIN co-limit
 		DChLn_con=@constraint(model, [t in T, h in H_t[t] , s in S_new], dc[s,h] + r_S_SPIN[s,h] <= z[s]*SD[s]*SCAP[s],base_name = "DChLn_con")
 
-		#(17a) Storage spinning reserve must be energy-deliverable within response window
+		# [GTEP-C5] Storage SPIN deliverability over response window delta_spin
 		SR_Deliver_con=@constraint(model, [t in T, h in H_t[t], s in S], r_S_SPIN[s,h]*delta_spin <= soc[s,h], base_name = "SR_Deliver_con")
 		
-		#(17) State of charge limit for existing units: 0≤ soc_(s,h) ≤ SCAP_s;   ∀h∈H_t,t∈T,s∈ S^E
+		# [GTEP-C5] Existing storage SOC bound
 		SoCLe_con=@constraint(model, [t in T, h in H_t[t], s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
 		
-		#(18) State of charge limit for new installed units
+		# [GTEP-C5] Candidate storage SOC bound
 		SoCLn_ub_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  soc[s,h] <= z[s]*SECAP[s],base_name = "SoCLn_ub_con")
 		SoCLn_lb_con= @constraint(model, [t in T, h in H_t[t],  s in S_new],  0 <= soc[s,h], base_name = "SoCLn_lb_con")
 		#Stroage investment lower bound for MD
 		#S_lb_con = @constraint(model, [w in ["MD"]], sum(sum(z[s]*SCAP[s] for s in S_new_i[i]) for i in I_w[w])>= 3000, base_name="S_lb_con")
 
-		#(19) Storage operation constraints
+		# [GTEP-C5] Storage SOC transition
 		SoC_con=@constraint(model, [t in T, h in setdiff(H_t[t], [H_t[t][1]]),s in S], soc[s,h] == soc[s,h-1] + e_ch[s]*c[s,h] - dc[s,h]/e_dis[s],base_name = "SoC_con")
 		
-		#(20)-(21) Storage boundary conditions
+		# [GTEP-C5] Storage boundary conditions
 		if T == [1]
-			# Full-year mode: all storage uses cyclic SOC with first-hour wrap.
+			# [GTEP-C5.FY] Full-year mode: cyclic SOC wrap from hour 8760 to hour 1.
 			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,1] == soc[s,end] + e_ch[s]*c[s,1] - dc[s,1]/e_dis[s],base_name = "SDBe_st_con")
 			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,1] == soc[s,end] + e_ch[s]*c[s,1] - dc[s,1]/e_dis[s],base_name = "SDBn_st_con")
 		else
-			# Representative-day mode:
-			# - Short-duration storage (S_SD): daily start/end SOC anchors at alpha_storage_anchor.
-			# - Long-duration storage (S_LD): inter-period SOC linkage (no daily 50% anchor).
+			# [GTEP-C5.RD] Representative-day mode:
+			# - S_SD: daily start/end SOC anchors at alpha_storage_anchor.
+			# - S_LD: inter-period SOC linkage with wrap, no daily anchor.
 			SDBe_st_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][1]] == alpha_storage_anchor * SECAP[s],base_name = "SDBe_st_con")
 			SDBe_ed_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][end]] == alpha_storage_anchor * SECAP[s],base_name = "SDBe_ed_con")
 			SDBn_st_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][1]] == alpha_storage_anchor * z[s]*SECAP[s],base_name = "SDBn_st_con" )
@@ -585,7 +598,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		##############
 		#Planning Rsv#
 		##############
-		#(22) Resource adequacy
+		# [GTEP-C6] Planning reserve adequacy (mode switch)
 		# planning_reserve_mode:
 		# 0 -> disable planning reserve constraints
 		# 1 -> enforce one system-level reserve adequacy constraint
@@ -597,11 +610,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		end
 		@expression(model, DR_RA_system, sum(DR_RA_i[i] for i in I))
 		if planning_reserve_mode == 1
+			# [GTEP-C6.A] System-level adequacy
 			RA_con = @constraint(model, sum(CC_g[g]*P_max[g] for g in G_exist)+ sum(CC_g[g]*P_max[g]*x[g] for g in G_new)
 									+sum(CC_s[s]*SCAP[s] for s in S_exist)+sum(CC_s[s]*SCAP[s]*z[s] for s in S_new)
 									+DR_RA_system
 									>= (1+PRM)*PK_system, base_name = "RA_con")
 		elseif planning_reserve_mode == 2
+			# [GTEP-C6.B] Zonal adequacy
 			RA_zone_con = @constraint(model, [i in I],
 									sum(CC_g[g]*P_max[g] for g in intersect(G_exist, G_i[i]))
 									+ sum(CC_g[g]*P_max[g]*x[g] for g in intersect(G_new, G_i[i]))
@@ -616,18 +631,18 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		##RPSPolicies##
 		##############
 		if clean_energy_policy == 1
-			#(23) RPS, state level total Defining
+			# [GTEP-C8.1] State-level renewable generation accounting
 			RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
 								pw[g,w] == sum(N[t]*sum(p[g,h] for h in H_t[t]) for t in T), base_name = "RPS_pw_con")
 
 			
-			#(24) State renewable credits export limitation 
+			# [GTEP-C8.2] REC export feasibility (pwe from w to w')
 			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS) ], pw[g,w] >= sum(pwe[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
 			
-			#(25) State renewable credits import limitation 
+			# [GTEP-C8.3] REC import feasibility (pwe from w' to w)
 			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w],g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)], pw[g,w_prime] >= pwe[g,w_prime,w], base_name = "RPS_impt_con")
 
-			#(26) Renewable credits trading meets state RPS requirements
+			# [GTEP-C8.4] State RPS balance with REC trading and slack
 			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 										+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
 										- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
@@ -643,19 +658,20 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		###############
 		@expression(model, StateCarbonEmission[w in W], sum(sum(N[t]*sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H_t[t]) for t in T) for i in I_w[w]))
 		if carbon_policy == 2
-			#(28B) State carbon allowance cap
+			# [GTEP-C9B.1] Option B: state allowance cap
 			SCAL_con = @constraint(model, [w in W], sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) <= get(ALW_state, w, 0.0), base_name = "SCAL_con")
-			#(29B) Balance between allowances and annual emissions
+			# [GTEP-C9B.2] Option B: allowances + slack cover annual emissions
 			BAL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) + em_emis[w], base_name = "BAL_con")
 		elseif carbon_policy == 1
-			#(28A) State carbon emission limit with penalty slack
+			# [GTEP-C9A] Option A: state annual emission cap with slack
 			CL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= ELMT[w] + em_emis[w], base_name = "CL_con")
 		else
+			# [GTEP-C9O] Carbon policy off: force slack to zero
 			NoCarbon_con = @constraint(model, [w in W], em_emis[w] == 0, base_name = "NoCarbon_con")
 		end
 
 		if flexible_demand == 1
-			#Demand response (load shifting), backlog dynamics
+			# [GTEP-C10] Flexible demand backlog formulation
 			DR_backlog_con = @constraint(model, [d in D, t in T, h in setdiff(H_t[t], [H_t[t][1]])],
 				b_DR[d,h] == b_DR[d,h-1] + dr_DF[d,h] - DR_shift_eff[d] * dr_PB[d,h], base_name="DR_backlog_con")
 			DR_backlog_start_con = @constraint(model, [d in D, t in T], b_DR[d,H_t[t][1]] == 0, base_name="DR_backlog_start_con")

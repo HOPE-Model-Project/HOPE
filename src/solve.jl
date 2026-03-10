@@ -20,43 +20,52 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	solver_start_time = time()
 	optimize!(model)
 
-	# Optional second pass for PCM MILP: fix discrete vars and re-solve LP for dual prices.
-	# This mirrors GenX's WriteShadowPrices workflow.
-	if model_mode == "PCM"
-		unit_commitment_raw = get(config_set, "unit_commitment", 0)
-		unit_commitment_mode = unit_commitment_raw isa Integer ? Int(unit_commitment_raw) : parse(Int, string(unit_commitment_raw))
-		write_shadow_prices_raw = get(config_set, "write_shadow_prices", 0)
-		write_shadow_prices = write_shadow_prices_raw isa Integer ? Int(write_shadow_prices_raw) : parse(Int, string(write_shadow_prices_raw))
-		solver_name = lowercase(string(get(config_set, "solver", "")))
-
-		if unit_commitment_mode == 1 && write_shadow_prices == 1
-			if solver_name == "cbc"
-				println("write_shadow_prices=1 requested, but CBC does not provide dual prices for this workflow. Skipping LP re-solve.")
-			else
-				pr_status = primal_status(model)
-				if pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
-					println("write_shadow_prices=1: fixing discrete variables and re-solving LP for dual prices...")
-					local undo_relax = nothing
-					try
-						undo_relax = fix_discrete_variables(model)
-						optimize!(model)
-						if has_duals(model)
-							println("LP re-solve complete. Dual prices are available for output.")
-						else
-							println("LP re-solve complete, but dual prices are still unavailable from solver/model state.")
-						end
-					catch e
-						println("Warning: LP re-solve for shadow prices failed. Keeping MILP solution. Error: $(e)")
-						if undo_relax !== nothing
-							try
-								undo_relax()
-							catch
-							end
+	# Optional second pass for MILP: fix discrete vars and re-solve LP for dual prices.
+	# Applies to:
+	# - PCM with integer UC (unit_commitment=1)
+	# - GTEP with binary investment decisions (inv_dcs_bin=1)
+	write_shadow_prices_raw = get(config_set, "write_shadow_prices", 0)
+	write_shadow_prices = write_shadow_prices_raw isa Integer ? Int(write_shadow_prices_raw) : parse(Int, string(write_shadow_prices_raw))
+	solver_name = lowercase(string(get(config_set, "solver", "")))
+	need_lp_reresolve = false
+	if write_shadow_prices == 1
+		if model_mode == "PCM"
+			unit_commitment_raw = get(config_set, "unit_commitment", 0)
+			unit_commitment_mode = unit_commitment_raw isa Integer ? Int(unit_commitment_raw) : parse(Int, string(unit_commitment_raw))
+			need_lp_reresolve = unit_commitment_mode == 1
+		elseif model_mode == "GTEP"
+			inv_dcs_bin_raw = get(config_set, "inv_dcs_bin", 0)
+			inv_dcs_bin_mode = inv_dcs_bin_raw isa Integer ? Int(inv_dcs_bin_raw) : parse(Int, string(inv_dcs_bin_raw))
+			need_lp_reresolve = inv_dcs_bin_mode == 1
+		end
+	end
+	if need_lp_reresolve
+		if solver_name == "cbc"
+			println("write_shadow_prices=1 requested, but CBC does not provide dual prices for this workflow. Skipping LP re-solve.")
+		else
+			pr_status = primal_status(model)
+			if pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+				println("write_shadow_prices=1: fixing discrete variables and re-solving LP for dual prices...")
+				local undo_relax = nothing
+				try
+					undo_relax = fix_discrete_variables(model)
+					optimize!(model)
+					if has_duals(model)
+						println("LP re-solve complete. Dual prices are available for output.")
+					else
+						println("LP re-solve complete, but dual prices are still unavailable from solver/model state.")
+					end
+				catch e
+					println("Warning: LP re-solve for shadow prices failed. Keeping MILP solution. Error: $(e)")
+					if undo_relax !== nothing
+						try
+							undo_relax()
+						catch
 						end
 					end
-				else
-					println("Skipping LP re-solve for shadow prices because no feasible MILP point is available (primal_status=$(pr_status)).")
 				end
+			else
+				println("Skipping LP re-solve for shadow prices because no feasible MILP point is available (primal_status=$(pr_status)).")
 			end
 		end
 	end
