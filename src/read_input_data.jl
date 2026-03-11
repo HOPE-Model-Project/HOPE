@@ -138,7 +138,12 @@ function load_data(config_set::Dict,path::AbstractString)
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
             if flexible_demand == 1
-                input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
+                try
+                    input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"flexddata"))
+                catch
+                    # Backward compatibility for older DR workbook templates
+                    input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
+                end
             end
             #time series
             println("Reading time series")

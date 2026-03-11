@@ -14,7 +14,7 @@ When using nodal modes (`2`/`3`), provide nodal mapping via `busdata` and `branc
 
 Related run-control settings:
 - `unit_commitment: 1` makes PCM a MILP.
-- `write_shadow_prices: 1` runs MILP -> fixed-LP re-solve to recover dual/LMP outputs.
+- `write_shadow_prices: 1` triggers MILP -> fixed-LP re-solve for dual/LMP recovery when `unit_commitment: 1`.
 - `summary_table: 1` writes summary analytics to `output/Analysis/Summary_*.csv`.
 
 ## internal network helper utilities
@@ -56,8 +56,8 @@ This is the input dataset for existing generators.
 |Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
 |Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
 |Flag_UC | 1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
-|Start_up_cost ($/MW)|Start up cost for UC generator in $/MW|
+|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
+|Start_up_cost (\$/MW)|Start up cost for UC generator in \$/MW|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 |FOR|Forced outrage rate, unitless|
@@ -77,7 +77,7 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|X or Reactance | Line reactance (required for DCOPF-angle mode and for PTDF auto-computation if `ptdf_matrix_nodal` is not provided)|
+|X or Reactance | Line reactance (recommended for nodal modes). If omitted, current code falls back to unit values (`B_l = 1` / `X = 1`) with a warning.|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 ---
 
@@ -110,7 +110,7 @@ If `branchdata` is provided and `network_model` is nodal, HOPE uses it as networ
 CSV name: `branchdata.csv`  
 XLSX sheet name: `branchdata`
 
-## ptdf_matrix_nodal (optional)
+## ptdf_matrix_nodal / ptdf_matrix (optional)
 
 This optional dataset is used only when `network_model = 3` (nodal PTDF-based DCOPF).
 
@@ -118,12 +118,13 @@ If this file/sheet is provided, HOPE reads the PTDF matrix directly.
 If not provided, HOPE computes nodal PTDF from branch endpoints/reactance and `reference_bus`.
 
 Required format:
-- One row per line, in the **same row order as `linedata`**.
+- One row per line, in the **same row order as the active branch table** (`branchdata` if provided in nodal mode, otherwise `linedata`).
 - One column per bus, with column names exactly matching `busdata.Bus_id` (or inferred bus labels).
 - Cell value = PTDF coefficient for that line and bus (reference bus convention).
 
-CSV name: `ptdf_matrix_nodal.csv`  
-XLSX sheet name: `ptdf_matrix_nodal`
+Accepted names:
+- CSV: `ptdf_matrix_nodal.csv` (preferred) or `ptdf_matrix.csv`
+- XLSX sheet: `ptdf_matrix_nodal` (preferred) or `ptdf_matrix`
 
 ## storagedata
 
@@ -138,7 +139,7 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 |Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 |Charging Rate |The maximum rates of charging, unitless|
@@ -191,6 +192,36 @@ This is the input dataset for the annual hourly load profile in each zone. Each 
 |NI | Net load import on a specific period, day, and month|
 ---
 
+## flexddata (required when `flexible_demand = 1`)
+
+This dataset defines DR resources for PCM backlog load shifting (`dr_DF`, `dr_PB`, `b_DR` over resource set `R`).
+
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Zone | Zone name (must match `zonedata.Zone_id`)|
+|Type | DR technology type label|
+|Max Power (MW) | Maximum DR power in the zone|
+|Cost (\$/MW) | DR operating cost coefficient|
+|Shift_Efficiency *(optional)* | Payback efficiency factor in backlog update; default = 1.0|
+|Max_Defer_Hours *(optional)* | Backlog cap multiplier in hours; default = 24.0|
+---
+
+## dr_timeseries_regional (required when `flexible_demand = 1`)
+
+This is the annual hourly DR availability profile in each zone (per unit).
+
+---
+|**Column Name** | **Description**|
+| :------------ | :-----------|
+|Month | Months of the year, ranging from 1 to 12|
+|Day | Days of the month, ranging from 1 to 31|
+|Period | Hours of the day, ranging from 1 to 24|
+|Zone 1 | DR availability in zone 1 on a specific period, day, and month|
+|Zone 2 | DR availability in zone 2 on a specific period, day, and month|
+|... |...|
+---
+
 ## carbonpolicies
 
 This is the input dataset for carbon policies.
@@ -241,3 +272,6 @@ Implementation note: PCM reads these fields through an internal helper (`get_sin
 |Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
 |Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|
 ---
+
+Notes:
+- `planning_reserve_margin` and `Inv_bugt_*` are currently not used by `create_PCM_model` (they are relevant to GTEP workflows).

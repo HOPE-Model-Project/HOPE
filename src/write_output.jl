@@ -228,6 +228,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         D=[d for d=1:Num_load] 	
         D_i=[[d] for d in D]
+        if flexible_demand == 1
+            Num_DR = size(DRdata, 1)
+            R = [r for r in 1:Num_DR]
+        else
+            R = Int[]
+        end
         W=unique(Zonedata[:,"State"])
         #lines
         L=[l for l=1:Num_Eline+Num_Cline]						#Set of transmission corridors, index l
@@ -550,41 +556,45 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
             # Net DR shift (payback minus deferred)
             dr_net_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_net_df.DRAnnSum .= [sum(power_pb[d,h] - power_df[d,h] for t in T for h in H_t[t]) for d in D]
+            dr_net_df.DRAnnSum .= [sum(power_pb[r,h] - power_df[r,h] for t in T for h in H_t[t]) for r in R]
             dr_net_t_h = hcat([Array(power_pb[:,h] .- power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_net_df = hcat(dr_net_df, DataFrame(dr_net_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_power.csv"), dr_net_df, writeheader=true)
 
             dr_pb_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_pb_df.DRAnnSum .= [sum(value.(model[:dr_PB][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_pb_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) for t in T for h in H_t[t]) for r in R]
             dr_pb_t_h = hcat([Array(power_pb[:,h]) for t in T for h in H_t[t]]...)
             dr_pb_df = hcat(dr_pb_df, DataFrame(dr_pb_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_pb_df, writeheader=true)
 
             dr_df_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_df_df.DRAnnSum .= [sum(value.(model[:dr_DF][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_df_df.DRAnnSum .= [sum(value.(model[:dr_DF][r,h]) for t in T for h in H_t[t]) for r in R]
             dr_df_t_h = hcat([Array(power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_df_df = hcat(dr_df_df, DataFrame(dr_df_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_df_df, writeheader=true)
 
             dr_backlog_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_backlog_df.DRAnnSum .= [sum(value.(model[:b_DR][d,h]) for t in T for h in H_t[t]) for d in D]
+            dr_backlog_df.DRAnnSum .= [sum(value.(model[:b_DR][r,h]) for t in T for h in H_t[t]) for r in R]
             dr_backlog_t_h = hcat([Array(power_backlog[:,h]) for t in T for h in H_t[t]]...)
             dr_backlog_df = hcat(dr_backlog_df, DataFrame(dr_backlog_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
@@ -647,6 +657,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         nodal_output_map = network_model in [2, 3] ? build_pcm_nodal_output_maps(input_data) : nothing
         if flexible_demand == 1
             DRdata = input_data["DRdata"]
+            Num_DR = size(DRdata, 1)
+            R = [r for r in 1:Num_DR]
+        else
+            R = Int[]
         end
         #Calculate number of elements of input data
         Num_bus=size(Zonedata,1);
@@ -1137,59 +1151,81 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
         if flexible_demand == 1
-            #DR
+            # Net DR shift (payback minus deferred)
             dr_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),    
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual charge
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_df.DRAnnSum .= [sum(value.(model[:dr][d,h]) for h in H) for d in D]
+            dr_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) - value.(model[:dr_DF][r,h]) for h in H) for r in R]
             
             #Retreive power data from solved model
-            power_dr = value.(model[:dr])
+            power_dr_df = value.(model[:dr_DF])
+            power_dr_pb = value.(model[:dr_PB])
 
-            power_dr_t_h = hcat([Array(power_dr[:,h]) for h in H]...)
+            power_dr_t_h = hcat([Array(power_dr_pb[:,h] .- power_dr_df[:,h]) for h in H]...)
             power_dr_t_h_df = DataFrame(power_dr_t_h, [Symbol("dr_"*"h$h") for h in H])
 
             dr_df = hcat(dr_df, power_dr_t_h_df)
 
             CSV.write(joinpath(outpath, "dr_power.csv"), dr_df, writeheader=true)
             
-            #DR_UP
+            # DR payback
             dr_up_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),    
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_up_df.DRAnnSum .= [sum(value.(model[:dr_UP][d,h]) for h in H) for d in D]
+            dr_up_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) for h in H) for r in R]
             
             #Retreive power data from solved model
-            power_dr_up = value.(model[:dr_UP])
+            power_dr_up = value.(model[:dr_PB])
 
             power_dr_up_t_h = hcat([Array(power_dr_up[:,h]) for h in H]...)
             power_dr_up_t_h_df = DataFrame(power_dr_up_t_h, [Symbol("dr_"*"h$h") for h in H])
 
             dr_up_df = hcat(dr_up_df, power_dr_up_t_h_df)
 
+            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_up_df, writeheader=true)
+            # Backward-compatible alias
             CSV.write(joinpath(outpath, "dr_up_power.csv"), dr_up_df, writeheader=true)
         
-            #DR_DN
+            # DR deferred
             dr_dn_df = DataFrame(
+                Resource = vcat(R),
                 Zone = vcat(DRdata[:,"Zone"]),    
                 Technology = vcat(DRdata[:,"Type"]),
-                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(D)[1]),     #Annual sum
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DN][d,h]) for h in H) for d in D]
+            dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DF][r,h]) for h in H) for r in R]
             
             #Retreive power data from solved model
-            power_dr_dn = value.(model[:dr_DN])
+            power_dr_dn = value.(model[:dr_DF])
 
             power_dr_dn_t_h = hcat([Array(power_dr_dn[:,h]) for h in H]...)
             power_dr_dn_t_h_df = DataFrame(power_dr_dn_t_h, [Symbol("dr_"*"h$h") for h in H])
 
             dr_dn_df = hcat(dr_dn_df, power_dr_dn_t_h_df)
 
+            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_dn_df, writeheader=true)
+            # Backward-compatible alias
             CSV.write(joinpath(outpath, "dr_dn_power.csv"), dr_dn_df, writeheader=true)
+
+            # DR backlog
+            dr_backlog_df = DataFrame(
+                Resource = vcat(R),
+                Zone = vcat(DRdata[:,"Zone"]),
+                Technology = vcat(DRdata[:,"Type"]),
+                DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
+            )
+            dr_backlog_df.DRAnnSum .= [sum(value.(model[:b_DR][r,h]) for h in H) for r in R]
+            power_dr_backlog = value.(model[:b_DR])
+            power_dr_backlog_t_h = hcat([Array(power_dr_backlog[:,h]) for h in H]...)
+            power_dr_backlog_t_h_df = DataFrame(power_dr_backlog_t_h, [Symbol("dr_"*"h$h") for h in H])
+            dr_backlog_df = hcat(dr_backlog_df, power_dr_backlog_t_h_df)
+            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
         
         end
         ##System Cost-----------------------------------------------------------------------------------------------------------

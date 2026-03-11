@@ -165,38 +165,67 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Ordered zone
 		Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
 		
-		#representative day clustering
-		if config_set["representative_day!"]==1
-			println("Setting representative_day to 1, but it is not support for current PCM mode  ")
-			time_periods = config_set["time_periods"]
-			#get representative time seires
-			Load_tp_match = get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
-			Wind_tp_match = get_TPmatched_ts(Winddata,time_periods,Ordered_zone_nm)[1]
-			Solar_tp_match = get_TPmatched_ts(Solardata,time_periods,Ordered_zone_nm)[1]
-
-			Loaddata_ordered = select(Loaddata, [Ordered_zone_nm;"Hour";"NI"])
-			Solardata_ordered = select(Solardata, [Ordered_zone_nm;"Hour"])
-			Winddata_ordered = select(Winddata, [Ordered_zone_nm;"Hour"])
+		representative_day_mode_raw = get(config_set, "representative_day!", 0)
+		representative_day_mode = representative_day_mode_raw isa Integer ? Int(representative_day_mode_raw) : parse(Int, string(representative_day_mode_raw))
+		# PCM currently defaults to full-hourly chronology.
+		if representative_day_mode == 1
+			println("PCM currently defaults to full-hourly resolution; representative-day reduction will be expanded in a future update.")
 		end
-		time_periods = config_set["time_periods"]
-		Load_tp_match = get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
-		Wind_tp_match = get_TPmatched_ts(Winddata,time_periods,Ordered_zone_nm)[1]
-		Solar_tp_match = get_TPmatched_ts(Solardata,time_periods,Ordered_zone_nm)[1]
-
-		Loaddata_ordered = select(Loaddata, [Ordered_zone_nm;"Hour";"NI"])
-		Solardata_ordered = select(Solardata, [Ordered_zone_nm;"Hour"])
-		Winddata_ordered = select(Winddata, [Ordered_zone_nm;"Hour"])
+		Loaddata_ordered = select(Loaddata, Ordered_zone_nm)
+		Solardata_ordered = select(Solardata, Ordered_zone_nm)
+		Winddata_ordered = select(Winddata, Ordered_zone_nm)
 		
-		#DR related
+		# DR related (resource-indexed, set R)
+		R = Int[]
+		R_i = [Int[] for _ in 1:Num_zone]
+		DR_zone_idx = Int[]
+		DRC_r = Float64[]
+		DR_MAX = Float64[]
+		DR_shift_eff = Float64[]
+		DR_max_defer_hours = Float64[]
+		DR_hd = Dict{Tuple{Int,Int},Float64}()
 		if flexible_demand == 1
 			DRdata = input_data["DRdata"]
 			DRtsdata = input_data["DRtsdata"]
-			#[findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone] #reorder 
-			DRC_d = [DRdata[idx, "Cost (\$/MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
-			DR_MAX = [DRdata[idx, "Max Power (MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
-			DR_tp_match = get_TPmatched_ts(DRtsdata,time_periods,Ordered_zone_nm)[1]
-			DRdata_ordered = select(DRtsdata, [Ordered_zone_nm;"Hour"])
-			DR_t = DRdata_ordered
+			Num_dr = nrow(DRdata)
+			if Num_dr == 0
+				throw(ArgumentError("flexible_demand=1 but DRdata is empty. Provide at least one DR resource row in flexddata."))
+			end
+			R = collect(1:Num_dr)
+			DR_to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
+			zone_to_idx_str = Dict(string(k) => v for (k,v) in Zone_idx_dict)
+			DR_zone_idx = Vector{Int}(undef, Num_dr)
+			for r in R
+				zone_label = string(DRdata[r, "Zone"])
+				if !haskey(zone_to_idx_str, zone_label)
+					throw(ArgumentError("DR resource row $(r) uses unknown Zone='$(zone_label)'."))
+				end
+				DR_zone_idx[r] = zone_to_idx_str[zone_label]
+				push!(R_i[DR_zone_idx[r]], r)
+			end
+			DRC_r = [DR_to_float(DRdata[r, "Cost (\$/MW)"]) for r in R]
+			DR_MAX = [DR_to_float(DRdata[r, "Max Power (MW)"]) for r in R]
+			DR_shift_eff = fill(1.0, Num_dr)
+			DR_max_defer_hours = fill(24.0, Num_dr)
+			if "Shift_Efficiency" in names(DRdata)
+				DR_shift_eff .= [DR_to_float(DRdata[r, "Shift_Efficiency"]) for r in R]
+			elseif "Payback_Efficiency" in names(DRdata)
+				DR_shift_eff .= [DR_to_float(DRdata[r, "Payback_Efficiency"]) for r in R]
+			end
+			if "Max_Defer_Hours" in names(DRdata)
+				DR_max_defer_hours .= [DR_to_float(DRdata[r, "Max_Defer_Hours"]) for r in R]
+			elseif "Backlog_Multiplier" in names(DRdata)
+				DR_max_defer_hours .= [DR_to_float(DRdata[r, "Backlog_Multiplier"]) for r in R]
+			end
+			missing_dr_cols = setdiff(Ordered_zone_nm, names(DRtsdata))
+			if !isempty(missing_dr_cols)
+				throw(ArgumentError("DR timeseries is missing zone columns: $(collect(missing_dr_cols))."))
+			end
+			DRdata_ordered = select(DRtsdata, Ordered_zone_nm)
+			if size(DRdata_ordered, 1) != size(Loaddata, 1)
+				throw(ArgumentError("dr_timeseries_regional row count $(size(DRdata_ordered,1)) does not match load row count $(size(Loaddata,1))."))
+			end
+			DR_hd = Dict((h,r) => DR_to_float(DRdata_ordered[h, DR_zone_idx[r]]) for r in R for h in 1:size(DRdata_ordered, 1))
 		end
 		#Sets--------------------------------------------------
 		D=[d for d=1:Num_load] 									#Set of demand, index d
@@ -204,7 +233,14 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		K=unique(Gendata[:,"Type"]) 							#Set of technology types, index k
 		Num_hour = size(Loaddata,1)
 		H=[h for h=1:Num_hour]									#Set of hours, index h
-		T=[t for t=1:length(time_periods)]								#Set of time periods (e.g., representative days of seasons), index t
+		# Time-period scaffolding for future representative-day expansion.
+		# Current PCM default keeps one full-hourly period with weight 1.
+		PeriodHours = Dict{Int,Vector{Int}}()
+		PeriodWeights = Dict{Int,Float64}()
+		PeriodHours[1] = collect(H)
+		PeriodWeights[1] = 1.0
+		T = sort(collect(keys(PeriodHours)))
+		N = [PeriodWeights[t] for t in T]
 		S=[s for s=1:Num_sto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
 		J=I														#Set of zones, index j
@@ -231,9 +267,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if config_set["unit_commitment"] !=0
 			G_UC = findall(x -> x in [1], Gendata[:,"Flag_UC"])
 		end
-		HD = [h for h in 1:24]											#Set of hours in one day, index h, subset of H
-		H_D = [h for h in 0:24:Num_hour]
-		H_t=[Load_tp_match[t].Hour for t in T]							#Set of hours in time period (day) t, index h, subset of H
+		H_t=[PeriodHours[t] for t in T]							#Set of hours in time period t, index h, subset of H
 		H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
 		S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]				#Set of storage units connected to zone i, subset of S  
@@ -556,9 +590,14 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Winddata_ordered[:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
 		
-		AFRES_hg = Dict([(g) => Dict([(h, i) => Solardata[:,Idx_zone_dict[i]][h] for h in H for i in I]) for g in G_PV])
-		AFREW_hg = Dict([(g) => Dict([(h, i) => Winddata[:,Idx_zone_dict[i]][h] for h in H for i in I]) for g in G_W])
+		AFRES_hg = Dict([(g) => Dict([(h, i) => Solardata_ordered[h, Idx_zone_dict[i]] for h in H for i in I]) for g in G_PV])
+		AFREW_hg = Dict([(g) => Dict([(h, i) => Winddata_ordered[h, Idx_zone_dict[i]] for h in H for i in I]) for g in G_W])
 		AFRE_hg = merge(+, AFRES_hg, AFREW_hg)#[g][h,i]
+		if flexible_demand == 1
+			DR_DF_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
+			DR_PB_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
+			DR_DF_peak = Dict(r => maximum(DR_DF_max[h, r] for h in H_T) for r in R)
+		end
 			
 		unit_converter = 10^6
 
@@ -571,7 +610,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 	#	@variable(model, f[G,L,T,H])							#Active power in transmission corridor/line l in h from resrource g, MW
 		@variable(model, f[L,H])							#Active power in transmission corridor/line l in h, MW
-		@variable(model, em_emis[W]>=0)							#Carbon emission violated emission limit in state  w, ton
+		if carbon_policy != 0
+			@variable(model, em_emis[W]>=0)						#Carbon emission slack in state w, ton (active only when carbon policy is on)
+		end
 		@variable(model, ni[H,I])							#net import used in i
 		@variable(model, p[G,H]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
@@ -595,9 +636,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
 		@variable(model, dc[S,H]>=0)						#Discharging power of storage s into grid in hour h, MW
 		if flexible_demand == 1
-			@variable(model, dr[D,H]>=0)						#Demand from DR aggregator during t, h, MW
-			@variable(model, dr_UP[D,H]>=0)						#Demand change up relative to reference demand during t, h, MW
-			@variable(model, dr_DN[D,H]>=0)						#Demand change down relative to reference demand during t, h, MW
+			@variable(model, dr_DF[R,H]>=0)						#Deferred demand (load shifted out) by DR resource r, MW
+			@variable(model, dr_PB[R,H]>=0)						#Payback demand (load shifted back) by DR resource r, MW
+			@variable(model, b_DR[R,H]>=0)						#Backlog state variable of DR resource r, MWh
 		end
 		#@variable(model, slack_pos[H,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[H,I]>=0)					#Slack varbale for debuging
@@ -627,7 +668,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		# [PCM-C5] RPS + REC trading and carbon policy blocks (mode-dependent)
 		# [PCM-C6] Flexible demand constraints
 		if flexible_demand != 0
-			@expression(model, DR_OPT[i in I, h in H], sum(dr[d,h]-DR_t[h,d]*DR_MAX[d] for d in D_i[i]))
+			@expression(model, DR_OPT[i in I, h in H], sum(dr_PB[r,h] - dr_DF[r,h] for r in R_i[i]))
 		else
 			@expression(model, DR_OPT[i in I, h in H], 0)
 		end
@@ -842,7 +883,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if clean_energy_policy == 1
 			# [PCM-C5.1] State-level renewable generation accounting
 			RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
-								pw[g,w] == sum(p[g,h] for h in H), base_name = "RPS_pw_con")
+								pw[g,w] == sum(N[t]*sum(p[g,h] for h in H_t[t]) for t in T), base_name = "RPS_pw_con")
 
 			# [PCM-C5.2] REC export feasibility (pwe from w to w')
 			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
@@ -857,7 +898,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 									+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
 									- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
 									+ pt_rps[w]
-									>= sum(sum(P_t[h,i]*PK[i]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H), base_name = "RPS_con")
+									>= sum(N[t]*sum(sum(P_t[h,d]*PK[d]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con")
 		else
 			RPS_off_con = @constraint(model, [w in W], pt_rps[w] == 0, base_name = "RPS_off_con")
 		end
@@ -866,7 +907,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#CarbonPolices#				
 		###############
 		@expression(model, StateCarbonEmission[w in W],
-			sum(sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H) for i in I_w[w]))
+			sum(sum(N[t]*sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H_t[t]) for t in T) for i in I_w[w]))
 		if carbon_policy == 2
 			# [PCM-C5.B1] Option B: state allowance cap
 			SCAL_con = @constraint(model, [w in W],
@@ -880,20 +921,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			# [PCM-C5.A] Option A: state annual emissions cap with slack
 			CL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= ELMT[w] + em_emis[w], base_name = "CL_con")
 		else
-			# [PCM-C5.OFF] Carbon policy off
-			NoCarbon_con = @constraint(model, [w in W], em_emis[w] == 0, base_name = "NoCarbon_con")
+			# [PCM-C5.OFF] Carbon policy off: no carbon-policy constraints
+			println("Carbon policy constraints are disabled (carbon_policy = 0).")
 		end
 		if flexible_demand == 1
-			# [PCM-C6] Demand response program (load shifting)
-			# [PCM-C6.1] DR balance
-			DR_con = @constraint(model, [d in D, h in H], dr[d,h] == DR_t[h,d]*DR_MAX[d] + dr_UP[d,h]-dr_DN[d,h], base_name="DR_con")
-
-			# [PCM-C6.2] DR daily energy balance
-			DR_day_con=@constraint(model, [d in D, h in setdiff(H_D, [0,Num_hour])], sum(dr_UP[d,h1] for h1 in h:h+23)==sum(dr_DN[d,h1] for h1 in h:h+23),base_name="DR_day_con")
-
-			# [PCM-C6.3] DR bounds
-			DR_max_con = @constraint(model, [d in D, h in H], DR_t[h,d]*DR_MAX[d]+dr_UP[d,h] <= DR_MAX[d], base_name = "DR_max_con")
-			DR_ref_con =  @constraint(model, [d in D, h in H], dr_DN[d,h] <= DR_t[h,d]*DR_MAX[d], base_name = "DR_ref_con")
+			# [PCM-C6] Demand response backlog formulation (resource-indexed over R)
+			DR_backlog_con = @constraint(model, [r in R, t in T, h in setdiff(H_t[t], [H_t[t][1]])],
+				b_DR[r,h] == b_DR[r,h-1] + dr_DF[r,h] - DR_shift_eff[r] * dr_PB[r,h], base_name="DR_backlog_con")
+			DR_backlog_start_con = @constraint(model, [r in R, t in T], b_DR[r,H_t[t][1]] == 0, base_name="DR_backlog_start_con")
+			DR_backlog_end_con = @constraint(model, [r in R, t in T], b_DR[r,H_t[t][end]] == 0, base_name="DR_backlog_end_con")
+			DR_df_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_DF[r,h] <= DR_DF_max[h,r], base_name="DR_df_con")
+			DR_pb_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_PB[r,h] <= DR_PB_max[h,r], base_name="DR_pb_con")
+			DR_backlog_cap_con = @constraint(model, [r in R, h in H_T], b_DR[r,h] <= DR_max_defer_hours[r] * DR_DF_peak[r], base_name="DR_backlog_cap_con")
 		end
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
@@ -901,16 +940,16 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		
 
 		#Operation cost of generator and storages
-		@expression(model, OPCost, sum(VCG[g]*sum(p[g,h] for h in H) for g in G)
-					+ sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H) for s in S)
+		@expression(model, OPCost, sum(VCG[g]*N[t]*sum(p[g,h] for h in H_t[t]) for g in G for t in T)
+					+ sum(VCS[s]*N[t]*sum(c[s,h]+dc[s,h] for h in H_t[t]) for s in S for t in T)
 					)
-		@expression(model, OPCost_gen, sum(VCG[g]*sum(p[g,h] for h in H) for g in G)
+		@expression(model, OPCost_gen, sum(VCG[g]*N[t]*sum(p[g,h] for h in H_t[t]) for g in G for t in T)
 					)
-		@expression(model, OPCost_es, sum(VCS[s]*sum(c[s,h]+dc[s,h] for h in H) for s in S)
+		@expression(model, OPCost_es, sum(VCS[s]*N[t]*sum(c[s,h]+dc[s,h] for h in H_t[t]) for s in S for t in T)
 					)								
 
 		#Loss of load penalty
-		@expression(model, LoadShedding, sum(VOLL*sum(p_LS[i,h] for h in H) for i in I))
+		@expression(model, LoadShedding, sum(VOLL*N[t]*sum(p_LS[i,h] for h in H_t[t]) for i in I for t in T))
 
 		#RPS volitation penalty
 		if clean_energy_policy == 1
@@ -933,13 +972,13 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if config_set["unit_commitment"] == 0
 			@expression(model,STCost,0)	
 		else
-			@expression(model,STCost,sum(Gendata[g,Symbol("Start_up_cost (\$/MW)")]*model[:su][g,h]*P_max[g] for h in H for g in G_UC))
+			@expression(model,STCost,sum(N[t]*sum(Gendata[g,Symbol("Start_up_cost (\$/MW)")]*model[:su][g,h]*P_max[g] for h in H_t[t] for g in G_UC) for t in T))
 		end
 		#Demand response operation cost
 		if flexible_demand == 0
 			@expression(model,DR_OPcost,0)
 		else
-			@expression(model,DR_OPcost,sum(DRC_d[d]*(dr_UP[d,h]+dr_DN[d,h]) for h in H for d in D))
+			@expression(model,DR_OPcost,sum(N[t]*sum(DRC_r[r]*(dr_DF[r,h]+dr_PB[r,h]) for h in H_t[t] for r in R) for t in T))
 		end
 
 		#Minmize objective fuction: STCost + DR_OPCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty

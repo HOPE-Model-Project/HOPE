@@ -30,7 +30,7 @@ This is the input dataset for existing generators.
 |Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
 |Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
 |Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
 |EF |The CO2 emission factor for the generator in tons/MWh|
 |CC |The capacity credit for the generator |
 |AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
@@ -47,8 +47,8 @@ This is the input dataset for candidate generators (a set of all generators that
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
 |Zone |The zone that the generator is belonging to| 
 |Type |The technology type of the generator|
-|Cost ($/MW/yr) |Annualized investment cost for the generator in $/MW/yr|
-|Cost ($/MWh) |Operating cost of the generator in $/MWh|
+|Cost (\$/MW/yr) |Annualized investment cost for the generator in \$/MW/yr|
+|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
 |Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
 |Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
 |Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
@@ -79,7 +79,7 @@ This is the input dataset for candidate transmission lines (a set of all inter-z
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
-|Cost (M$) |Investment cost for the generator in million dollars (M$)|
+|Cost (M\$) |Investment cost for the generator in million dollars (M\$)|
 |X |Reactance of the line in P.U. (optional)|
 ---
 
@@ -96,7 +96,7 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 |Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MWh) |Operating cost of the storage in $/MWh|
+|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
 |EF |The CO2 emission factor for the storage in tons/MWh|
 |CC |The capacity credit for the storage|
 |Charging Rate |The maximum rates of charging, unitless|
@@ -116,8 +116,8 @@ This is the input dataset for candidate energy storage units (a set of all stora
 |Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
 |Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
 |Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost ($/MW/yr) |Annualized investment cost for the storage in $/MW/yr|
-|Cost ($/MWh) |Operating cost of the storage in $/MWh|
+|Cost (\$/MW/yr) |Annualized investment cost for the storage in \$/MW/yr|
+|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
 |EF |The CO2 emission factor for the storage in tons/MWh|
 |CC |The capacity credit for the storage|
 |Charging Rate |The maximum rates of charging, unitless|
@@ -170,7 +170,7 @@ This is the input dataset for demand response (DR) resources used in the backlog
 |Zone | Zone name|
 |Type | DR technology type (e.g., `Loadshifting`)|
 |Max Power (MW) | Maximum DR power for the zone|
-|Cost ($/MW) | DR operating cost coefficient|
+|Cost (\$/MW) | DR operating cost coefficient|
 |CC | Capacity credit of DR resource (default = 1 if omitted)|
 |Shift_Efficiency | Demand shifting efficiency, \(\eta_{DR}\) (default = `1.0`)|
 |Max_Defer_Hours | Maximum defer window, \(\tau_{DR}\), in hours (default = `24.0`)|

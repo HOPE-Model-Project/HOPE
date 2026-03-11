@@ -9,6 +9,10 @@ pages = OrderedDict(
         "Installation"=>"installation.md",
         "Run a case"=>"run_case.md",
     ],
+    "Example Cases" => [
+        "PJM MD100 GTEP Case" => "case_pjm_md100_gtep.md",
+        "RTS24 PCM Multizone4 Congested 1-Month Case" => "case_rts24_pcm_multizone4.md",
+    ],
     "Model Mode and Formulation" => [
         "Model Introduction" => "model_introduction.md",
         "Notation" => "notation.md",
@@ -28,7 +32,8 @@ pages = OrderedDict(
 makedocs(;
     modules=[HOPE],
     authors="Shen Wang, Mahdi Mehrtash, Zoe Song and contributors",
-    #repo="https://github.com/SW/HOPE.jl/blob/{commit}{path}#{line}",
+    clean=false,
+    remotes=nothing,
     sitename="HOPE.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",

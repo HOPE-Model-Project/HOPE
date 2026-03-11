@@ -2,6 +2,15 @@
 
 The generation and transmission expansion planning (GTEP) model co-optimizes investment and operations under policy constraints.
 
+The model jointly decides:
+
+- investment/retirement decisions for generators, transmission, and storage;
+- hourly operations (generation, transmission flows, storage charging/discharging, and optional demand response);
+- policy compliance under RPS/REC trading and carbon-policy modes.
+
+Temporal structure supports either full-year hourly chronology or representative-day compression with weighted periods.
+Planning reserve adequacy can be enforced at system or zonal level, and operating reserve is modeled as SPIN in the current GTEP implementation.
+
 Model class by configuration:
 
 - `inv_dcs_bin = 1`: MILP (binary build/retire decisions)
@@ -41,7 +50,40 @@ Minimize total annual system cost:
       + C^{DR} + C^{LS} + C^{RPS\_pen} + C^{CO2\_pen}
 ```
 
-where terms include candidate investment costs, weighted operating costs across modeled periods/hours, DR operating cost, load-shedding penalty, RPS slack penalty, and carbon slack penalty.
+Expanded form:
+
+```math
+\begin{aligned}
+\min \Gamma =\;
+&\sum_{g\in G^+} \tilde I_g\,x_g
++ \sum_{l\in L^+} \tilde I_l\,y_l
++ \sum_{s\in S^+} \tilde I_s\,z_s \\
+&+ \sum_{g\in G,t\in T} VCG_g\,N_t \sum_{h\in H_t} p_{g,h}
++ \sum_{s\in S,t\in T} VCS_s\,N_t \sum_{h\in H_t}(c_{s,h}+dc_{s,h}) \\
+&+ \sum_{i\in I,t\in T} VOLL\,N_t\sum_{h\in H_t} p^{LS}_{i,h} \\
+&+ \mathbb{1}_{FD}\sum_{t\in T}N_t\sum_{i\in I}\sum_{r\in R_i}\sum_{h\in H_t}
+DRC\,(dr^{DF}_{r,h}+dr^{PB}_{r,h}) \\
+&+ \mathbb{1}_{RPS}\,PT^{rps}\sum_{w\in W} pt^{rps}_w
++ \mathbb{1}_{CO2}\,PT^{emis}\sum_{w\in W} em^{emis}_w
+\end{aligned}
+```
+
+Decision vector:
+
+```math
+\Gamma =
+\{x_g,\;x_g^{RET},\;y_l,\;z_s,\;f_{l,h},\;p_{g,h},\;p^{LS}_{i,h},\;c_{s,h},\;dc_{s,h},\;soc_{s,h},
+\;pt_w^{rps},\;pw_{g,w},\;pwe_{g,w,w^\prime},\;em_w^{emis},\;a_g,\;b_{r,h},\;dr_{r,h}^{DF},\;dr_{r,h}^{PB},
+\;r^{SPIN}_{g,h},\;r^{SPIN}_{s,h}\}
+```
+
+Notes:
+
+- $DR^{opt}_{i,h}$ is an auxiliary net-shift term in zonal power balance:
+  $DR^{opt}_{i,h}=\sum_{r\in R_i}(dr^{PB}_{r,h}-dr^{DF}_{r,h})$.
+- $a_g$ is active only when `carbon_policy = 2`.
+- $em_w^{emis}$ is active only when $carbon\_policy \in \{1,2\}$.
+- Indicators $\mathbb{1}_{FD}$, $\mathbb{1}_{RPS}$, $\mathbb{1}_{CO2}\in\{0,1\}$ are controlled by `flexible_demand`, `clean_energy_policy`, and `carbon_policy`.
 
 ## Constraint Blocks
 
@@ -49,7 +91,17 @@ Constraint IDs in code comments use the same labels below (for example, `GTEP-C5
 
 ### 1. [GTEP-C1] Investment budgets
 
-Generator, line, and storage investment must stay within `IBG`, `IBL`, and `IBS`.
+```math
+\sum_{g\in G^{+}} INV_g\,P^{max}_g\,x_g \le IBG
+```
+
+```math
+\sum_{l\in L^{+}} \tilde I_l\,y_l \le IBL
+```
+
+```math
+\sum_{s\in S^{+}} INV_s\,SCAP_s\,z_s \le IBS
+```
 
 ### 2. [GTEP-C2] Power balance
 
@@ -64,102 +116,230 @@ For each zone and modeled hour:
 = Load_{i,h} + DR^{opt}_{i,h} - p^{LS}_{i,h}
 ```
 
-If `flexible_demand = 0`, `DR^{opt}_{i,h} = 0`.
+If `flexible_demand = 0`, $DR^{opt}_{i,h}=0$.
 
 ### 3. [GTEP-C3] Transmission limits
 
-- Existing lines: `-F_l^max <= f_{l,h} <= F_l^max`
-- Candidate lines: `-F_l^max y_l <= f_{l,h} <= F_l^max y_l`
+For existing lines $l\in L^{E}$:
+
+```math
+-F^{max}_l \le f_{l,h} \le F^{max}_l
+```
+
+For candidate lines $l\in L^{+}$:
+
+```math
+-F^{max}_l\,y_l \le f_{l,h} \le F^{max}_l\,y_l
+```
 
 ### 4. [GTEP-C4] Generator operating limits (with SPIN headroom)
 
-Energy and SPIN are co-limited by available capacity:
+Energy and SPIN are co-limited by available capacity.
+
+For existing non-retirement units $g\in G^{E}\setminus G^{RET}$:
 
 ```math
-P^{min}_g \le p_{g,h} + r^{SPIN}_{G,g,h} \le P^{max}_g \cdot AF_{g,h}
+P^{min}_g \le p_{g,h} + r^{SPIN}_{g,h} \le P^{max}_g \cdot AF_{g,h}
 ```
 
-with investment/retirement coupling for candidate and retirement-eligible units, plus must-run equality constraints for flagged must-run units.
+For retirement-eligible existing units $g\in G^{RET}$:
+
+```math
+P^{min}_g(1-x^{RET}_g) \le p_{g,h} + r^{SPIN}_{g,h} \le P^{max}_g AF_{g,h}(1-x^{RET}_g)
+```
+
+For candidate units $g\in G^{+}$:
+
+```math
+P^{min}_g x_g \le p_{g,h} + r^{SPIN}_{g,h} \le P^{max}_g AF_{g,h} x_g
+```
+
+Must-run generators are enforced at available maximum output (with candidate/retirement status applied consistently in code).
 
 ### 5. [GTEP-C5] Storage operation
 
-- Charge/discharge power limits
-- Discharge plus SPIN co-limit:
+Power/energy limits and SOC dynamics:
 
 ```math
-dc_{s,h} + r^{SPIN}_{S,s,h} \le SD_s \cdot SCAP_s
+dc_{s,h} + r^{SPIN}_{s,h} \le SD_s \cdot SCAP_s
 ```
 
-- SOC bounds and SOC dynamics:
+```math
+0 \le c_{s,h} \le SC_s\cdot SCAP_s,\quad
+0 \le dc_{s,h} \le SD_s\cdot SCAP_s,\quad
+0 \le soc_{s,h} \le SECAP_s
+```
 
 ```math
 soc_{s,h} = soc_{s,h-1} + \eta^{ch}_s c_{s,h} - dc_{s,h}/\eta^{dis}_s
 ```
 
-- SPIN deliverability from stored energy:
+SPIN deliverability from stored energy:
 
 ```math
-r^{SPIN}_{S,s,h} \cdot \Delta^{spin} \le soc_{s,h}
+r^{SPIN}_{s,h} \cdot \Delta^{SPIN} \le soc_{s,h}
 ```
 
 Storage chronology depends on time structure:
 
 - Full-year mode (`representative_day! = 0`): cyclic SOC wrap from hour 8760 to hour 1.
 - Representative-day mode (`representative_day! = 1`):
-  - Short-duration storage (`S_SD`) uses start/end anchor `alpha_storage_anchor`.
-  - Long-duration storage (`S_LD`) links SOC across representative periods with wrap from last period to first.
+  - Short-duration storage ($S^{SD}$) uses start/end anchor $\alpha^{anchor}_{s,t}$ (`alpha_storage_anchor[s,t]` in code).
+  - Long-duration storage ($S^{LD}$) links SOC across representative periods with wrap from last period to first.
 
 ### 6. [GTEP-C6] Planning reserve adequacy
 
 Activated by `planning_reserve_mode`:
 
-- System mode: one adequacy constraint for the whole system
-- Zonal mode: one adequacy constraint per zone
+System RA mode (`planning_reserve_mode = 1`):
 
-RA counts generation, storage, and (if enabled) DR capacity credit terms.
+```math
+\sum_{g\in G^{E}} CC_gP^{max}_g
++\sum_{g\in G^{+}} CC_gP^{max}_g x_g
++\sum_{s\in S^{E}} CC_sSCAP_s
++\sum_{s\in S^{+}} CC_sSCAP_s z_s
++DR^{RA}_{sys}
+\ge (1+PRM)\,PK_{sys}
+```
+
+Zonal RA mode (`planning_reserve_mode = 2`), for each zone $i$:
+
+```math
+\sum_{g\in G_i\cap G^{E}} CC_gP^{max}_g
++\sum_{g\in G_i\cap G^{+}} CC_gP^{max}_g x_g
++\sum_{s\in S_i\cap S^{E}} CC_sSCAP_s
++\sum_{s\in S_i\cap S^{+}} CC_sSCAP_s z_s
++DR^{RA}_{i}
+\ge (1+PRM_i)\,PK_i
+```
+
+RA includes DR capacity credit terms when `flexible_demand = 1`.
 
 ### 7. [GTEP-C7] Operating reserve (SPIN only)
 
 Activated by `operation_reserve_mode = 1`:
 
 ```math
-\sum_g r^{SPIN}_{G,g,h} + \sum_s r^{SPIN}_{S,s,h} \ge spin\_requirement \cdot Load_h
+\sum_{g\in G} r^{SPIN}_{g,h} + \sum_{s\in S} r^{SPIN}_{s,h} \ge \rho^{SPIN} \cdot Load_h
 ```
 
 If reserve mode is off, reserve variables are constrained to zero.
 
 ### 8. [GTEP-C8] RPS with REC trading
 
-RPS uses `pwe[g,w,w']`:
+RPS uses $pwe_{g,w,w^\prime}$:
 
-- Meaning: renewable credits generated by unit `g` in state `w` and exported from `w` to `w'` annually.
-- Export and import feasibility constraints are enforced via `WER_w` and `WIR_w`.
-- State RPS balance includes in-state eligible generation, net REC imports/exports, and slack `pt_rps[w]`.
+- Meaning: annual renewable credits generated by unit $g$ in state $w$ and exported from $w$ to $w^\prime$.
+- Export and import feasibility constraints are enforced via $WER_w$ and $WIR_w$.
+- State RPS balance includes in-state renewable accounting $pw_{g,w}$, net REC imports/exports, and slack $pt^{rps}_w$.
+
+When `clean_energy_policy = 1`, the code enforces:
+
+```math
+G_w := \bigcup_{i\in I_w} G_i
+```
+
+[GTEP-C8.1] State-level renewable accounting:
+
+```math
+pw_{g,w}=\sum_{t\in T}N_t\sum_{h\in H_t} p_{g,h},
+\quad g\in G^{RPS}\cap G_w
+```
+
+[GTEP-C8.2] REC export feasibility:
+
+```math
+pw_{g,w}\ge \sum_{w^\prime\in WER_w} pwe_{g,w,w^\prime}
+```
+
+[GTEP-C8.3] REC import feasibility:
+
+```math
+pw_{g,w^\prime}\ge pwe_{g,w^\prime,w},
+\quad \forall w^\prime\in WIR_w
+```
+
+[GTEP-C8.4] State RPS balance with REC trading and slack:
+
+```math
+\begin{aligned}
+&\sum_{g\in G^{RPS}\cap G_w} pw_{g,w}
++\sum_{w^\prime\in WIR_w}\sum_{g\in G^{RPS}\cap G_{w^\prime}} pwe_{g,w^\prime,w}
+-\sum_{w^\prime\in WER_w}\sum_{g\in G^{RPS}\cap G_w} pwe_{g,w,w^\prime}
++ pt^{rps}_w \\
+&\ge \sum_{t\in T}N_t\sum_{h\in H_t}\sum_{i\in I_w}\sum_{d\in D_i} P_{h,d}PK_d\,RPS_w
+\end{aligned}
+```
+
+If `clean_energy_policy = 0`, the model enforces:
+
+```math
+pt^{rps}_w=0,\quad \forall w\in W
+```
 
 ### 9. [GTEP-C9A/C9B/C9O] Carbon policy
 
-Two active formulations by flag:
+Formulation by flag:
 
 - `carbon_policy = 1`:
 
 ```math
-StateEmission_w \le ELMT_w + em^{emis}_w
+\sum_{t\in T}N_t\sum_{h\in H_t}\sum_{g\in G_w\cap G^{F}} EF_g\,p_{g,h}
+\le ELMT_w + em^{emis}_w,\quad \forall w\in W
 ```
 
 - `carbon_policy = 2`:
-  - State allowance cap on purchased allowances
-  - Emission covered by allowances plus slack `em^{emis}_w`
 
-If `carbon_policy = 0`, carbon slack is forced to zero.
+Cap-and-trade formulation (state allowance cap + allowance-emission balance):
+
+```math
+\sum_{g\in G_w\cap G^{F}} a_g \le ALW_w,\quad \forall w\in W
+```
+
+```math
+\sum_{t\in T}N_t\sum_{h\in H_t}\sum_{g\in G_w\cap G^{F}} EF_g\,p_{g,h}
+\le \sum_{g\in G_w\cap G^{F}} a_g + em^{emis}_w,\quad \forall w\in W
+```
+
+If `carbon_policy = 0`, no carbon-policy constraints are imposed.
 
 ### 10. [GTEP-C10] Flexible demand (backlog form)
 
-If enabled, DR uses deferred (`dr_DF`), payback (`dr_PB`), and backlog (`b_DR`) variables with:
+If enabled, DR uses deferred $dr^{DF}_{r,h}$, payback $dr^{PB}_{r,h}$, and backlog $b_{r,h}$ with:
 
-- inter-hour backlog dynamics
-- start/end backlog closure in each modeled period
-- defer/payback rate limits
-- backlog capacity limit.
+```math
+b_{r,h}=b_{r,h-1}+dr^{DF}_{r,h}-\eta^{DR}_r\,dr^{PB}_{r,h}
+```
+
+for non-first hours in each modeled period, with start/end closure:
+
+```math
+b_{r,h^{start}_t}=0,\qquad b_{r,h^{end}_t}=0
+```
+
+and bounds:
+
+```math
+dr^{DF}_{r,h}\le \overline{DR}^{DF}_{r,h},\quad
+dr^{PB}_{r,h}\le \overline{DR}^{PB}_{r,h},\quad
+b_{r,h}\le \tau^{DR}_r\cdot \overline{DR}^{DF,peak}_r
+```
+
+### 11. Variable domains
+
+Binary (or relaxed to $[0,1]$ when `inv_dcs_bin = 0`):
+
+```math
+x_g,\;x_g^{RET},\;y_l,\;z_s \in \{0,1\}
+```
+
+Nonnegative variables:
+
+```math
+a_g,\;b_{r,h},\;p_{g,h},\;p^{LS}_{i,h},\;c_{s,h},\;dc_{s,h},\;soc_{s,h},\;pt_w^{rps},
+\;pw_{g,w},\;pwe_{g,w,w^\prime},\;em_w^{emis},\;dr^{DF}_{r,h},\;dr^{PB}_{r,h},\;
+r^{SPIN}_{g,h},\;r^{SPIN}_{s,h}\ge 0
+```
 
 ## Output and Dual Notes
 

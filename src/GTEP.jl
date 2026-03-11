@@ -153,30 +153,57 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		end
 		AFdata = select(AFdata, vcat(required_af_time_cols, Ordered_gen_nm))
 		
-		#DR related
-		DR_CC = ones(Float64, Num_load)
-		DR_shift_eff = fill(1.0, Num_load)        # default demand shifting efficiency
-		DR_max_defer_hours = fill(24.0, Num_load) # default max defer window (hours)
+		# DR related (resource-indexed)
+		R = Int[]
+		R_i = [Int[] for _ in 1:Num_zone]
+		DR_zone_idx = Int[]
+		DRC_r = Float64[]
+		DR_MAX = Float64[]
+		DR_CC = Float64[]
+		DR_shift_eff = Float64[]
+		DR_max_defer_hours = Float64[]
 		if flexible_demand == 1
 			DRdata = input_data["DRdata"]
 			DRtsdata = input_data["DRtsdata"]
-			#[findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone] #reorder 
-			DRC_d = [DRdata[idx, "Cost (\$/MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
-			DR_MAX = [DRdata[idx, "Max Power (MW)"] for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+			Num_dr = nrow(DRdata)
+			if Num_dr == 0
+				throw(ArgumentError("flexible_demand=1 but DRdata is empty. Provide at least one DR resource row in flexddata."))
+			end
+			R = collect(1:Num_dr)
+			DR_to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
+			zone_to_idx_str = Dict(string(k) => v for (k,v) in Zone_idx_dict)
+			DR_zone_idx = Vector{Int}(undef, Num_dr)
+			for r in R
+				zone_label = string(DRdata[r, "Zone"])
+				if !haskey(zone_to_idx_str, zone_label)
+					throw(ArgumentError("DR resource row $(r) uses unknown Zone='$(zone_label)'."))
+				end
+				DR_zone_idx[r] = zone_to_idx_str[zone_label]
+				push!(R_i[DR_zone_idx[r]], r)
+			end
+			DRC_r = [DR_to_float(DRdata[r, "Cost (\$/MW)"]) for r in R]
+			DR_MAX = [DR_to_float(DRdata[r, "Max Power (MW)"]) for r in R]
+			DR_CC = ones(Float64, Num_dr)
+			DR_shift_eff = fill(1.0, Num_dr)        # default demand shifting efficiency
+			DR_max_defer_hours = fill(24.0, Num_dr) # default max defer window (hours)
 			if "CC" in names(DRdata)
-				DR_CC .= [Float64(DRdata[idx, "CC"]) for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+				DR_CC .= [DR_to_float(DRdata[r, "CC"]) for r in R]
 			end
 			if "Shift_Efficiency" in names(DRdata)
-				DR_shift_eff .= [Float64(DRdata[idx, "Shift_Efficiency"]) for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+				DR_shift_eff .= [DR_to_float(DRdata[r, "Shift_Efficiency"]) for r in R]
 			elseif "Payback_Efficiency" in names(DRdata)
 				# backward compatibility
-				DR_shift_eff .= [Float64(DRdata[idx, "Payback_Efficiency"]) for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+				DR_shift_eff .= [DR_to_float(DRdata[r, "Payback_Efficiency"]) for r in R]
 			end
 			if "Max_Defer_Hours" in names(DRdata)
-				DR_max_defer_hours .= [Float64(DRdata[idx, "Max_Defer_Hours"]) for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+				DR_max_defer_hours .= [DR_to_float(DRdata[r, "Max_Defer_Hours"]) for r in R]
 			elseif "Backlog_Multiplier" in names(DRdata)
 				# backward compatibility
-				DR_max_defer_hours .= [Float64(DRdata[idx, "Backlog_Multiplier"]) for idx in [findall(row -> row.Zone == Idx_zone_dict[i], eachrow(DRdata))[1] for i=1:Num_zone]]
+				DR_max_defer_hours .= [DR_to_float(DRdata[r, "Backlog_Multiplier"]) for r in R]
+			end
+			missing_dr_cols = setdiff(Ordered_zone_nm, names(DRtsdata))
+			if !isempty(missing_dr_cols)
+				throw(ArgumentError("DR timeseries is missing zone columns: $(collect(missing_dr_cols))."))
 			end
 		end
 		
@@ -192,7 +219,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		else
 			Load_rep = Loaddata
 			if flexible_demand == 1
-				DR_rep = DRtsdata
+				DR_rep = select(DRtsdata, Ordered_zone_nm)
 			end
 		end
 
@@ -208,6 +235,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		end
 		S=[s for s=1:Num_sto+Num_Csto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
+		# Set of DR resources R and subset mapping R_i are built from DRdata when flexible_demand=1
 		J=I														#Set of zones, index j
 		L=[l for l=1:Num_Eline+Num_Cline]						#Set of transmission corridors, index l
 		W=unique(Zonedata[:,"State"])							#Set of states, index w/w’
@@ -383,8 +411,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			#P_t = Load_rep #thd P_t[t][h,d]*PK[d] for d in D_i[i]
 			P_hd = Dict([(h,d) => Load_rep[t][h-24*(t-1),d] for i in I for d in D_i[i] for t in T for h in H_t[t]])
 			if flexible_demand == 1
-				#DR_t = DR_rep
-				DR_hd = Dict([(h,d) => DR_rep[t][h-24*(t-1),d] for i in I for d in D_i[i] for t in T for h in H_t[t]])
+				# DR profile is zonal in input; each resource r uses the profile of its connected zone.
+				DR_hd = Dict((h,r) => DR_rep[t][h-24*(t-1), DR_zone_idx[r]] for r in R for t in T for h in H_t[t])
 			end
 			AF_gh = Dict{Tuple{Int,Int},Float64}()
 			for t in T, g in G, h in H_t[t]
@@ -398,8 +426,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			#P_t = Dict(1 => Loaddata[:,4:3+Num_zone])
 			P_hd = Loaddata[:,4:3+Num_zone]
 			if flexible_demand == 1
-				#DR_t = Dict(1 => DRtsdata[:,4:3+Num_zone])
-				DR_hd = DRtsdata[:,4:3+Num_zone]
+				DR_hd = Dict((h,r) => DR_rep[h, DR_zone_idx[r]] for r in R for h in H_T)
 			end
 			AF_gh = Dict{Tuple{Int,Int},Float64}()
 			for t in T, g in G, h in H_t[t]
@@ -408,9 +435,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			end
 		end
 		if flexible_demand == 1
-			DR_DF_max = Dict((h, d) => DR_hd[h, d] * DR_MAX[d] for d in D for h in H_T)
-			DR_PB_max = Dict((h, d) => DR_hd[h, d] * DR_MAX[d] for d in D for h in H_T)
-			DR_DF_peak = Dict(d => maximum(DR_DF_max[h, d] for h in H_T) for d in D)
+			DR_DF_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
+			DR_PB_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
+			DR_DF_peak = Dict(r => maximum(DR_DF_max[h, r] for h in H_T) for r in R)
 		end
 		# Peak demand definitions used in planning reserve constraints
 		PK_i = Dict(i => maximum(sum(P_hd[h,d]*PK[d] for d in D_i[i]) for h in H_T) for i in I)
@@ -426,7 +453,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, a[G]>=0) 							#Bidding carbon allowance of unit g, ton
 		end
 		@variable(model, f[L,H_T])							#Active power in transmission corridor/line l in h from resrource g, MW
-		@variable(model, em_emis[W]>=0)							#Carbon emission violated emission limit in state  w, ton
+		if carbon_policy != 0
+			@variable(model, em_emis[W]>=0)						#Carbon emission slack in state w, ton (active only when carbon policy is on)
+		end
 		@variable(model, p[G,H_T]>=0)							#Active power generation of unit g in hour h, MW
 		@variable(model, pw[G,W]>=0)							#Total renewable generation of unit g in state w, MWh
 		@variable(model, p_LS[I,H_T]>=0)						#Load shedding of demand d in hour h, MW
@@ -446,9 +475,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, 0 <= x_RET[G_RET] <= 1)				#Decision variable for generator g eligible for retirement, relax to scale 0-1
 		end
 		if flexible_demand == 1
-			@variable(model, dr_DF[D,H_T]>=0)						#Deferred demand (load shifted out), MW
-			@variable(model, dr_PB[D,H_T]>=0)						#Payback demand (load shifted back), MW
-			@variable(model, b_DR[D,H_T]>=0)						#Backlog state variable, MWh
+			@variable(model, dr_DF[R,H_T]>=0)						#Deferred demand (load shifted out) by DR resource r, MW
+			@variable(model, dr_PB[R,H_T]>=0)						#Payback demand (load shifted back) by DR resource r, MW
+			@variable(model, b_DR[R,H_T]>=0)						#Backlog state variable of DR resource r, MWh
 		end
 		@variable(model, soc[S,H_T]>=0)							#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
@@ -485,7 +514,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		# [GTEP-C2] Zonal power balance (includes NI and optional DR shift term)
 		if flexible_demand != 0
-			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], sum(dr_PB[d,h] - dr_DF[d,h] for d in D_i[i]))
+			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], sum(dr_PB[r,h] - dr_DF[r,h] for r in R_i[i]))
 		else
 			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], 0)
 		end
@@ -604,7 +633,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		# 1 -> enforce one system-level reserve adequacy constraint
 		# 2 -> enforce zonal reserve adequacy constraints
 		if flexible_demand == 1
-			@expression(model, DR_RA_i[i in I], sum(DR_CC[d] * DR_DF_peak[d] for d in D_i[i]))
+			@expression(model, DR_RA_i[i in I], sum(DR_CC[r] * DR_DF_peak[r] for r in R_i[i]))
 		else
 			@expression(model, DR_RA_i[i in I], 0)
 		end
@@ -666,19 +695,19 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			# [GTEP-C9A] Option A: state annual emission cap with slack
 			CL_con = @constraint(model, [w in W], StateCarbonEmission[w] <= ELMT[w] + em_emis[w], base_name = "CL_con")
 		else
-			# [GTEP-C9O] Carbon policy off: force slack to zero
-			NoCarbon_con = @constraint(model, [w in W], em_emis[w] == 0, base_name = "NoCarbon_con")
+			# [GTEP-C9O] Carbon policy off: no carbon-policy constraints
+			println("Carbon policy constraints are disabled (carbon_policy = 0).")
 		end
 
 		if flexible_demand == 1
 			# [GTEP-C10] Flexible demand backlog formulation
-			DR_backlog_con = @constraint(model, [d in D, t in T, h in setdiff(H_t[t], [H_t[t][1]])],
-				b_DR[d,h] == b_DR[d,h-1] + dr_DF[d,h] - DR_shift_eff[d] * dr_PB[d,h], base_name="DR_backlog_con")
-			DR_backlog_start_con = @constraint(model, [d in D, t in T], b_DR[d,H_t[t][1]] == 0, base_name="DR_backlog_start_con")
-			DR_backlog_end_con = @constraint(model, [d in D, t in T], b_DR[d,H_t[t][end]] == 0, base_name="DR_backlog_end_con")
-			DR_df_con = @constraint(model, [d in D, t in T, h in H_t[t]], dr_DF[d,h] <= DR_DF_max[h,d], base_name="DR_df_con")
-			DR_pb_con = @constraint(model, [d in D, t in T, h in H_t[t]], dr_PB[d,h] <= DR_PB_max[h,d], base_name="DR_pb_con")
-			DR_backlog_cap_con = @constraint(model, [d in D, h in H_T], b_DR[d,h] <= DR_max_defer_hours[d] * DR_DF_peak[d], base_name="DR_backlog_cap_con")
+			DR_backlog_con = @constraint(model, [r in R, t in T, h in setdiff(H_t[t], [H_t[t][1]])],
+				b_DR[r,h] == b_DR[r,h-1] + dr_DF[r,h] - DR_shift_eff[r] * dr_PB[r,h], base_name="DR_backlog_con")
+			DR_backlog_start_con = @constraint(model, [r in R, t in T], b_DR[r,H_t[t][1]] == 0, base_name="DR_backlog_start_con")
+			DR_backlog_end_con = @constraint(model, [r in R, t in T], b_DR[r,H_t[t][end]] == 0, base_name="DR_backlog_end_con")
+			DR_df_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_DF[r,h] <= DR_DF_max[h,r], base_name="DR_df_con")
+			DR_pb_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_PB[r,h] <= DR_PB_max[h,r], base_name="DR_pb_con")
+			DR_backlog_cap_con = @constraint(model, [r in R, h in H_T], b_DR[r,h] <= DR_max_defer_hours[r] * DR_DF_peak[r], base_name="DR_backlog_cap_con")
 		end
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
@@ -715,7 +744,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 
 		#Minmize objective fuction: INVCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
 		if flexible_demand != 0
-			@expression(model,DR_OPcost,sum(N[t]*sum(DRC_d[d]*(dr_DF[d,h]+dr_PB[d,h]) for h in H_t[t] for d in D) for t in T))
+			@expression(model,DR_OPcost,sum(N[t]*sum(DRC_r[r]*(dr_DF[r,h]+dr_PB[r,h]) for h in H_t[t] for r in R) for t in T))
 		else
 			@expression(model,DR_OPcost,0)		
 		end
