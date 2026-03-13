@@ -14,7 +14,8 @@ Data path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case/Data_RTS24_PCM
 | `flexible_demand` | `1` |
 | `clean_energy_policy` | `0` |
 | `carbon_policy` | `0` |
-| `representative_day!` | `0` |
+| `endogenous_rep_day` | `0` |
+| `external_rep_day` | `0` |
 
 ## System Scale Overview
 

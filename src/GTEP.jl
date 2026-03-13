@@ -111,11 +111,20 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if !(operation_reserve_mode in [0, 1])
 			throw(ArgumentError("Invalid operation_reserve_mode=$(operation_reserve_mode). Expected 0 or 1."))
 		end
+		# Transmission expansion switch:
+		# 0 = force all candidate transmission builds off
+		# 1 = allow candidate transmission expansion (subject to budgets/constraints)
+		transmission_expansion_raw = get(config_set, "transmission_expansion", 1)
+		transmission_expansion = transmission_expansion_raw isa Integer ? Int(transmission_expansion_raw) : parse(Int, string(transmission_expansion_raw))
+		if !(transmission_expansion in [0, 1])
+			throw(ArgumentError("Invalid transmission_expansion=$(transmission_expansion). Expected 0 or 1."))
+		end
 		flexible_demand_raw = get(config_set, "flexible_demand", 0)
 		flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
 		if !(flexible_demand in [0, 1])
 			throw(ArgumentError("Invalid flexible_demand=$(flexible_demand). Expected 0 or 1."))
 		end
+		endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="GTEP")
 
 		#Calculate number of elements of input data
 		Num_bus=size(Zonedata,1)
@@ -135,11 +144,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		Ordered_zone_nm =[Idx_zone_dict[i] for i=1:Num_zone]
 		#Ordered generator labels for generator-level availability input
 		Ordered_gen_nm = ["G$(g)" for g in 1:(Num_gen+Num_Cgen)]
-		required_af_time_cols = ["Month", "Day", "Period"]
+		required_af_time_cols = ["Time Period", "Hours"]
 		missing_af_time_cols = setdiff(required_af_time_cols, names(AFdata))
 		if !isempty(missing_af_time_cols)
-			throw(ArgumentError("Missing required time columns in generator availability input: $(collect(missing_af_time_cols)). Expected at least Month, Day, Period."))
+			throw(ArgumentError("Missing required time columns in generator availability input: $(collect(missing_af_time_cols)). Expected at least Time Period and Hours."))
 		end
+		af_time_cols = vcat([c for c in ["Month", "Day"] if c in names(AFdata)], required_af_time_cols)
+		validate_aligned_time_columns!(Loaddata, AFdata, "gen_availability_timeseries")
 		AF_g_static_prefill = [Float64(coalesce(v, 1.0)) for v in [Gendata[:,"AF"];Gendata_candidate[:,"AF"]]]
 		AF_fill_map = Dict(zip(Ordered_gen_nm, AF_g_static_prefill))
 		# Allow sparse AF columns: missing generator columns fallback to static AF (default 1.0).
@@ -151,7 +162,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			end
 			println("Info: $(length(missing_gen_af_cols)) generators are missing hourly AF columns; static AF fallback will be used.")
 		end
-		AFdata = select(AFdata, vcat(required_af_time_cols, Ordered_gen_nm))
+		AFdata = select(AFdata, vcat(af_time_cols, Ordered_gen_nm))
 		
 		# DR related (resource-indexed)
 		R = Int[]
@@ -205,16 +216,73 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			if !isempty(missing_dr_cols)
 				throw(ArgumentError("DR timeseries is missing zone columns: $(collect(missing_dr_cols))."))
 			end
+			validate_aligned_time_columns!(Loaddata, DRtsdata, "dr_timeseries_regional")
+		end
+
+		input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(Loaddata)
+		if representative_day_mode == 1 && external_rep_day == 0 && has_custom_time_periods
+			throw(ArgumentError("Input timeseries defines multiple Time Periods. This is only allowed when external_rep_day = 1."))
 		end
 		
-		#representative day clustering
-		if config_set["representative_day!"]==1
-			time_periods = config_set["time_periods"]
-			#get representative time seires
-			Load_rep = get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
-			AF_rep = get_representative_ts(AFdata,time_periods,Ordered_gen_nm)[1]
-			if flexible_demand == 1
-				DR_rep = get_representative_ts(DRtsdata,time_periods,Ordered_zone_nm)[1]
+		# representative-day preprocessing:
+		# - endogenous_rep_day=1: HOPE clusters by time_periods
+		# - external_rep_day=1: use user-provided representative periods + weights
+		N_external = Dict{Int,Float64}()
+		if representative_day_mode == 1
+			if external_rep_day == 1
+				if !haskey(input_data, "RepWeightData")
+					throw(ArgumentError("external_rep_day=1 requires rep_period_weights.csv (or sheet rep_period_weights)."))
+				end
+				rep_weight_df = input_data["RepWeightData"]
+				if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
+					throw(ArgumentError("rep_period_weights must include columns: 'Time Period', 'Weight'."))
+				end
+				t_vals = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
+				if isempty(t_vals)
+					throw(ArgumentError("rep_period_weights is empty."))
+				end
+				if t_vals != collect(1:length(t_vals))
+					throw(ArgumentError("rep_period_weights Time Period must be contiguous 1..T. Found: $(t_vals)."))
+				end
+				data_t_vals = sort(unique(Int.(Loaddata[!, "Time Period"])))
+				if data_t_vals != t_vals
+					throw(ArgumentError("Time Period IDs in load_timeseries_regional ($(data_t_vals)) must match rep_period_weights ($(t_vals)) for external representative mode."))
+				end
+				load_cols = ("NI" in names(Loaddata)) ? [Ordered_zone_nm; "NI"] : Ordered_zone_nm
+				Load_rep = Dict{Int,DataFrame}()
+				AF_rep = Dict{Int,DataFrame}()
+				if flexible_demand == 1
+					DR_rep = Dict{Int,DataFrame}()
+				end
+				for t in t_vals
+					idx_t = findall(Int.(Loaddata[!, "Time Period"]) .== t)
+					if length(idx_t) != 24
+						throw(ArgumentError("Each external representative Time Period must contain exactly 24 rows. Found $(length(idx_t)) rows for Time Period=$t."))
+					end
+					hours_t = Int.(Loaddata[idx_t, "Hours"])
+					if sort(hours_t) != collect(1:24)
+						throw(ArgumentError("Hours for external representative Time Period=$t must be 1..24 exactly once. Found $(sort(hours_t))."))
+					end
+					idx_sorted = idx_t[sortperm(hours_t)]
+					Load_rep[t] = select(Loaddata[idx_sorted, :], load_cols)
+					AF_rep[t] = select(AFdata[idx_sorted, :], Ordered_gen_nm)
+					if flexible_demand == 1
+						DR_rep[t] = select(DRtsdata[idx_sorted, :], Ordered_zone_nm)
+					end
+					w = rep_weight_df[rep_weight_df[!, "Time Period"] .== t, "Weight"]
+					if isempty(w)
+						throw(ArgumentError("Missing weight for Time Period=$t in rep_period_weights."))
+					end
+					N_external[t] = Float64(w[1])
+				end
+			else
+				time_periods = config_set["time_periods"]
+				#get representative time seires
+				Load_rep = get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
+				AF_rep = get_representative_ts(AFdata,time_periods,Ordered_gen_nm)[1]
+				if flexible_demand == 1
+					DR_rep = get_representative_ts(DRtsdata,time_periods,Ordered_zone_nm)[1]
+				end
 			end
 		else
 			Load_rep = Loaddata
@@ -227,11 +295,21 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		D=[d for d=1:Num_load] 									#Set of demand, index d
 		G=[g for g=1:Num_gen+Num_Cgen]							#Set of all types of generating units, index g
 		K=unique(Gendata[:,"Type"]) 							#Set of technology types, index k
-		H=[h for h=1:8760]										#Set of hours, index h
-		if config_set["representative_day!"]==1
-			T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+		total_hours_available = nrow(Loaddata)
+		H=[h for h=1:total_hours_available]					#Set of hours, index h
+		if representative_day_mode == 0 && total_hours_available != 8760
+			if !has_custom_time_periods
+				throw(ArgumentError("Full chronological mode requires 8760 rows in load_timeseries_regional unless custom Time Period mapping is provided. Found $total_hours_available rows with a single Time Period."))
+			end
+		end
+		if representative_day_mode == 1
+			if external_rep_day == 1
+				T = sort(collect(keys(N_external)))
+			else
+				T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+			end
 		else
-			T=[1]
+			T = input_T
 		end
 		S=[s for s=1:Num_sto+Num_Csto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
@@ -289,13 +367,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_new=[g for g=Num_gen+1:Num_gen+Num_Cgen]						#Set of candidate generation units, index g, subset of G 
 		G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_gen)] for i in I]						#Set of generating units connected to zone i, subset of G  
 		HD = [h for h in 1:24]
-		H_D = [h for h in 0:24:8760]
-		if config_set["representative_day!"]==1								#Set of hours in one day, index h, subset of H
+		H_D = [h for h in 0:24:total_hours_available]
+		if representative_day_mode == 1								#Set of hours in one day, index h, subset of H
 			H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]				#Set of hours in time period (day) t, index h, subset of H
 			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
 		else
-			H_t=[collect(1:8760) for t in [1]]								#Set of hours in time period (day) t, index h, subset of H
-			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
+			H_t = input_H_t
+			H_T = input_H_T
 		end
 	
 		S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
@@ -321,7 +399,16 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
 
 		#Parameters--------------------------------------------
-		ALW = Dict((row["Time Period"], row["State"]) => row["Allowance (tons)"] for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
+		ALW = Dict((Int(row["Time Period"]), row["State"]) => Float64(row["Allowance (tons)"]) for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
+		for w in W, t in T
+			if !haskey(ALW, (t, w))
+				if haskey(ALW, (1, w))
+					ALW[(t, w)] = ALW[(1, w)]
+				else
+					ALW[(t, w)] = 0.0
+				end
+			end
+		end
 		# Hourly generator availability AF_{g,h} (generator-level time series; fallback to static AF).
 		BM = SinglePardata[1,"BigM"];														#big M penalty
 		CC_g = [Gendata[:,"CC"];Gendata_candidate[:,"CC"]]#g       		#Capacity credit of generating units, unitless
@@ -404,8 +491,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		S_LD_new = intersect(S_LD, S_new)
 			
 		#for multiple time period, we need to use following TS parameters
-		if config_set["representative_day!"]==1
-			N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t	  #Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
+		if representative_day_mode == 1
+			if external_rep_day == 1
+				N = N_external
+			else
+				N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t	  #Number of time periods (days) represented by time period (day) t per year
+			end
 			#NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 			NI_hi = Dict([(h,i) => -Load_rep[t][!,"NI"][h- 24*(t-1)]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for t in T for h in H_t[t]])
 			#P_t = Load_rep #thd P_t[t][h,d]*PK[d] for d in D_i[i]
@@ -420,11 +511,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 				AF_gh[(g,h)] = ismissing(v) ? AF_g_static[g] : Float64(v)
 			end
 		else
-			N=[1]
+			N = Dict{Int,Float64}(t => 1.0 for t in T)
+			if haskey(input_data, "RepWeightData")
+				println("Info: rep_period_weights is ignored because endogenous_rep_day=0 and external_rep_day=0 (full chronology mode).")
+			end
 			#NI_t = Dict(1=> NI)
 			NI_hi = NI
-			#P_t = Dict(1 => Loaddata[:,4:3+Num_zone])
-			P_hd = Loaddata[:,4:3+Num_zone]
+			P_hd = Dict((h,d) => Float64(Loaddata[h, Idx_zone_dict[d]]) for d in D for h in H_T)
 			if flexible_demand == 1
 				DR_hd = Dict((h,r) => DR_rep[h, DR_zone_idx[r]] for r in R for h in H_T)
 			end
@@ -490,6 +583,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		#@constraint(model, [g in G_new], x[g]==0);
 		#@constraint(model, [l in L_new], y[l]==0);
 		#@constraint(model, [s in S_new], z[s]==0);
+		if transmission_expansion == 0 && !isempty(L_new)
+			# User-facing switch to disable transmission expansion without changing line candidate data.
+			@constraint(model, TxExp_off_con[l in L_new], y[l] == 0)
+		end
 
 		# Constraints --------------------------------------------
 		# Constraint-ID map (aligned with docs/src/GTEP.md and Word formulation):
@@ -602,9 +699,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		
 		# [GTEP-C5] Storage boundary conditions
 		if T == [1]
-			# [GTEP-C5.FY] Full-year mode: cyclic SOC wrap from hour 8760 to hour 1.
-			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [8760]], soc[s,1] == soc[s,end] + e_ch[s]*c[s,1] - dc[s,1]/e_dis[s],base_name = "SDBe_st_con")
-			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [8760]], soc[s,1] == soc[s,end] + e_ch[s]*c[s,1] - dc[s,1]/e_dis[s],base_name = "SDBn_st_con")
+			# [GTEP-C5.FY] Full-year mode: cyclic SOC wrap from last modeled hour to first hour.
+			last_h = H_t[1][end]
+			first_h = H_t[1][1]
+			SDBe_st_con=@constraint(model, [t in T,s in S_exist, h in [last_h]], soc[s,first_h] == soc[s,last_h] + e_ch[s]*c[s,first_h] - dc[s,first_h]/e_dis[s],base_name = "SDBe_st_con")
+			SDBn_st_con=@constraint(model, [t in T,s in S_new,h in [last_h]], soc[s,first_h] == soc[s,last_h] + e_ch[s]*c[s,first_h] - dc[s,first_h]/e_dis[s],base_name = "SDBn_st_con")
 		else
 			# [GTEP-C5.RD] Representative-day mode:
 			# - S_SD: daily start/end SOC anchors at alpha_storage_anchor.

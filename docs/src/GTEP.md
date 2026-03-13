@@ -182,8 +182,8 @@ r^{SPIN}_{s,h} \cdot \Delta^{SPIN} \le soc_{s,h}
 
 Storage chronology depends on time structure:
 
-- Full-year mode (`representative_day! = 0`): cyclic SOC wrap from hour 8760 to hour 1.
-- Representative-day mode (`representative_day! = 1`):
+- Full-year mode (`endogenous_rep_day = 0` and `external_rep_day = 0`): cyclic SOC wrap from hour 8760 to hour 1.
+- Representative-day mode (`endogenous_rep_day = 1` or `external_rep_day = 1`):
   - Short-duration storage ($S^{SD}$) uses start/end anchor $\alpha^{anchor}_{s,t}$ (`alpha_storage_anchor[s,t]` in code).
   - Long-duration storage ($S^{LD}$) links SOC across representative periods with wrap from last period to first.
 

@@ -239,15 +239,31 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         L=[l for l=1:Num_Eline+Num_Cline]						#Set of transmission corridors, index l
         L_exist=[l for l=1:Num_Eline]									#Set of existing transmission corridors
 		L_new=[l for l=Num_Eline+1:Num_Eline+Num_Cline]					#Set of candidate transmission corridors
-        #Time period
-        T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
-		if config_set["representative_day!"]==1														#Set of hours in one day, index h, subset of H
-			H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]								#Set of hours in time period (day) t, index h, subset of H
-			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
-		else
-			H_t=[collect(1:8760) for t in [1]]									#Set of hours in time period (day) t, index h, subset of H
-			H_T = collect(unique(reduce(vcat,H_t)))							#Set of unique hours in time period, index h, subset of H
-		end
+        endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="write_output")
+        input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(Loaddata)
+        if representative_day_mode == 1
+            if has_custom_time_periods && external_rep_day == 0
+                throw(ArgumentError("Input timeseries defines multiple Time Periods. This is only allowed when external_rep_day = 1."))
+            end
+            if external_rep_day == 1
+                if !haskey(input_data, "RepWeightData")
+                    throw(ArgumentError("external_rep_day=1 requires rep_period_weights.csv (or sheet rep_period_weights)."))
+                end
+                rep_weight_df = input_data["RepWeightData"]
+                if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
+                    throw(ArgumentError("rep_period_weights must include columns: 'Time Period', 'Weight'."))
+                end
+                T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
+            else
+                T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+            end
+            H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]			#Set of hours in time period (day) t, index h, subset of H
+            H_T = collect(unique(reduce(vcat,H_t)))						#Set of unique hours in time period, index h, subset of H
+        else
+            H_t = input_H_t
+            H_T = input_H_T
+            T = input_T
+        end
         I=[i for i=1:Num_zone]
         I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W])) #Set of zones in state w, subset of I
         HD = [h for h in 1:24]
@@ -293,12 +309,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         unit_converter = 10^6
 
         		#representative day clustering
-		if config_set["representative_day!"]==1
-			time_periods = config_set["time_periods"]
-            N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]
+		if representative_day_mode == 1
+            if external_rep_day == 1
+                rep_weight_df = input_data["RepWeightData"]
+                N = Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
+            else
+			    time_periods = config_set["time_periods"]
+                N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]
+            end
         else
-            N=[1]
-            T=[1]
+            N = Dict{Int,Float64}(t => 1.0 for t in T)
 		end
         
         ##Generator-----------------------------------------------------------------------------------------------------------

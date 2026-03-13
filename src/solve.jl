@@ -19,6 +19,9 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	## Start solve timer
 	solver_start_time = time()
 	optimize!(model)
+	term_status = termination_status(model)
+	pr_status = primal_status(model)
+	has_primal_solution = pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
 
 	# Optional second pass for MILP: fix discrete vars and re-solve LP for dual prices.
 	# Applies to:
@@ -43,13 +46,15 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		if solver_name == "cbc"
 			println("write_shadow_prices=1 requested, but CBC does not provide dual prices for this workflow. Skipping LP re-solve.")
 		else
-			pr_status = primal_status(model)
-			if pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+			if has_primal_solution
 				println("write_shadow_prices=1: fixing discrete variables and re-solving LP for dual prices...")
 				local undo_relax = nothing
 				try
 					undo_relax = fix_discrete_variables(model)
 					optimize!(model)
+					term_status = termination_status(model)
+					pr_status = primal_status(model)
+					has_primal_solution = pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
 					if has_duals(model)
 						println("LP re-solve complete. Dual prices are available for output.")
 					else
@@ -85,6 +90,13 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		Gendata_candidate = input_data["Gendata_candidate"]
 		#Printing results for debugging purpose-------------------------
 		print("\n\n","Model mode: GTEP","\n\n");
+		print("Termination_status= ",term_status,"\n\n");
+		print("Primal_status= ",pr_status,"\n\n");
+		if !has_primal_solution
+			print("No primal solution available. Skipping objective and variable value prints.\n\n")
+			print("Solving time: ", solver_time)
+			return model
+		end
 		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
 		print("Investment_cost= ",value.(model[:INVCost]),"\n\n");
 		print("Operation_cost= ",value.(model[:OPCost]),"\n\n");
@@ -112,6 +124,13 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	elseif model_mode == "PCM"
 		#Printing results for debugging purpose-------------------------
 		print("\n\n","Model mode: PCM","\n\n");
+		print("Termination_status= ",term_status,"\n\n");
+		print("Primal_status= ",pr_status,"\n\n");
+		if !has_primal_solution
+			print("No primal solution available. Skipping objective and variable value prints.\n\n")
+			print("Solving time: ", solver_time)
+			return model
+		end
 		print("\n\n","Objective_value= ",objective_value(model),"\n\n");
 		#print("Investment_cost= ",value.(INVCost),"\n\n");
 		if config_set["unit_commitment"]!=0

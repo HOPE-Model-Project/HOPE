@@ -9,7 +9,8 @@ Data path: `ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones`
 | :-- | :-- |
 | `model_mode` | `GTEP` |
 | `aggregated!` | `1` |
-| `representative_day!` | `1` |
+| `endogenous_rep_day` | `1` |
+| `external_rep_day` | `0` |
 | `inv_dcs_bin` | `0` |
 | `operation_reserve_mode` | `0` |
 

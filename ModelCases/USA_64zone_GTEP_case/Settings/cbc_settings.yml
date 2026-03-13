@@ -1,0 +1,7 @@
+ratioGap: 0.01
+threads: 8
+maxSolutions: -1
+TimeLimit: 7200.0
+allowableGap: -1.0
+maxNodes: -1
+logLevel: 1

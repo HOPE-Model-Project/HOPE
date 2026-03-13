@@ -1,0 +1,17 @@
+DataCase: "Data_USA64_GTEP/"     # Input data folder under this case directory
+model_mode: "GTEP"               # "GTEP" or "PCM"
+aggregated!: 0                   # 1 aggregate resources by zone/type; 0 use full unit list
+endogenous_rep_day: 0            # 1 let HOPE cluster representative days from full chronology
+external_rep_day: 1              # 1 use user-provided representative periods + rep_period_weights (mutually exclusive with endogenous_rep_day)
+flexible_demand: 0               # 1 enable DR backlog formulation; 0 disable
+inv_dcs_bin: 0                   # 1 binary investment decisions; 0 continuous [0,1]
+transmission_expansion: 1        # 1 allow candidate line builds; 0 force y[l]=0 for all candidate lines
+carbon_policy: 0                 # 0 off; 1 state cap (Option A); 2 cap-and-trade (Option B)
+clean_energy_policy: 0           # 0 turn off RPS block; 1 turn on RPS block
+planning_reserve_mode: 0         # 0 off; 1 system-level RA; 2 zonal-level RA
+operation_reserve_mode: 0        # 0 off; 1 enable SPIN reserve block in GTEP
+storage_ld_duration_hours: 12.0  # Duration threshold (MWh/MW) for long-duration storage subset in rep-day mode
+write_shadow_prices: 0           # 1 MILP->fixed-LP re-solve for duals; 0 disable
+summary_table: 0                 # 1 write summary tables; 0 disable
+solver: "gurobi"                 # cbc, clp, scip, highs, cplex, gurobi
+debug: 0                         # 0 off; 1 conflict debug; 2 penalty debug

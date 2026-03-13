@@ -165,11 +165,17 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#Ordered zone
 		Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
 		
-		representative_day_mode_raw = get(config_set, "representative_day!", 0)
-		representative_day_mode = representative_day_mode_raw isa Integer ? Int(representative_day_mode_raw) : parse(Int, string(representative_day_mode_raw))
+		endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="PCM")
+		input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(Loaddata)
+		if endogenous_rep_day == 1
+			throw(ArgumentError("PCM does not support endogenous representative-day clustering yet. Set endogenous_rep_day = 0 and use full chronology or external_rep_day = 1 with pre-clustered inputs."))
+		end
+		if representative_day_mode == 1 && external_rep_day == 0 && has_custom_time_periods
+			throw(ArgumentError("Input timeseries defines multiple Time Periods. This is only allowed when external_rep_day = 1."))
+		end
 		# PCM currently defaults to full-hourly chronology.
 		if representative_day_mode == 1
-			println("PCM currently defaults to full-hourly resolution; representative-day reduction will be expanded in a future update.")
+			println("PCM currently runs with user-provided time-period mapping; endogenous representative-day clustering will be expanded in a future update.")
 		end
 		Loaddata_ordered = select(Loaddata, Ordered_zone_nm)
 		Solardata_ordered = select(Solardata, Ordered_zone_nm)
@@ -237,10 +243,26 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		# Current PCM default keeps one full-hourly period with weight 1.
 		PeriodHours = Dict{Int,Vector{Int}}()
 		PeriodWeights = Dict{Int,Float64}()
-		PeriodHours[1] = collect(H)
-		PeriodWeights[1] = 1.0
+		for (idx, t) in enumerate(input_T)
+			PeriodHours[t] = input_H_t[idx]
+			PeriodWeights[t] = 1.0
+		end
+		if external_rep_day == 1
+			if !haskey(input_data, "RepWeightData")
+				throw(ArgumentError("external_rep_day=1 requires rep_period_weights.csv (or sheet rep_period_weights)."))
+			end
+			rep_weight_df = input_data["RepWeightData"]
+			if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
+				throw(ArgumentError("rep_period_weights must include columns: 'Time Period', 'Weight'."))
+			end
+			for row in eachrow(rep_weight_df)
+				PeriodWeights[Int(row["Time Period"])] = Float64(row["Weight"])
+			end
+		elseif haskey(input_data, "RepWeightData")
+			println("Info: rep_period_weights is ignored because external_rep_day = 0 in PCM.")
+		end
 		T = sort(collect(keys(PeriodHours)))
-		N = [PeriodWeights[t] for t in T]
+		N = Dict(t => PeriodWeights[t] for t in T)
 		S=[s for s=1:Num_sto]							#Set of storage units, index s
 		I=[i for i=1:Num_zone]									#Set of zones, index i
 		J=I														#Set of zones, index j
@@ -334,26 +356,26 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			end
 		end
 		Bus_idx_dict = Dict(bus_labels[n] => n for n in 1:length(bus_labels))
-		N = [n for n in 1:length(bus_labels)]
-		if network_model in [2, 3] && isempty(N)
+		N_bus = [n for n in 1:length(bus_labels)]
+		if network_model in [2, 3] && isempty(N_bus)
 			throw(ArgumentError("Nodal network_model=$(network_model) requires non-empty bus set. Provide busdata/branchdata (or linedata with from_bus/to_bus)."))
 		end
 		bus_zone_of_n = Dict{Int,Int}()
 		if network_model in [2, 3]
-			for n in N
+			for n in N_bus
 				if !haskey(bus_to_zone_idx, bus_labels[n])
 					throw(ArgumentError("No zone mapping found for bus $(bus_labels[n])."))
 				end
 				bus_zone_of_n[n] = bus_to_zone_idx[bus_labels[n]]
 			end
 		end
-		N_i = [network_model in [2, 3] ? [n for n in N if haskey(bus_to_zone_idx, bus_labels[n]) && bus_to_zone_idx[bus_labels[n]] == i] : Int[] for i in I]
+		N_i = [network_model in [2, 3] ? [n for n in N_bus if haskey(bus_to_zone_idx, bus_labels[n]) && bus_to_zone_idx[bus_labels[n]] == i] : Int[] for i in I]
 		L_from_n = Dict(l => (network_model in [2, 3] ? Bus_idx_dict[Linedata[l, from_bus_col]] : 0) for l in L)
 		L_to_n = Dict(l => (network_model in [2, 3] ? Bus_idx_dict[Linedata[l, to_bus_col]] : 0) for l in L)
-		LS_n = [network_model in [2, 3] ? findall(l -> L_from_n[l] == n, L) : Int[] for n in N]
-		LR_n = [network_model in [2, 3] ? findall(l -> L_to_n[l] == n, L) : Int[] for n in N]
-		G_n = [Int[] for _ in N]
-		S_n = [Int[] for _ in N]
+		LS_n = [network_model in [2, 3] ? findall(l -> L_from_n[l] == n, L) : Int[] for n in N_bus]
+		LR_n = [network_model in [2, 3] ? findall(l -> L_to_n[l] == n, L) : Int[] for n in N_bus]
+		G_n = [Int[] for _ in N_bus]
+		S_n = [Int[] for _ in N_bus]
 		bus_load_share = Dict{Int,Float64}()
 		if network_model in [2, 3]
 			gendata_cols_local = Set(string.(names(Gendata)))
@@ -444,7 +466,16 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		get_singlepar(name::AbstractString, default::Float64) = (name in singlepar_cols) ? to_float(SinglePardata[1, name]) : default
 		gendata_cols = Set(string.(names(Gendata)))
 		linedata_cols = Set(string.(names(Linedata)))
-		ALW = Dict((row["Time Period"], row["State"]) => row["Allowance (tons)"] for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
+		ALW = Dict((Int(row["Time Period"]), row["State"]) => Float64(row["Allowance (tons)"]) for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
+		for w in W, t in T
+			if !haskey(ALW, (t, w))
+				if haskey(ALW, (1, w))
+					ALW[(t, w)] = ALW[(1, w)]
+				else
+					ALW[(t, w)] = 0.0
+				end
+			end
+		end
 		#AFRES=Dict([(g, h, i) => Solardata[:,Idx_zone_dict[i]][h] for g in G_PV for h in H for i in I])#(g,h,i)												#Availability factor of renewable energy source g in hour h in zone i, g∈G^PV∪G^W 
 		#AFREW=Dict([(g, h, i) => Winddata[:,Idx_zone_dict[i]][h] for g in G_W for h in H for i in I])#(g,h,i)													#Availability factor of renewable energy source g in hour h in zone i, g∈G^PV∪G^W 
 		#AFRES_tg = Dict([(t,g) => Dict([(h, i) => Solar_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_PV])
@@ -513,24 +544,24 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 		reference_bus_raw = get(config_set, "reference_bus", 1)
 		reference_bus = if network_model in [2, 3]
-			resolve_reference_index(reference_bus_raw, length(N), Bus_idx_dict, "bus")
+			resolve_reference_index(reference_bus_raw, length(N_bus), Bus_idx_dict, "bus")
 		else
 			resolve_reference_index(reference_bus_raw, length(I), Dict(Idx_zone_dict[i] => i for i in I), "zone")
 		end
 		PTDF_l_n = Dict{Tuple{Int,Int},Float64}()
 		if network_model == 3
 			ptdf_nodal_data = haskey(input_data, "PTDFNodalData") ? input_data["PTDFNodalData"] : (haskey(input_data, "PTDFdata") ? input_data["PTDFdata"] : nothing)
-			ptdf_matrix = zeros(Float64, Num_Eline, length(N))
+			ptdf_matrix = zeros(Float64, Num_Eline, length(N_bus))
 			if ptdf_nodal_data !== nothing
 				ptdf_cols = Set(string.(names(ptdf_nodal_data)))
-				missing_bus_cols = [string(bus_labels[n]) for n in N if !(string(bus_labels[n]) in ptdf_cols)]
+				missing_bus_cols = [string(bus_labels[n]) for n in N_bus if !(string(bus_labels[n]) in ptdf_cols)]
 				if !isempty(missing_bus_cols)
 					throw(ArgumentError("Nodal PTDF input is missing bus columns: $(missing_bus_cols)."))
 				end
 				if size(ptdf_nodal_data, 1) != Num_Eline
 					throw(ArgumentError("Nodal PTDF row count $(size(ptdf_nodal_data,1)) does not match line row count $(Num_Eline)."))
 				end
-				for n in N
+				for n in N_bus
 					ptdf_matrix[:, n] .= [to_float(v) for v in ptdf_nodal_data[:, string(bus_labels[n])]]
 				end
 				println("Using user-provided nodal PTDF input.")
@@ -540,10 +571,10 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				if x_col === nothing
 					println("Warning: nodal PTDF auto-computation found no reactance column (X/Reactance/x). Using X=1.0 for all lines.")
 				end
-				ptdf_matrix .= compute_ptdf_from_incidence([L_from_n[l] for l in L], [L_to_n[l] for l in L], x_vals, length(N), reference_bus)
+				ptdf_matrix .= compute_ptdf_from_incidence([L_from_n[l] for l in L], [L_to_n[l] for l in L], x_vals, length(N_bus), reference_bus)
 				println("No nodal PTDF input found; nodal PTDF matrix computed from branch endpoints and reactance.")
 			end
-			PTDF_l_n = Dict((l, n) => ptdf_matrix[l, n] for l in L for n in N)
+			PTDF_l_n = Dict((l, n) => ptdf_matrix[l, n] for l in L for n in N_bus)
 		end
 		for (nm, v) in [("reg_up_requirement", reg_up_requirement), ("reg_dn_requirement", reg_dn_requirement), ("spin_requirement", spin_requirement), ("nspin_requirement", nspin_requirement), ("delta_reg", delta_reg), ("delta_spin", delta_spin), ("delta_nspin", delta_nspin)]
 			if v < 0
@@ -628,9 +659,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		@variable(model, r_S_SPIN[S,H]>=0)						#SPIN reserve provided by storage s in hour h, MW
 		@variable(model, r_S_NSPIN[S,H]>=0)					#NSPIN reserve provided by storage s in hour h, MW
 		if network_model == 2
-			@variable(model, theta[N,H])						#Voltage angle of bus n in hour h, rad
+			@variable(model, theta[N_bus,H])						#Voltage angle of bus n in hour h, rad
 		elseif network_model == 3
-			@variable(model, inj[N,H])							#Net nodal injection for PTDF-based DCOPF, MW
+			@variable(model, inj[N_bus,H])							#Net nodal injection for PTDF-based DCOPF, MW
 		end
 		@variable(model, soc[S,H]>=0)						#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
@@ -689,9 +720,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h],base_name = "PB_con")
 		elseif network_model == 2
 			# [PCM-C1.2] Nodal DCOPF angle-based
-			@expression(model, NodeLoad[n in N, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
-			@expression(model, NodeNI[n in N, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
-			@constraint(model, PBNode_con[n in N, h in H], sum(p[g,h] for g in G_n[n])
+			@expression(model, NodeLoad[n in N_bus, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
+			@expression(model, NodeNI[n in N_bus, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
+			@constraint(model, PBNode_con[n in N_bus, h in H], sum(p[g,h] for g in G_n[n])
 				+ sum(dc[s,h] - c[s,h] for s in S_n[n])
 				- sum(f[l,h] for l in LS_n[n])
 				+ sum(f[l,h] for l in LR_n[n])
@@ -699,21 +730,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				== NodeLoad[n,h], base_name = "PBNode_con")
 			FAngle_con = @constraint(model, [l in L, h in H], f[l,h] == B_l[l] * (model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h]), base_name = "FAngle_con")
 			RefAngle_con = @constraint(model, [h in H], model[:theta][reference_bus,h] == 0, base_name = "RefAngle_con")
-			ThetaBound_con = @constraint(model, [n in N, h in H], -theta_max <= model[:theta][n,h] <= theta_max, base_name = "ThetaBound_con")
+			ThetaBound_con = @constraint(model, [n in N_bus, h in H], -theta_max <= model[:theta][n,h] <= theta_max, base_name = "ThetaBound_con")
 			if !isempty(L_theta_diff)
 				ThetaDiffLine_con = @constraint(model, [l in L_theta_diff, h in H], -delta_theta_max_l[l] <= model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] <= delta_theta_max_l[l], base_name = "ThetaDiffLine_con")
 			end
 		else
 			# [PCM-C1.3] Nodal DCOPF PTDF-based
-			@expression(model, NodeLoad[n in N, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
-			@expression(model, NodeNI[n in N, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
-			@expression(model, NetInj[n in N, h in H], sum(p[g,h] for g in G_n[n])
+			@expression(model, NodeLoad[n in N_bus, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
+			@expression(model, NodeNI[n in N_bus, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
+			@expression(model, NetInj[n in N_bus, h in H], sum(p[g,h] for g in G_n[n])
 				+ sum(dc[s,h] - c[s,h] for s in S_n[n])
 				+ NodeNI[n,h]
 				- NodeLoad[n,h])
-			@constraint(model, PTDFInjDef_con[n in N, h in H], model[:inj][n,h] == NetInj[n,h], base_name = "PTDFInjDef_con")
-			@constraint(model, PTDFBalance_con[h in H], sum(model[:inj][n,h] for n in N) == 0, base_name = "PTDFBalance_con")
-			@constraint(model, FPTDF_con[l in L, h in H], f[l,h] == sum(PTDF_l_n[(l,n)] * model[:inj][n,h] for n in N), base_name = "FPTDF_con")
+			@constraint(model, PTDFInjDef_con[n in N_bus, h in H], model[:inj][n,h] == NetInj[n,h], base_name = "PTDFInjDef_con")
+			@constraint(model, PTDFBalance_con[h in H], sum(model[:inj][n,h] for n in N_bus) == 0, base_name = "PTDFBalance_con")
+			@constraint(model, FPTDF_con[l in L, h in H], f[l,h] == sum(PTDF_l_n[(l,n)] * model[:inj][n,h] for n in N_bus), base_name = "FPTDF_con")
 		end
 		# [PCM-C1.NI] NI upper bound
 		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")

@@ -140,9 +140,9 @@ function make_time_series(zones::Vector{String})
         end
     end
 
-    load_df = DataFrame("Month" => month, "Day" => day, "Period" => period)
-    wind_df = DataFrame("Month" => month, "Day" => day, "Period" => period)
-    solar_df = DataFrame("Month" => month, "Day" => day, "Period" => period)
+    load_df = DataFrame("Time Period" => ones(Int, n_hour), "Month" => month, "Day" => day, "Hours" => period)
+    wind_df = DataFrame("Time Period" => ones(Int, n_hour), "Month" => month, "Day" => day, "Hours" => period)
+    solar_df = DataFrame("Time Period" => ones(Int, n_hour), "Month" => month, "Day" => day, "Hours" => period)
 
     for (k, z) in enumerate(zones)
         lmul = clamp(0.92 + 0.02 * ((k - 1) % 5), 0.90, 1.04)
@@ -167,7 +167,8 @@ function write_settings(case_dir::String, data_folder::String, reference_bus::In
 DataCase: $(data_folder)/
 model_mode: PCM
 aggregated!: 0
-representative_day!: 0
+endogenous_rep_day: 0
+external_rep_day: 0
 flexible_demand: 0
 clean_energy_policy: 0
 carbon_policy: 0

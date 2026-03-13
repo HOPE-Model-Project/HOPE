@@ -1,111 +1,165 @@
 #Function use for aggregrating generation data:
-function aggregate_gendata_gtep(df)
-    if !("AF" in names(df))
-        df = copy(df)
-        df[!, :AF] = fill(1.0, nrow(df))
+to_float_agg(x, d=0.0) = ismissing(x) || x === nothing || string(x) == "" ? d : (x isa Number ? Float64(x) : parse(Float64, string(x)))
+
+function agg_weights_from_pmax(gdf::SubDataFrame)
+    w = [max(to_float_agg(v, 0.0), 0.0) for v in gdf[!, Symbol("Pmax (MW)")]]
+    sw = sum(w)
+    if sw <= 0
+        return fill(1.0, nrow(gdf))
     end
-    #print(df)
-    if "Flag_RPS" in names(df)
-	    agg_df = combine(groupby(df, [:Zone,:Type]),
-	    Symbol("Pmax (MW)") .=> sum,
-	    Symbol("Pmin (MW)") .=> sum,
-	    Symbol("Cost (\$/MWh)") .=> mean,
-	    :EF .=> mean,
-	    :CC .=> mean,
-        :AF .=> mean,
-        :Flag_thermal .=> mean,
-        :Flag_VRE .=> mean,
-        :Flag_RET .=> mean,
-        :Flag_mustrun .=> mean,
-        :Flag_RPS .=> mean,)
-        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean,:Flag_RPS_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun,:Flag_RPS] )
-    else
-	    agg_df = combine(groupby(df, [:Zone,:Type]),
-	    Symbol("Pmax (MW)") .=> sum,
-	    Symbol("Pmin (MW)") .=> sum,
-	    Symbol("Cost (\$/MWh)") .=> mean,
-	    :EF .=> mean,
-	    :CC .=> mean,
-        :AF .=> mean,
-        :Flag_thermal .=> mean,
-        :Flag_VRE .=> mean,
-        :Flag_RET .=> mean,
-        :Flag_mustrun .=> mean,)
-        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:AF_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_RET_mean,:Flag_mustrun_mean] .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:AF,:Flag_thermal,:Flag_VRE,:Flag_RET,:Flag_mustrun] )
+    return w
+end
+
+function wmean_col(gdf::SubDataFrame, col::Symbol, w::Vector{Float64}; default::Float64=0.0)
+    vals = [to_float_agg(v, default) for v in gdf[!, col]]
+    sw = sum(w)
+    if sw <= 0
+        return isempty(vals) ? default : mean(vals)
     end
-    agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
-    agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
-    agg_df[agg_df.Flag_RET .> 0, :Flag_RET] .=1
-    agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
-    if "Flag_RPS" in names(agg_df)
-        agg_df[agg_df.Flag_RPS .> 0, :Flag_RPS] .=1
+    return sum(vals .* w) / sw
+end
+
+flag_any(gdf::SubDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
+
+function aggregate_gendata_gtep(df::DataFrame)
+    work = copy(df)
+    if !("AF" in names(work))
+        work[!, :AF] = fill(1.0, nrow(work))
     end
-	#Note: below line and the derived file is just for developer use
-    #CSV.write("D:\\Coding\\Master\\HOPE\\ModelCases\\PJM_case\\debug_report\\agg_gen.csv", agg_df, writeheader=true)
-    return agg_df
+    has_rps = "Flag_RPS" in names(work)
+    out = DataFrame(
+        :Zone => Any[],
+        :Type => Any[],
+        Symbol("Pmax (MW)") => Float64[],
+        Symbol("Pmin (MW)") => Float64[],
+        Symbol("Cost (\$/MWh)") => Float64[],
+        :EF => Float64[],
+        :CC => Float64[],
+        :AF => Float64[],
+        :Flag_thermal => Int[],
+        :Flag_VRE => Int[],
+        :Flag_RET => Int[],
+        :Flag_mustrun => Int[],
+    )
+    if has_rps
+        out[!, :Flag_RPS] = Int[]
+    end
+
+    for gdf in groupby(work, [:Zone, :Type])
+        w = agg_weights_from_pmax(gdf)
+        if has_rps
+            row = (
+                gdf[1, :Zone],
+                gdf[1, :Type],
+                sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
+                sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")]),
+                wmean_col(gdf, Symbol("Cost (\$/MWh)"), w; default=0.0),
+                wmean_col(gdf, :EF, w; default=0.0),
+                wmean_col(gdf, :CC, w; default=0.0),
+                wmean_col(gdf, :AF, w; default=1.0),
+                flag_any(gdf, :Flag_thermal),
+                flag_any(gdf, :Flag_VRE),
+                flag_any(gdf, :Flag_RET),
+                flag_any(gdf, :Flag_mustrun),
+                flag_any(gdf, :Flag_RPS),
+            )
+            push!(out, row)
+        else
+            row = (
+                gdf[1, :Zone],
+                gdf[1, :Type],
+                sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
+                sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")]),
+                wmean_col(gdf, Symbol("Cost (\$/MWh)"), w; default=0.0),
+                wmean_col(gdf, :EF, w; default=0.0),
+                wmean_col(gdf, :CC, w; default=0.0),
+                wmean_col(gdf, :AF, w; default=1.0),
+                flag_any(gdf, :Flag_thermal),
+                flag_any(gdf, :Flag_VRE),
+                flag_any(gdf, :Flag_RET),
+                flag_any(gdf, :Flag_mustrun),
+            )
+            push!(out, row)
+        end
+    end
+    return out
 end
 
 function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
-	if config_set["unit_commitment"] == 0
-        agg_df = combine(groupby(df, [:Zone,:Type]),
-        Symbol("Pmax (MW)") .=> sum,
-        Symbol("Pmin (MW)") .=> sum,
-        Symbol("Cost (\$/MWh)") .=> mean,
-        :EF .=> mean,
-        :CC .=> mean,
-        :FOR .=> mean,
-        :RM_SPIN .=> mean,
-        :RU .=> mean,
-        :RD .=> mean,
-        :Flag_thermal .=> mean,
-        :Flag_VRE .=> mean,
-        :Flag_mustrun .=> mean)
-        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean] 
-        .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE,:Flag_mustrun])
-        #:Flag_UC .=> mean
-        agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
-        agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
-        agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
-        for rm_col in (:RM_REG_UP, :RM_REG_DN, :RM_NSPIN)
-            if rm_col in names(df)
-                rm_df = combine(groupby(df, [:Zone,:Type]), rm_col => mean => rm_col)
-                agg_df = leftjoin(agg_df, rm_df, on=[:Zone,:Type])
-            end
-        end
-        return agg_df
-    else
-        agg_df = combine(groupby(df, [:Zone,:Type]),
-        Symbol("Pmax (MW)") .=> sum,
-        Symbol("Pmin (MW)") .=> sum,
-        Symbol("Cost (\$/MWh)") .=> mean,
-        :EF .=> mean,
-        :CC .=> mean,
-        :FOR .=> mean,
-        :RM_SPIN .=> mean,
-        :RU .=> mean,
-        :RD .=> mean,
-        :Flag_thermal .=> mean,
-        :Flag_VRE .=> mean,
-        :Flag_UC .=> mean,
-        :Flag_mustrun .=> mean,
-        Symbol("Start_up_cost (\$/MW)") .=> mean,
-        :Min_down_time .=> mean,
-        :Min_up_time .=> mean
-        )
-        rename!(agg_df, [Symbol("Pmax (MW)_sum"), Symbol("Pmin (MW)_sum"),Symbol("Cost (\$/MWh)_mean"),:EF_mean,:CC_mean,:FOR_mean,:RM_SPIN_mean,:RU_mean,:RD_mean,:Flag_thermal_mean,:Flag_VRE_mean,:Flag_mustrun_mean,:Flag_UC_mean,Symbol("Start_up_cost (\$/MW)_mean"),:Min_down_time_mean,:Min_up_time_mean] 
-        .=>  [Symbol("Pmax (MW)"), Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"),:EF,:CC,:FOR,:RM_SPIN,:RU,:RD,:Flag_thermal,:Flag_VRE,:Flag_mustrun,:Flag_UC,Symbol("Start_up_cost (\$/MW)"),:Min_down_time,:Min_up_time])
-        agg_df[agg_df.Flag_thermal .> 0, :Flag_thermal] .=1
-        agg_df[agg_df.Flag_VRE .> 0, :Flag_VRE] .=1
-        agg_df[agg_df.Flag_mustrun .> 0, :Flag_mustrun] .=1
-        agg_df[agg_df.Flag_UC .> 0, :Flag_UC] .=1
-        for rm_col in (:RM_REG_UP, :RM_REG_DN, :RM_NSPIN)
-            if rm_col in names(df)
-                rm_df = combine(groupby(df, [:Zone,:Type]), rm_col => mean => rm_col)
-                agg_df = leftjoin(agg_df, rm_df, on=[:Zone,:Type])
-            end
-        end
-        return agg_df
+    work = copy(df)
+    has_uc = config_set["unit_commitment"] != 0
+    has_reg_up = :RM_REG_UP in names(work)
+    has_reg_dn = :RM_REG_DN in names(work)
+    has_nspin = :RM_NSPIN in names(work)
+
+    out = DataFrame(
+        :Zone => Any[],
+        :Type => Any[],
+        Symbol("Pmax (MW)") => Float64[],
+        Symbol("Pmin (MW)") => Float64[],
+        Symbol("Cost (\$/MWh)") => Float64[],
+        :EF => Float64[],
+        :CC => Float64[],
+        :FOR => Float64[],
+        :RM_SPIN => Float64[],
+        :RU => Float64[],
+        :RD => Float64[],
+        :Flag_thermal => Int[],
+        :Flag_VRE => Int[],
+        :Flag_mustrun => Int[],
+    )
+    if has_uc
+        out[!, :Flag_UC] = Int[]
+        out[!, Symbol("Start_up_cost (\$/MW)")] = Float64[]
+        out[!, :Min_down_time] = Float64[]
+        out[!, :Min_up_time] = Float64[]
     end
+    if has_reg_up
+        out[!, :RM_REG_UP] = Float64[]
+    end
+    if has_reg_dn
+        out[!, :RM_REG_DN] = Float64[]
+    end
+    if has_nspin
+        out[!, :RM_NSPIN] = Float64[]
+    end
+
+    for gdf in groupby(work, [:Zone, :Type])
+        w = agg_weights_from_pmax(gdf)
+        row = Dict{Symbol,Any}(
+            :Zone => gdf[1, :Zone],
+            :Type => gdf[1, :Type],
+            Symbol("Pmax (MW)") => sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
+            Symbol("Pmin (MW)") => sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")]),
+            Symbol("Cost (\$/MWh)") => wmean_col(gdf, Symbol("Cost (\$/MWh)"), w; default=0.0),
+            :EF => wmean_col(gdf, :EF, w; default=0.0),
+            :CC => wmean_col(gdf, :CC, w; default=0.0),
+            :FOR => wmean_col(gdf, :FOR, w; default=0.0),
+            :RM_SPIN => wmean_col(gdf, :RM_SPIN, w; default=0.0),
+            :RU => wmean_col(gdf, :RU, w; default=0.0),
+            :RD => wmean_col(gdf, :RD, w; default=0.0),
+            :Flag_thermal => flag_any(gdf, :Flag_thermal),
+            :Flag_VRE => flag_any(gdf, :Flag_VRE),
+            :Flag_mustrun => flag_any(gdf, :Flag_mustrun),
+        )
+        if has_uc
+            row[:Flag_UC] = flag_any(gdf, :Flag_UC)
+            row[Symbol("Start_up_cost (\$/MW)")] = wmean_col(gdf, Symbol("Start_up_cost (\$/MW)"), w; default=0.0)
+            row[:Min_down_time] = wmean_col(gdf, :Min_down_time, w; default=0.0)
+            row[:Min_up_time] = wmean_col(gdf, :Min_up_time, w; default=0.0)
+        end
+        if has_reg_up
+            row[:RM_REG_UP] = wmean_col(gdf, :RM_REG_UP, w; default=0.0)
+        end
+        if has_reg_dn
+            row[:RM_REG_DN] = wmean_col(gdf, :RM_REG_DN, w; default=0.0)
+        end
+        if has_nspin
+            row[:RM_NSPIN] = wmean_col(gdf, :RM_NSPIN, w; default=0.0)
+        end
+        push!(out, row)
+    end
+    return out
 end
 
 function load_data(config_set::Dict,path::AbstractString)
@@ -148,9 +202,12 @@ function load_data(config_set::Dict,path::AbstractString)
             #time series
             println("Reading time series")
             input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
+            normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"dr_timeseries_regional"))
+                normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "dr_timeseries_regional")
             end
             #candidate
             println("Reading resource candidate")
@@ -169,8 +226,13 @@ function load_data(config_set::Dict,path::AbstractString)
             sheets = XLSX.sheetnames(xlsx_path)
             if "gen_availability_timeseries" in sheets
                 input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
+                normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
             else
                 throw(ArgumentError("Missing required generator availability timeseries input. Provide sheet 'gen_availability_timeseries' in GTEP_input_total.xlsx."))
+            end
+            if "rep_period_weights" in sheets
+                input_data["RepWeightData"] = DataFrame(XLSX.readtable(xlsx_path, "rep_period_weights"))
             end
 
             println("xlsx Files Successfully Load From $folderpath")
@@ -198,9 +260,12 @@ function load_data(config_set::Dict,path::AbstractString)
             #time series
             println("Reading time series")
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
+            normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
+                normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "dr_timeseries_regional")
             end
             #candidate
             println("Reading resource candidate")
@@ -218,8 +283,14 @@ function load_data(config_set::Dict,path::AbstractString)
             af_csv = joinpath(folderpath, "gen_availability_timeseries.csv")
             if isfile(af_csv)
                 input_data["AFdata"] = CSV.read(af_csv, DataFrame)
+                normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
             else
                 throw(ArgumentError("Missing required generator availability timeseries input. Provide file 'gen_availability_timeseries.csv'."))
+            end
+            rep_weight_csv = joinpath(folderpath, "rep_period_weights.csv")
+            if isfile(rep_weight_csv)
+                input_data["RepWeightData"] = CSV.read(rep_weight_csv, DataFrame)
             end
 
             println("CSV Files Successfully Load From $folderpath")
@@ -284,9 +355,16 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Winddata"]=DataFrame(XLSX.readtable(xlsx_path,"wind_timeseries_regional"))
             input_data["Solardata"]=DataFrame(XLSX.readtable(xlsx_path,"solar_timeseries_regional"))
             input_data["Loaddata"]=DataFrame(XLSX.readtable(xlsx_path,"load_timeseries_regional"))
+            normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
+            normalize_timeseries_time_columns!(input_data["Winddata"]; context="wind_timeseries_regional")
+            normalize_timeseries_time_columns!(input_data["Solardata"]; context="solar_timeseries_regional")
+            validate_aligned_time_columns!(input_data["Loaddata"], input_data["Winddata"], "wind_timeseries_regional")
+            validate_aligned_time_columns!(input_data["Loaddata"], input_data["Solardata"], "solar_timeseries_regional")
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(xlsx_path,"dr_timeseries_regional"))
+                normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "dr_timeseries_regional")
             end
             #policies
             println("Reading polices")
@@ -343,9 +421,16 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
             input_data["Solardata"]=CSV.read(joinpath(folderpath,"solar_timeseries_regional.csv"),DataFrame)
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
+            normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
+            normalize_timeseries_time_columns!(input_data["Winddata"]; context="wind_timeseries_regional")
+            normalize_timeseries_time_columns!(input_data["Solardata"]; context="solar_timeseries_regional")
+            validate_aligned_time_columns!(input_data["Loaddata"], input_data["Winddata"], "wind_timeseries_regional")
+            validate_aligned_time_columns!(input_data["Loaddata"], input_data["Solardata"], "solar_timeseries_regional")
             input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
             if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
+                normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "dr_timeseries_regional")
             end
             #policies
             println("Reading policies")

@@ -161,4 +161,144 @@ function safe_remove_directory(path::AbstractString; max_retries::Int = 3)
     return false
 end
 
+"""
+    normalize_timeseries_time_columns!(df::DataFrame; context::AbstractString = "timeseries")
+
+Normalize timeseries metadata columns to HOPE's standard:
+- required: `Time Period`, `Hours`
+- accepted legacy aliases: `Period`, `Hour`
+
+If `Time Period` is missing, it defaults to `1` for all rows.
+If `Hours` is missing, it is derived from `Period`/`Hour`; otherwise defaults to row index.
+"""
+function normalize_timeseries_time_columns!(df::DataFrame; context::AbstractString = "timeseries")
+    colnames = Set(string.(names(df)))
+    n = nrow(df)
+
+    if !("Time Period" in colnames)
+        insertcols!(df, 1, "Time Period" => ones(Int, n))
+    end
+
+    colnames = Set(string.(names(df)))
+    if !("Hours" in colnames)
+        if "Period" in colnames
+            rename!(df, "Period" => "Hours")
+        elseif "Hour" in colnames
+            rename!(df, "Hour" => "Hours")
+        else
+            insertcols!(df, "Hours" => collect(1:n))
+        end
+    end
+
+    to_int(x, default::Int) = (ismissing(x) || string(x) == "") ? default : parse(Int, string(x))
+    df[!, "Time Period"] = [to_int(df[r, "Time Period"], 1) for r in 1:n]
+    df[!, "Hours"] = [to_int(df[r, "Hours"], r) for r in 1:n]
+    return df
+end
+
+"""
+    validate_aligned_time_columns!(reference_df::DataFrame, other_df::DataFrame, other_name::AbstractString)
+
+Validate that two timeseries share identical `Time Period` and `Hours` vectors.
+"""
+function validate_aligned_time_columns!(reference_df::DataFrame, other_df::DataFrame, other_name::AbstractString)
+    if nrow(reference_df) != nrow(other_df)
+        throw(ArgumentError("Timeseries row mismatch: reference has $(nrow(reference_df)) rows but $(other_name) has $(nrow(other_df)) rows."))
+    end
+    if any(reference_df[!, "Time Period"] .!= other_df[!, "Time Period"]) || any(reference_df[!, "Hours"] .!= other_df[!, "Hours"])
+        throw(ArgumentError("Timeseries time mapping mismatch between reference and $(other_name). Columns 'Time Period' and 'Hours' must align row-by-row."))
+    end
+    return true
+end
+
+"""
+    build_time_period_hours(df::DataFrame)
+
+Build HOPE sets from normalized timeseries columns:
+- `T`: sorted time-period IDs
+- `H_t`: row-index hours grouped by time period
+- `H_T`: all modeled row-index hours
+- `has_custom_time_periods`: whether input defines multiple time periods
+"""
+function build_time_period_hours(df::DataFrame)
+    tp = Int.(df[!, "Time Period"])
+    t_vals = sort(unique(tp))
+    if isempty(t_vals)
+        throw(ArgumentError("No valid Time Period values found in timeseries input."))
+    end
+    if t_vals != collect(1:length(t_vals))
+        throw(ArgumentError("Time Period values must be contiguous 1..T. Found $(t_vals)."))
+    end
+    H_t = [findall(tp .== t) for t in t_vals]
+    H_T = collect(1:nrow(df))
+    has_custom_time_periods = length(t_vals) > 1
+    return t_vals, H_t, H_T, has_custom_time_periods
+end
+
+"""
+    resolve_rep_day_mode(config_set::AbstractDict; context::AbstractString = "model")
+
+Resolve representative-day settings with support for both new and legacy keys.
+
+New keys:
+- `endogenous_rep_day`: 1 = HOPE clusters representative days from full chronology
+- `external_rep_day`: 1 = user provides representative periods + weights
+
+Legacy keys (deprecated aliases):
+- `representative_day!` -> `endogenous_rep_day`
+- `external_rep_weights` -> `external_rep_day`
+
+Returns `(endogenous_rep_day, external_rep_day, representative_day_mode)`.
+"""
+function resolve_rep_day_mode(config_set::AbstractDict; context::AbstractString = "model")
+    parse_binary_setting(x, keyname) = begin
+        v = x isa Integer ? Int(x) : parse(Int, string(x))
+        if !(v in (0, 1))
+            throw(ArgumentError("Invalid $(keyname)=$(v). Expected 0 or 1."))
+        end
+        v
+    end
+
+    has_new_endogenous = haskey(config_set, "endogenous_rep_day")
+    has_new_external = haskey(config_set, "external_rep_day")
+    has_old_rep = haskey(config_set, "representative_day!")
+    has_old_external = haskey(config_set, "external_rep_weights")
+
+    endogenous_rep_day = 0
+    external_rep_day = 0
+
+    if has_new_endogenous
+        endogenous_rep_day = parse_binary_setting(config_set["endogenous_rep_day"], "endogenous_rep_day")
+        if has_old_rep
+            old_rep = parse_binary_setting(config_set["representative_day!"], "representative_day!")
+            if old_rep != endogenous_rep_day
+                println("Warning ($(context)): representative_day! conflicts with endogenous_rep_day. Using endogenous_rep_day=$(endogenous_rep_day).")
+            end
+        end
+    elseif has_old_rep
+        endogenous_rep_day = parse_binary_setting(config_set["representative_day!"], "representative_day!")
+        println("Warning ($(context)): representative_day! is deprecated; use endogenous_rep_day.")
+    end
+
+    if has_new_external
+        external_rep_day = parse_binary_setting(config_set["external_rep_day"], "external_rep_day")
+        if has_old_external
+            old_external = parse_binary_setting(config_set["external_rep_weights"], "external_rep_weights")
+            if old_external != external_rep_day
+                println("Warning ($(context)): external_rep_weights conflicts with external_rep_day. Using external_rep_day=$(external_rep_day).")
+            end
+        end
+    elseif has_old_external
+        external_rep_day = parse_binary_setting(config_set["external_rep_weights"], "external_rep_weights")
+        println("Warning ($(context)): external_rep_weights is deprecated; use external_rep_day.")
+    end
+
+    if endogenous_rep_day == 1 && external_rep_day == 1
+        throw(ArgumentError("Invalid representative-day settings: endogenous_rep_day=1 and external_rep_day=1 are mutually exclusive."))
+    end
+
+    representative_day_mode = (endogenous_rep_day == 1 || external_rep_day == 1) ? 1 : 0
+    return endogenous_rep_day, external_rep_day, representative_day_mode
+end
+
 end # Guard against redefinition

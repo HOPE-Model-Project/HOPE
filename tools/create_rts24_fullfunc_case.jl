@@ -173,15 +173,22 @@ function build_dr_inputs(loaddata::DataFrame, zonedata::DataFrame)
     n_hour = nrow(loaddata)
     month = loaddata[:, "Month"]
     day = loaddata[:, "Day"]
+    time_period = if "Time Period" in names(loaddata)
+        loaddata[:, "Time Period"]
+    else
+        ones(Int, n_hour)
+    end
     hour = if "Hour" in names(loaddata)
         loaddata[:, "Hour"]
+    elseif "Hours" in names(loaddata)
+        loaddata[:, "Hours"]
     elseif "Period" in names(loaddata)
         loaddata[:, "Period"]
     else
         [(h - 1) % 24 + 1 for h in 1:n_hour]
     end
 
-    dr_ts = DataFrame("Month" => month, "Day" => day, "Hour" => hour)
+    dr_ts = DataFrame("Time Period" => Int.(time_period), "Month" => month, "Day" => day, "Hours" => Int.(hour))
     for z in zones
         base = Float64.(loaddata[:, z])
         den = max(maximum(base), 1.0e-6)
@@ -205,7 +212,8 @@ function write_settings(path::AbstractString)
 DataCase: Data_RTS24_PCM_full/
 model_mode: PCM
 aggregated!: 0
-representative_day!: 0
+endogenous_rep_day: 0
+external_rep_day: 0
 flexible_demand: 1
 clean_energy_policy: 1
 carbon_policy: 0
