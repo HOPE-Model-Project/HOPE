@@ -12,6 +12,46 @@ function first_existing_col(colset::Set{String}, candidates::Vector{String})
 end
 
 """
+Parse optional per-line loss rates from a line table.
+
+Accepted aliases include percentage- or fraction-style columns such as
+`Loss (%)`, `Loss_pct`, `Loss Factor`, and `Line_Loss_Percentage`.
+Values greater than 1 are interpreted as percentages and divided by 100.
+Missing values default to 0.
+"""
+function parse_line_loss_rates(df::DataFrame)
+    to_float_local(v) = v isa Number ? Float64(v) : parse(Float64, string(v))
+    loss_cols = Set(string.(names(df)))
+    loss_col = first_existing_col(loss_cols, [
+        "Loss (%)",
+        "Loss_pct",
+        "Loss Factor",
+        "Loss_Factor",
+        "Line_Loss_Percentage",
+        "Line Loss Percentage",
+        "loss_pct",
+        "loss_factor",
+    ])
+    rates = zeros(Float64, nrow(df))
+    if loss_col === nothing
+        return rates
+    end
+    for row in 1:nrow(df)
+        raw = df[row, loss_col]
+        rate = if raw === missing || raw === nothing || (raw isa AbstractString && isempty(strip(raw)))
+            0.0
+        else
+            to_float_local(raw)
+        end
+        if rate < 0.0
+            throw(ArgumentError("Transmission loss rate in column '$(loss_col)' must be non-negative; found $(rate) at row $(row)."))
+        end
+        rates[row] = rate > 1.0 ? rate / 100.0 : rate
+    end
+    return rates
+end
+
+"""
 Resolve a reference node from either:
 - integer index in 1..n_nodes
 - node id key found in node_idx_map

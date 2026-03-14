@@ -118,6 +118,14 @@ For each zone and modeled hour:
 
 If `flexible_demand = 0`, $DR^{opt}_{i,h}=0$.
 
+When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to zonal balance:
+
+```math
+\mathrm{ZoneLineLoss}_{i,h} = \frac{1}{2}\sum_{l \in LS_i \cup LR_i} loss_{l,h},
+\qquad
+loss_{l,h} = \rho_l |f_{l,h}|
+```
+
 ### 3. [GTEP-C3] Transmission limits
 
 For existing lines $l\in L^{E}$:

@@ -4,6 +4,7 @@ aggregated!: 1                    # 1 use aggregated technology data; 0 use full
 representative_day!: 1            # 1 representative-day formulation; 0 full chronological hours
 inv_dcs_bin: 0                    # 1 integer investment decisions; 0 continuous/relaxed
 operation_reserve_mode: 0         # GTEP: 0 none; 1 SPIN reserve
+transmission_loss: 0              # 0 lossless transport; 1 piecewise-linear transmission losses
 write_shadow_prices: 0            # 1 MILP->fixed-LP re-solve for dual/LMP (PCM requires UC=1; GTEP requires inv_dcs_bin=1); 0 disable
 summary_table: 0                 # 1 generate Analysis/Summary_*.csv tables; 0 disable
 time_periods:                     # Representative-day seasonal windows

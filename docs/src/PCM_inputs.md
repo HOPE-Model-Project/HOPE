@@ -16,6 +16,14 @@ Related run-control settings:
 - `unit_commitment: 1` makes PCM a MILP.
 - `write_shadow_prices: 1` triggers MILP -> fixed-LP re-solve for dual/LMP recovery when `unit_commitment: 1`.
 - `summary_table: 1` writes summary analytics to `output/Analysis/Summary_*.csv`.
+- `transmission_loss: 1` enables a piecewise-linear transmission loss approximation based on absolute line flow. This is currently supported for `network_model = 1` and `2`, but not `3`.
+
+Simple workflow for line losses:
+1. Keep `transmission_loss: 0` if you want the default lossless PCM run.
+2. Set `transmission_loss: 1` only when your active line table includes a `Loss (%)` column.
+3. Use `network_model = 1` or `2` with transmission losses.
+4. Keep `network_model = 3` with `transmission_loss: 0`; PTDF mode remains lossless in the current HOPE release.
+5. In nodal angle-based PCM (`network_model = 2`), HOPE now reports a nonzero `Loss` price component when transmission losses are active.
 
 ## internal network helper utilities
 
@@ -79,6 +87,7 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |To_zone | Ending zone of the inter-zonal transmission line|
 |X or Reactance | Line reactance (recommended for nodal modes). If omitted, current code falls back to unit values (`B_l = 1` / `X = 1`) with a warning.|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
+|Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`. Shipped example files may keep this column at `0` so the default case behavior stays lossless.|
 ---
 
 ## busdata (optional for zonal modes, recommended for nodal modes)
@@ -103,9 +112,13 @@ Recommended columns:
 - `from_bus`/`to_bus` (or MATPOWER-style `F_BUS`/`T_BUS`)
 - `Capacity (MW)` (line thermal limit)
 - `X` or `Reactance` (for DC angle/PTDF physics)
+- `Loss (%)` *(optional; supported when `network_model = 2` and `transmission_loss = 1`)*
 - `delta_theta_max` *(optional)*: per-line max angle difference (radians). If omitted/<=0, disabled.
 
 If `branchdata` is provided and `network_model` is nodal, HOPE uses it as network branch input.
+
+PTDF note:
+- `network_model = 3` uses a lossless PTDF-based DCOPF. Keep `transmission_loss: 0` in that mode.
 
 CSV name: `branchdata.csv`  
 XLSX sheet name: `branchdata`

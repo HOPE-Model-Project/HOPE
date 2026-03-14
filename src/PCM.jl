@@ -123,6 +123,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if !(network_model in [0, 1, 2, 3])
 			throw(ArgumentError("Invalid network_model=$(network_model). Expected 0, 1, 2, or 3."))
 		end
+		# transmission_loss:
+		# 0 = lossless network
+		# 1 = piecewise-linear loss approximation using |flow|
+		transmission_loss_raw = get(config_set, "transmission_loss", 0)
+		transmission_loss = transmission_loss_raw isa Integer ? Int(transmission_loss_raw) : parse(Int, string(transmission_loss_raw))
+		if !(transmission_loss in [0, 1])
+			throw(ArgumentError("Invalid transmission_loss=$(transmission_loss). Expected 0 or 1."))
+		end
+		if transmission_loss == 1 && network_model == 3
+			throw(ArgumentError("PCM transmission_loss=1 is not yet supported with network_model=3 (PTDF-based DCOPF). Use network_model=0/1/2 or set transmission_loss=0."))
+		elseif transmission_loss == 1 && network_model == 0
+			println("Warning: transmission_loss=1 is ignored when network_model=0 (copper plate).")
+		end
 	
 		#network
 		Zonedata = input_data["Zonedata"]
@@ -489,6 +502,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		ALW_state = Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"])) #w			#Total annual carbon allowances by state
 		F_max=[to_float(v) for v in Linedata[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
+		line_loss_rate = parse_line_loss_rates(Linedata)#l
 		if "X" in linedata_cols
 			B_l = Dict(l => (to_float(Linedata[l, "X"]) == 0.0 ? 0.0 : 1.0 / to_float(Linedata[l, "X"])) for l in L)
 		elseif "Reactance" in linedata_cols
@@ -641,6 +655,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 	#	@variable(model, f[G,L,T,H])							#Active power in transmission corridor/line l in h from resrource g, MW
 		@variable(model, f[L,H])							#Active power in transmission corridor/line l in h, MW
+		if transmission_loss == 1 && network_model in [1, 2]
+			@variable(model, f_abs[L,H] >= 0)					#Absolute line flow used in piecewise-linear transmission loss approximation
+		end
 		if carbon_policy != 0
 			@variable(model, em_emis[W]>=0)						#Carbon emission slack in state w, ton (active only when carbon policy is on)
 		end
@@ -703,6 +720,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		else
 			@expression(model, DR_OPT[i in I, h in H], 0)
 		end
+		if transmission_loss == 1 && network_model in [1, 2]
+			@expression(model, LineLoss[l in L, h in H], line_loss_rate[l] * model[:f_abs][l,h])
+		end
 		if network_model == 0
 			# [PCM-C1.0] Copper-plate: one system-wide balance, no network flow constraints
 			SystemPB_con = @constraint(model, [h in H],
@@ -712,22 +732,32 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			NoNetworkFlow_con = @constraint(model, [l in L, h in H], f[l,h] == 0, base_name = "NoNetworkFlow_con")
 		elseif network_model == 1
 			# [PCM-C1.1] Zonal transport
+			if transmission_loss == 1
+				@expression(model, ZoneLineLoss[i in I, h in H], 0.5 * sum(model[:LineLoss][l,h] for l in vcat(LS_i[i], LR_i[i])))
+			else
+				@expression(model, ZoneLineLoss[i in I, h in H], 0.0)
+			end
 			@constraint(model, PB_con[i in I, h in H], sum(p[g,h] for g in G_i[i])
 				+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 				- sum(f[l,h] for l in LS_i[i])
 				+ sum(f[l,h] for l in LR_i[i])
 				+ NI_h[h,i]
-				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h],base_name = "PB_con")
+				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h] + model[:ZoneLineLoss][i,h],base_name = "PB_con")
 		elseif network_model == 2
 			# [PCM-C1.2] Nodal DCOPF angle-based
 			@expression(model, NodeLoad[n in N_bus, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
 			@expression(model, NodeNI[n in N_bus, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
+			if transmission_loss == 1
+				@expression(model, NodeLineLoss[n in N_bus, h in H], 0.5 * sum(model[:LineLoss][l,h] for l in vcat(LS_n[n], LR_n[n])))
+			else
+				@expression(model, NodeLineLoss[n in N_bus, h in H], 0.0)
+			end
 			@constraint(model, PBNode_con[n in N_bus, h in H], sum(p[g,h] for g in G_n[n])
 				+ sum(dc[s,h] - c[s,h] for s in S_n[n])
 				- sum(f[l,h] for l in LS_n[n])
 				+ sum(f[l,h] for l in LR_n[n])
 				+ NodeNI[n,h]
-				== NodeLoad[n,h], base_name = "PBNode_con")
+				== NodeLoad[n,h] + model[:NodeLineLoss][n,h], base_name = "PBNode_con")
 			FAngle_con = @constraint(model, [l in L, h in H], f[l,h] == B_l[l] * (model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h]), base_name = "FAngle_con")
 			RefAngle_con = @constraint(model, [h in H], model[:theta][reference_bus,h] == 0, base_name = "RefAngle_con")
 			ThetaBound_con = @constraint(model, [n in N_bus, h in H], -theta_max <= model[:theta][n,h] <= theta_max, base_name = "ThetaBound_con")
@@ -800,6 +830,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		
 		# [PCM-C1] Existing line flow limits (active for network models 1/2/3)
 		@constraint(model, TLe_con[l in L_exist,h in H], -F_max_eff[l] <= f[l,h] <= F_max_eff[l],base_name = "TLe_con")
+		if transmission_loss == 1 && network_model in [1, 2]
+			@constraint(model, TLAbsPos_con[l in L, h in H], model[:f_abs][l,h] >= f[l,h], base_name = "TLAbsPos_con")
+			@constraint(model, TLAbsNeg_con[l in L, h in H], model[:f_abs][l,h] >= -f[l,h], base_name = "TLAbsNeg_con")
+			@constraint(model, TLAbsUb_con[l in L, h in H], model[:f_abs][l,h] <= F_max_eff[l], base_name = "TLAbsUb_con")
+		end
 
 		if config_set["unit_commitment"] == 0
 			# [PCM-C3.A] Generator operating limits without UC

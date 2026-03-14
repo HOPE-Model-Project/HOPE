@@ -1,0 +1,766 @@
+:root {
+  --hope-bg: #eef3f8;
+  --hope-card: rgba(255, 255, 255, 0.95);
+  --hope-card-strong: #ffffff;
+  --hope-ink: #0f172a;
+  --hope-muted: #475569;
+  --hope-soft: #94a3b8;
+  --hope-border: #d7e0ea;
+  --hope-border-strong: #c4d0de;
+  --hope-brand: #0f4c81;
+  --hope-brand-2: #2f6fed;
+  --hope-accent: #f59e0b;
+  --hope-shadow: 0 18px 40px rgba(15, 23, 42, 0.10);
+  --hope-shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+body {
+  background: var(--hope-bg);
+  color: var(--hope-ink);
+}
+
+.hope-dashboard {
+  color: var(--hope-ink);
+  background:
+    radial-gradient(circle at top left, rgba(47, 111, 237, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 22%),
+    linear-gradient(180deg, #f4f7fb 0%, var(--hope-bg) 28%, #ebf1f7 100%);
+}
+
+.hope-dashboard.theme-dark {
+  --hope-bg: #0b1220;
+  --hope-card: rgba(18, 26, 43, 0.96);
+  --hope-card-strong: #121a2b;
+  --hope-ink: #e5edf7;
+  --hope-muted: #9fb1c7;
+  --hope-soft: #64748b;
+  --hope-border: rgba(78, 95, 120, 0.55);
+  --hope-border-strong: rgba(106, 128, 160, 0.68);
+  --hope-brand: #4da3ff;
+  --hope-brand-2: #7c8cff;
+  --hope-accent: #fbbf24;
+  --hope-shadow: 0 18px 40px rgba(2, 8, 23, 0.45);
+  --hope-shadow-soft: 0 10px 24px rgba(2, 8, 23, 0.32);
+  background:
+    radial-gradient(circle at top left, rgba(77, 163, 255, 0.12), transparent 26%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.10), transparent 22%),
+    linear-gradient(180deg, #0b1220 0%, #0f1726 38%, #101a2d 100%);
+}
+
+.panel-canvas {
+  position: relative;
+  min-height: 1700px;
+  border-radius: 18px;
+}
+
+.dashboard-toolbar {
+  position: sticky;
+  z-index: 10000;
+  overflow: visible;
+  border-radius: 16px;
+  border: 1px solid var(--hope-border);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 0.98) 100%);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.dashboard-toolbar.toolbar-collapsed {
+  padding-bottom: 10px !important;
+}
+
+.dashboard-toolbar.toolbar-collapsed .dashboard-subtitle,
+.dashboard-toolbar.toolbar-collapsed .dashboard-help,
+.dashboard-toolbar.toolbar-collapsed .case-summary-strip,
+.dashboard-toolbar.toolbar-collapsed .kpi-strip,
+.dashboard-toolbar.toolbar-collapsed .constraint-detail,
+.dashboard-toolbar.toolbar-collapsed .toolbar-row-bottom {
+  display: none !important;
+}
+
+.dashboard-toolbar.toolbar-collapsed .toolbar-row-top {
+  margin-bottom: 0;
+  position: relative;
+  padding-right: 420px;
+  min-height: 40px;
+}
+
+.dashboard-toolbar .Select-menu-outer,
+.dashboard-toolbar .Select-menu,
+.dashboard-toolbar .VirtualizedSelectFocusedOption,
+.dashboard-toolbar .VirtualizedSelectOption,
+.dashboard-toolbar .Select,
+.dashboard-toolbar .dash-dropdown {
+  z-index: 11000 !important;
+}
+
+.dashboard-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 8px 0;
+}
+
+.dashboard-header-logo {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.dashboard-header-copy {
+  min-width: 0;
+}
+
+.dashboard-subtitle {
+  margin: 0 0 14px 0;
+  color: var(--hope-muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.dashboard-help {
+  margin: 0 0 14px 0;
+  border: 1px solid var(--hope-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 250, 255, 0.94) 100%);
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.dashboard-help-body {
+  padding: 0 14px 12px 14px;
+  color: var(--hope-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dashboard-help-intro {
+  margin: 0 0 8px 0;
+}
+
+.dashboard-help-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dashboard-help-list li {
+  margin: 0 0 6px 0;
+}
+
+.dashboard-status {
+  color: var(--hope-muted);
+  font-weight: 700;
+}
+
+.dashboard-status-row {
+  margin: 0 0 14px 0;
+  color: var(--hope-muted);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.case-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px 0;
+}
+
+.case-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hope-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(247, 250, 255, 0.94) 100%);
+  color: var(--hope-ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.case-summary-pill-primary {
+  background: linear-gradient(135deg, rgba(15, 76, 129, 0.96) 0%, rgba(47, 111, 237, 0.96) 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-row-top {
+  margin-bottom: 14px;
+  position: relative;
+  padding-right: 420px;
+  min-height: 40px;
+  flex-wrap: nowrap;
+}
+
+.toolbar-action-stack {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar-action-button {
+  min-width: 116px;
+}
+
+.dashboard-toolbar.toolbar-collapsed .toolbar-action-stack {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-toolbar.toolbar-collapsed .toolbar-action-button {
+  min-width: 104px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.toolbar-row-bottom {
+  align-items: start;
+  justify-content: flex-start;
+  gap: 24px;
+}
+
+.toolbar-row-controls {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 16px;
+  flex: 0 1 720px;
+  width: min(720px, 100%);
+  margin-left: auto;
+  justify-content: stretch;
+  align-content: start;
+}
+
+.toolbar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar-block-hour {
+  flex: 1 1 520px;
+  min-width: 340px;
+}
+
+.toolbar-block-hour .rc-slider {
+  border-radius: 999px;
+}
+
+.hour-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hour-step-group {
+  display: flex;
+  gap: 8px;
+}
+
+.hour-step-button {
+  min-width: 38px;
+  height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.hour-finder-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(260px, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+  align-items: end;
+}
+
+.hour-finder-metric,
+.hour-finder-select {
+  min-width: 0;
+}
+
+.toolbar-block-select,
+.toolbar-block-toggle {
+  min-width: 0;
+}
+
+.toolbar-block-select {
+  grid-column: span 2;
+}
+
+.toolbar-block-toggle {
+  grid-column: span 3;
+}
+
+.hope-button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--hope-border-strong);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.hope-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hope-shadow-soft);
+}
+
+.hope-button-primary {
+  background: linear-gradient(135deg, var(--hope-brand) 0%, var(--hope-brand-2) 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.hope-button-secondary {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  color: var(--hope-ink);
+}
+
+.hope-text-input,
+.toolbar-row .Select-control {
+  border-radius: 12px !important;
+  border: 1px solid var(--hope-border-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.hope-text-input {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--hope-ink);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.hope-text-input:focus {
+  outline: none;
+  border-color: var(--hope-brand-2);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.14);
+}
+
+.toolbar-row .Select-control {
+  min-height: 38px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.toolbar-row .is-focused:not(.is-open) > .Select-control,
+.toolbar-row .is-open > .Select-control {
+  border-color: var(--hope-brand-2) !important;
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12) !important;
+}
+
+.toolbar-row .Select-placeholder,
+.toolbar-row .Select-value-label,
+.toolbar-row .Select-input > input {
+  color: var(--hope-ink) !important;
+  font-size: 14px !important;
+}
+
+.toolbar-row .Select-menu-outer {
+  border-radius: 12px !important;
+  border: 1px solid var(--hope-border-strong) !important;
+  box-shadow: var(--hope-shadow-soft) !important;
+  overflow: hidden;
+  background: var(--hope-card-strong) !important;
+}
+
+.hope-dashboard.theme-dark .hope-button-secondary {
+  background: linear-gradient(180deg, rgba(29, 42, 66, 0.95) 0%, rgba(20, 30, 47, 0.95) 100%);
+}
+
+.hope-dashboard.theme-dark .hope-text-input,
+.hope-dashboard.theme-dark .toolbar-row .Select-control {
+  background: #f8fbff !important;
+  color: #0f172a !important;
+  border-color: rgba(160, 177, 201, 0.78) !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .Select *,
+.hope-dashboard.theme-dark .toolbar-row .dash-dropdown * {
+  color: #0f172a !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .Select-control,
+.hope-dashboard.theme-dark .toolbar-row .Select-multi-value-wrapper,
+.hope-dashboard.theme-dark .toolbar-row .Select-value,
+.hope-dashboard.theme-dark .toolbar-row .Select-value-label,
+.hope-dashboard.theme-dark .toolbar-row .Select-input,
+.hope-dashboard.theme-dark .toolbar-row .Select-input > input,
+.hope-dashboard.theme-dark .toolbar-row .Select-placeholder {
+  background: #f8fbff !important;
+  color: #0f172a !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .Select-value,
+.hope-dashboard.theme-dark .toolbar-row .Select-value-label,
+.hope-dashboard.theme-dark .toolbar-row .Select-placeholder,
+.hope-dashboard.theme-dark .toolbar-row .Select-input,
+.hope-dashboard.theme-dark .toolbar-row .Select-input > input,
+.hope-dashboard.theme-dark .toolbar-row .Select-value span,
+.hope-dashboard.theme-dark .toolbar-row .has-value.Select--single > .Select-control .Select-value .Select-value-label,
+.hope-dashboard.theme-dark .toolbar-row .has-value.is-pseudo-focused.Select--single > .Select-control .Select-value .Select-value-label {
+  color: #0f172a !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .Select-arrow-zone,
+.hope-dashboard.theme-dark .toolbar-row .Select-clear-zone {
+  color: #475569 !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .Select-placeholder,
+.hope-dashboard.theme-dark .toolbar-row .Select-value-label,
+.hope-dashboard.theme-dark .toolbar-row .Select-input > input,
+.hope-dashboard.theme-dark .toolbar-row .VirtualizedSelectOption,
+.hope-dashboard.theme-dark .toolbar-row .VirtualizedSelectFocusedOption {
+  color: #0f172a !important;
+  background: #ffffff !important;
+}
+
+.hope-dashboard.theme-dark .toolbar-row .VirtualizedSelectFocusedOption {
+  background: #dbeafe !important;
+}
+
+.hope-dashboard.theme-dark input[type="number"] {
+  background: #f8fbff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(160, 177, 201, 0.78) !important;
+}
+
+.kpi-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 14px 0;
+}
+
+.kpi-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hope-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 249, 253, 0.94) 100%);
+  color: var(--hope-ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.kpi-pill-hour {
+  background: linear-gradient(135deg, #0f4c81 0%, #2f6fed 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.constraint-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px 0;
+}
+
+.constraint-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hope-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(243, 247, 252, 0.96) 100%);
+  color: var(--hope-ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.constraint-pill-active {
+  background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.hope-dashboard.theme-dark .kpi-pill {
+  background: linear-gradient(180deg, rgba(22, 33, 52, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  color: var(--hope-ink);
+  border-color: rgba(94, 115, 145, 0.56);
+  box-shadow: 0 6px 16px rgba(2, 8, 23, 0.22);
+}
+
+.hope-dashboard.theme-dark .kpi-pill-hour {
+  background: linear-gradient(135deg, #2f6fed 0%, #7c8cff 100%);
+  color: #ffffff;
+}
+
+.hope-dashboard.theme-dark .constraint-pill {
+  background: linear-gradient(180deg, rgba(22, 33, 52, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  color: var(--hope-ink);
+  border-color: rgba(94, 115, 145, 0.56);
+  box-shadow: 0 6px 16px rgba(2, 8, 23, 0.22);
+}
+
+.hope-dashboard.theme-dark .case-summary-pill {
+  background: linear-gradient(180deg, rgba(22, 33, 52, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  color: var(--hope-ink);
+  border-color: rgba(94, 115, 145, 0.56);
+  box-shadow: 0 6px 16px rgba(2, 8, 23, 0.22);
+}
+
+.hope-dashboard.theme-dark .case-summary-pill-primary {
+  background: linear-gradient(135deg, #0f4c81 0%, #2f6fed 100%);
+  color: #ffffff;
+}
+
+.hope-dashboard.theme-dark .constraint-pill-active {
+  background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%);
+  color: #ffffff;
+}
+
+.floating-panel {
+  position: absolute;
+  min-width: 320px;
+  min-height: 220px;
+  resize: both;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.floating-panel .panel-drag-handle {
+  display: flex;
+  align-items: center;
+  touch-action: none;
+}
+
+.panel-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(196, 208, 222, 0.85);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.96) 100%);
+  box-shadow: var(--hope-shadow);
+  overflow: hidden;
+}
+
+.panel-drag-handle {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 16px 10px 16px;
+  border-bottom: 1px solid rgba(215, 224, 234, 0.9);
+  background:
+    linear-gradient(90deg, rgba(245, 249, 253, 0.98) 0%, rgba(255, 255, 255, 0.98) 52%, rgba(245, 249, 253, 0.98) 100%);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.1px;
+  color: var(--hope-ink);
+  cursor: grab;
+  user-select: none;
+}
+
+.panel-drag-handle:active {
+  cursor: grabbing;
+}
+
+.panel-handle-glyph {
+  margin-right: 8px;
+  color: var(--hope-soft);
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.panel-inner {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px 10px 10px;
+  background: linear-gradient(180deg, rgba(252, 253, 255, 0.9) 0%, rgba(247, 250, 253, 0.88) 100%);
+}
+
+.hope-dashboard.theme-dark .dashboard-toolbar {
+  color: var(--hope-ink);
+  background: linear-gradient(135deg, rgba(18, 26, 43, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  box-shadow: 0 16px 34px rgba(2, 8, 23, 0.35);
+}
+
+.hope-dashboard.theme-dark .dashboard-help {
+  background: linear-gradient(180deg, rgba(22, 33, 52, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  border-color: rgba(94, 115, 145, 0.56);
+}
+
+.hope-dashboard.theme-dark .dashboard-help-body {
+  color: var(--hope-ink);
+}
+
+.hope-dashboard.theme-dark .panel-card {
+  background:
+    linear-gradient(180deg, rgba(20, 30, 47, 0.98) 0%, rgba(15, 23, 38, 0.97) 100%);
+}
+
+.hope-dashboard.theme-dark .panel-drag-handle {
+  background:
+    linear-gradient(90deg, rgba(20, 30, 47, 0.98) 0%, rgba(25, 37, 58, 0.98) 52%, rgba(20, 30, 47, 0.98) 100%);
+  border-bottom-color: rgba(78, 95, 120, 0.5);
+}
+
+.hope-dashboard.theme-dark .panel-inner {
+  background: linear-gradient(180deg, rgba(15, 23, 38, 0.92) 0%, rgba(11, 18, 32, 0.9) 100%);
+}
+
+.floating-panel::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 13px;
+  height: 13px;
+  border-right: 2px solid #7d8ea3;
+  border-bottom: 2px solid #7d8ea3;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.js-plotly-plot .plotly .main-svg {
+  border-radius: 12px;
+}
+
+.rc-slider-track {
+  background: linear-gradient(90deg, var(--hope-brand-2) 0%, #7c3aed 100%) !important;
+  height: 4px !important;
+}
+
+.rc-slider-handle {
+  border: 3px solid #ffffff !important;
+  background: linear-gradient(135deg, var(--hope-brand-2) 0%, #7c3aed 100%) !important;
+  box-shadow: 0 3px 10px rgba(47, 111, 237, 0.30) !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin-top: -7px !important;
+}
+
+.rc-slider-rail {
+  background-color: #d7dfeb !important;
+  height: 4px !important;
+  opacity: 1 !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-rail {
+  background: linear-gradient(90deg, rgba(239, 245, 252, 0.92) 0%, rgba(222, 233, 246, 0.97) 100%) !important;
+  height: 6px !important;
+  opacity: 1 !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 241, 251, 0.28),
+    inset 0 0 0 1px rgba(12, 18, 32, 0.08) !important;
+  border-radius: 999px !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-mark-text {
+  color: #c8d5e6 !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-track {
+  background: linear-gradient(90deg, #8b5cf6 0%, #7dd3fc 100%) !important;
+  height: 6px !important;
+  opacity: 1 !important;
+  border-radius: 999px !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-handle {
+  border-color: #f8fafc !important;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7dd3fc 100%) !important;
+  box-shadow: 0 4px 12px rgba(125, 211, 252, 0.35) !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider {
+  padding: 8px 10px 6px 10px !important;
+  background: linear-gradient(180deg, rgba(232, 241, 251, 0.08) 0%, rgba(232, 241, 251, 0.05) 100%) !important;
+  border: 1px solid rgba(226, 237, 248, 0.16) !important;
+  border-radius: 999px !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-dot {
+  border-color: #8aa4c7 !important;
+  background-color: #8aa4c7 !important;
+}
+
+.hope-dashboard.theme-dark .rc-slider-mark-text-active {
+  color: #e5edf7 !important;
+}
+
+@media (max-width: 1100px) {
+  .panel-canvas {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: auto;
+  }
+
+  .floating-panel {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: 360px !important;
+    min-width: 0;
+  }
+
+  .toolbar-row-bottom,
+  .toolbar-row-controls {
+      justify-content: flex-start;
+    }
+
+  .toolbar-block-hour,
+  .toolbar-block-select,
+  .toolbar-block-toggle {
+      min-width: 100%;
+    }
+
+  .hour-finder-row {
+      grid-template-columns: 1fr;
+    }
+
+  .toolbar-action-stack {
+      position: static;
+      width: 100%;
+      align-items: flex-start;
+    }
+
+  .toolbar-row-top {
+      padding-right: 0;
+    }
+
+  .toolbar-row-controls {
+      grid-template-columns: 1fr;
+      flex: 1 1 100%;
+      width: 100%;
+      margin-left: 0;
+    }
+  }

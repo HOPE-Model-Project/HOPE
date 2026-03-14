@@ -7,6 +7,7 @@ clean_energy_policy: 0           # 1 enforce RPS/clean-energy constraints; 0 dis
 carbon_policy: 0                 # 0 none; 1 state cap; 2 cap-and-trade
 operation_reserve_mode: 0        # PCM: 0 none; 1 REG+SPIN; 2 REG+SPIN+NSPIN
 network_model: 3                 # 0 none; 1 zonal transport; 2 nodal DCOPF-angle; 3 nodal DCOPF-PTDF
+transmission_loss: 0             # 0 lossless network; 1 piecewise-linear transmission losses (PCM supports network_model 1/2)
 reference_bus: 1                 # Reference bus index/label for nodal price decomposition
 inv_dcs_bin: 0                   # 1 integer investment decisions; 0 continuous/relaxed
 time_periods:                    # Representative-day seasonal windows

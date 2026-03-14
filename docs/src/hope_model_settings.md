@@ -23,6 +23,7 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 |`planning_reserve_mode:`| `1` | `GTEP`: `0` off; `1` system-level RA; `2` zonal RA.|
 |`operation_reserve_mode:`| `2` | `GTEP`: `0` off, `1` SPIN only. `PCM`: `0` off, `1` REG+SPIN, `2` REG+SPIN+NSPIN.|
 |`network_model:`| `3` | `PCM`: `0` no network, `1` zonal transport, `2` nodal DCOPF angle-based, `3` nodal DCOPF PTDF-based.|
+|`transmission_loss:`| `0` | `GTEP`/`PCM`: `0` lossless network; `1` piecewise-linear transmission losses using \|flow\|. In `PCM`, this is currently supported for `network_model = 1` and `2`, but not `3` (PTDF).|
 |`reference_bus:`| `1` | `PCM` nodal modes: reference bus for angle and nodal price decomposition.|
 |`storage_ld_duration_hours:`| `12` | `GTEP`: long-duration storage threshold (MWh/MW).|
 |`write_shadow_prices:`| `0` | `1` enables MILP dual-recovery re-solve (fix discrete vars, re-solve LP). In PCM this applies when `unit_commitment=1`; in GTEP when `inv_dcs_bin=1`.|
@@ -35,5 +36,9 @@ Notes:
 - Parameters like `VOLL`, `planning_reserve_margin`, reserve requirements, `theta_max`, and other numeric constants are read from `single_parameter` input (not from `HOPE_model_settings.yml`).
 - For PCM, `representative_day!` is currently not the primary production workflow; nodal studies are typically run in full chronology.
 - For PCM, summary tables are controlled by `summary_table=1` across network modes; nodal-specific summary tables are generated only when `network_model` is `2` or `3`.
+- To turn on transmission losses:
+  1. set `transmission_loss: 1`,
+  2. add optional `Loss (%)` columns to the relevant line input tables,
+  3. keep `transmission_loss: 0` in `PCM network_model = 3`, because PTDF mode is currently lossless.
 
 

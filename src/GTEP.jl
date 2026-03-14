@@ -119,6 +119,14 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		if !(transmission_expansion in [0, 1])
 			throw(ArgumentError("Invalid transmission_expansion=$(transmission_expansion). Expected 0 or 1."))
 		end
+		# Transmission loss switch:
+		# 0 = lossless transport
+		# 1 = piecewise-linear loss approximation using |flow|
+		transmission_loss_raw = get(config_set, "transmission_loss", 0)
+		transmission_loss = transmission_loss_raw isa Integer ? Int(transmission_loss_raw) : parse(Int, string(transmission_loss_raw))
+		if !(transmission_loss in [0, 1])
+			throw(ArgumentError("Invalid transmission_loss=$(transmission_loss). Expected 0 or 1."))
+		end
 		flexible_demand_raw = get(config_set, "flexible_demand", 0)
 		flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
 		if !(flexible_demand in [0, 1])
@@ -419,6 +427,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		ALW_state = Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"])) #w				#Total annual carbon allowances by state
 		F_max=[Linedata[!,"Capacity (MW)"];Linedata_candidate[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
+		line_loss_rate = [parse_line_loss_rates(Linedata); parse_line_loss_rates(Linedata_candidate)]#l
 		INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
 		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s				#Investment cost of storage unit s, M$
@@ -546,6 +555,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@variable(model, a[G]>=0) 							#Bidding carbon allowance of unit g, ton
 		end
 		@variable(model, f[L,H_T])							#Active power in transmission corridor/line l in h from resrource g, MW
+		if transmission_loss == 1
+			@variable(model, f_abs[L,H_T] >= 0)				#Absolute line flow used in piecewise-linear transmission loss approximation
+		end
 		if carbon_policy != 0
 			@variable(model, em_emis[W]>=0)						#Carbon emission slack in state w, ton (active only when carbon policy is on)
 		end
@@ -615,6 +627,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		else
 			@expression(model, DR_OPT[i in I, t in T, h in H_t[t]], 0)
 		end
+		if transmission_loss == 1
+			@expression(model, LineLoss[l in L, h in H_T], line_loss_rate[l] * model[:f_abs][l,h])
+			@expression(model, ZoneLineLoss[i in I, h in H_T], 0.5 * sum(model[:LineLoss][l,h] for l in vcat(LS_i[i], LR_i[i])))
+		else
+			@expression(model, ZoneLineLoss[i in I, h in H_T], 0.0)
+		end
 		@constraint(model, PB_con[i in I, t in T, h in H_t[t]], sum(p[g,h] for g in G_i[i]) 
 			+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 			- sum(f[l,h] for l in LS_i[i])#LS
@@ -622,7 +640,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			#+ NI_t[t][h,i]
 			+ NI_hi[h,i] #net import
 			#+ slack_pos[t,h,i]-slack_neg[t,h,i]
-			== sum(P_hd[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,t,h] - p_LS[i,h],base_name = "PB_con")
+			== sum(P_hd[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,t,h] - p_LS[i,h] + model[:ZoneLineLoss][i,h],base_name = "PB_con")
 		@expression(model, Load_system[h in H_T], sum(P_hd[h,d]*PK[d] for d in D))
 		@expression(model, SPIN_requirement[h in H_T], spin_requirement * Load_system[h])
 		if operation_reserve_mode == 1
@@ -640,6 +658,12 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		# [GTEP-C3] Candidate line flow limits with investment coupling
 		TLn_LB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]], -F_max[l] * y[l] <= f[l,h],base_name = "TLn_LB_con")
 		TLn_UB_con = @constraint(model, [l in L_new,t in T,h in H_t[t]],  f[l,h] <= F_max[l]* y[l],base_name = "TLn_UB_con")
+		if transmission_loss == 1
+			TLAbsPos_con = @constraint(model, [l in L, h in H_T], model[:f_abs][l,h] >= f[l,h], base_name = "TLAbsPos_con")
+			TLAbsNeg_con = @constraint(model, [l in L, h in H_T], model[:f_abs][l,h] >= -f[l,h], base_name = "TLAbsNeg_con")
+			TLAbsUbExist_con = @constraint(model, [l in L_exist, h in H_T], model[:f_abs][l,h] <= F_max[l], base_name = "TLAbsUbExist_con")
+			TLAbsUbNew_con = @constraint(model, [l in L_new, h in H_T], model[:f_abs][l,h] <= F_max[l] * y[l], base_name = "TLAbsUbNew_con")
+		end
 
 		# [GTEP-C4] Existing generator operating limits (energy + SPIN headroom), with retirement and must-run variants
 		CLe_con = @constraint(model, [g in setdiff(G_exist, G_RET),t in T, h in H_t[t]], P_min[g] <= p[g,h] + r_G_SPIN[g,h] <=P_max[g]*AF_gh[g,h],base_name = "CLe_con")

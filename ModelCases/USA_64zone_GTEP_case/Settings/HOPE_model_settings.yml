@@ -6,6 +6,7 @@ external_rep_day: 1              # 1 use user-provided representative periods + 
 flexible_demand: 0               # 1 enable DR backlog formulation; 0 disable
 inv_dcs_bin: 0                   # 1 binary investment decisions; 0 continuous [0,1]
 transmission_expansion: 1        # 1 allow candidate line builds; 0 force y[l]=0 for all candidate lines
+transmission_loss: 0             # 0 lossless transport; 1 piecewise-linear transmission losses
 carbon_policy: 0                 # 0 off; 1 state cap (Option A); 2 cap-and-trade (Option B)
 clean_energy_policy: 0           # 0 turn off RPS block; 1 turn on RPS block
 planning_reserve_mode: 0         # 0 off; 1 system-level RA; 2 zonal-level RA

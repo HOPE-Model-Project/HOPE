@@ -3,6 +3,25 @@
 Case path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case`  
 Data path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case/Data_RTS24_PCM_full`
 
+## Dashboard
+
+Interactive dashboard for this case: [HOPE Dashboard](http://127.0.0.1:8050/)
+
+Dashboard note: this local view is currently configured around the nodal PCM outputs from `RTS24_PCM_multizone4_congested_1month_case`. Start it from the repo root with `python tools/hope_dashboard/app.py`.
+
+### How to Read This Dashboard
+
+- `LMP Spread` is the system-wide maximum minus minimum bus LMP at the selected hour.
+- `Basis` is the Focus Bus LMP minus the Compare Bus LMP, so it is a pair-specific price difference.
+- `Constraint / Line Ranking` shows the most important transmission lines at the selected hour based on the chosen ranking metric.
+- `Top Bus Congestion Contributors` explains how the selected line affects bus congestion prices:
+  positive bars push bus prices up, while negative bars push them down.
+- A practical workflow is:
+  1. find an hour with a large spread
+  2. click the most important line in the ranking panel
+  3. inspect which buses have the largest positive and negative congestion contributions
+  4. set those buses as `Focus Bus` and `Compare Bus` to study their basis over time
+
 ## Model Setup Snapshot
 
 | Setting | Value |

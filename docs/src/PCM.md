@@ -81,6 +81,14 @@ Zonal balance:
 = Load_{i,h} + DR^{opt}_{i,h} - p^{LS}_{i,h}
 ```
 
+When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to the zonal balance:
+
+```math
+\mathrm{ZoneLineLoss}_{i,h} = \frac{1}{2}\sum_{l \in LS_i \cup LR_i} loss_{l,h},
+\qquad
+loss_{l,h} = \rho_l |f_{l,h}|
+```
+
 Corridor flow bounds:
 
 ```math
@@ -98,6 +106,14 @@ Nodal balance per bus `n`:
 + \sum_{l \in LR_n} f_{l,h}
 + NI_{n,h}
 = Load_{n,h}
+```
+
+When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to each nodal balance:
+
+```math
+\mathrm{NodeLineLoss}_{n,h} = \frac{1}{2}\sum_{l \in LS_n \cup LR_n} loss_{l,h},
+\qquad
+loss_{l,h} = \rho_l |f_{l,h}|
 ```
 
 In current code, nodal load and interchange are allocated from zone-level terms using bus load shares.
@@ -141,6 +157,8 @@ PTDF flow mapping:
 ```math
 f_{l,h} = \sum_n PTDF_{l,n}\,inj_{n,h}
 ```
+
+PTDF mode in the current HOPE release is lossless. Keep `transmission_loss = 0` when `network_model = 3`.
 
 Line flow bounds in PTDF mode:
 

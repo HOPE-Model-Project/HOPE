@@ -67,6 +67,7 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
 |Capacity (MW) | Transmission capacity limit for the transmission line|
+|Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
 ---
 
 ## linedata_candidate
@@ -81,7 +82,15 @@ This is the input dataset for candidate transmission lines (a set of all inter-z
 |Capacity (MW) | Transmission capacity limit for the transmission line|
 |Cost (M\$) |Investment cost for the generator in million dollars (M\$)|
 |X |Reactance of the line in P.U. (optional)|
+|Loss (%) *(optional)* | Candidate line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
 ---
+
+## transmission loss workflow
+
+To run GTEP with line losses:
+1. set `transmission_loss: 1` in `HOPE_model_settings.yml`,
+2. provide `Loss (%)` in `linedata` and/or `linedata_candidate`,
+3. use `0` in those columns if you want to keep the example dataset structure visible while preserving the default lossless behavior.
 
 ## storagedata
 

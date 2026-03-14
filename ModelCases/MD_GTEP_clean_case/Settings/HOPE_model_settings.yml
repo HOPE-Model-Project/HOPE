@@ -8,6 +8,7 @@ carbon_policy: 1                  #Int, 0 no carbon policy; 1 Option A state emi
 clean_energy_policy: 1            #Int, 0 turn off RPS constraints; 1 turn on RPS constraints
 planning_reserve_mode: 1          #Int, 0 disable RA; 1 system-level RA; 2 zonal-level RA
 operation_reserve_mode: 0         #Int, 0 disable operation reserve; 1 enable SPIN reserve constraints (GTEP only)
+transmission_loss: 0              # 0 lossless transport; 1 piecewise-linear transmission losses
 storage_ld_duration_hours: 12     #Float, duration threshold (MWh/MW) for long-duration storage subset S_LD (rep-day mode only)
 write_shadow_prices: 0            # 1 MILP->fixed-LP re-solve for dual/LMP (PCM requires UC=1; GTEP requires inv_dcs_bin=1); 0 disable
 summary_table: 0                 # 1 generate Analysis/Summary_*.csv tables; 0 disable
