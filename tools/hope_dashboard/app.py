@@ -21,6 +21,30 @@ GRID_LAYOUT_DEFAULT = [
 ]
 
 
+def _discover_dashboard_cases() -> list[dict]:
+    root = Path(__file__).resolve().parents[2] / "ModelCases"
+    options: list[dict] = []
+    for case_dir in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+        if not case_dir.is_dir():
+            continue
+        settings = case_dir / "Settings" / "HOPE_model_settings.yml"
+        nodal_output = case_dir / "output" / "power_price_decomposition_nodal.csv"
+        line_summary = case_dir / "output" / "Analysis" / "Summary_Congestion_Line_Hourly.csv"
+        if not settings.exists() or not nodal_output.exists() or not line_summary.exists():
+            continue
+        text = settings.read_text(encoding="utf-8", errors="ignore")
+        if 'model_mode: "PCM"' not in text and "model_mode: 'PCM'" not in text:
+            continue
+        rel_path = str(case_dir.relative_to(root.parent)).replace("\\", "/")
+        options.append({"label": case_dir.name, "value": rel_path})
+    return options
+
+
+AVAILABLE_CASE_OPTIONS = _discover_dashboard_cases()
+if not any(opt["value"] == DEFAULT_CASE for opt in AVAILABLE_CASE_OPTIONS):
+    AVAILABLE_CASE_OPTIONS.insert(0, {"label": Path(DEFAULT_CASE).name, "value": DEFAULT_CASE})
+
+
 def _line_metric_spec(rank_metric: str) -> tuple[str, str, str, str]:
     metric_map = {
         "congestion_rent": ("abs_rent", "|Hourly congestion rent|", "Hourly congestion rent ($)", "#dc2626"),
@@ -703,11 +727,12 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     [
-                        dcc.Input(
+                        dcc.Dropdown(
                             id="case-path",
-                            type="text",
+                            options=AVAILABLE_CASE_OPTIONS,
                             value=DEFAULT_CASE,
-                            className="hope-text-input",
+                            clearable=False,
+                            className="hope-case-dropdown",
                             style={"width": "420px"},
                         ),
                         html.Button(

@@ -1,0 +1,8 @@
+# CBC Solver Parameters
+TimeLimit: 300
+logLevel: 1
+maxSolutions: -1
+maxNodes: -1
+allowableGap: 0.001
+ratioGap: 0.001
+threads: 1
