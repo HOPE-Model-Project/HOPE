@@ -5,8 +5,7 @@
 [![Build Status](https://github.com/swang22/HOPE/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/swang22/HOPE/actions/workflows/CI.yml?query=branch%3Amaster)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
-## Acknowledgement
-This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
+
 
 
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
@@ -23,10 +22,13 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 2. `PCM` mode: a production cost model
 3. `OPF` mode: (under development): an optimal power flow model
 4. `DART` mode: (under development): a bilevel market model for simulating day-ahead and real-time markets
+5. `HOPE-AI` mode: (under development): an AI agent helps nesting all HOPE modes to implement complex modeling work. 
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
+
+Current HOPE model is also maintaining by researchers at MIT, incuding Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel) 
 
 # Preparation Phase
 ## 1. Install Julia
@@ -136,7 +138,8 @@ Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for
 
 [Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf) 
 
-
+## Acknowledgement
+This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
 
 # Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
