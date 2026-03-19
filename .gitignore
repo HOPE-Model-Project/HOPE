@@ -2,3 +2,11 @@
 /docs/Manifest.toml
 /docs/build/
 /ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones/gen_availability_timeseries.csv
+/ModelCases/*/output*/
+/ModelCases/*/output*/**
+/tools/**/raw_sources/*.zip
+/tools/**/raw_sources/**/*.zip
+**/__pycache__/
+*.pyc
+**/.DS_Store
+*.DS_Store
