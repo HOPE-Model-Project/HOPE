@@ -177,52 +177,56 @@ function load_data(config_set::Dict,path::AbstractString)
         if any(endswith.(files, ".xlsx"))
             println("The directory $folderpath contains .xlsx file, then try to read input data from GTEP_input_total.xlsx")
             #xlsx_file = XLSX.readxlsx(path*Data_case*"GTEP_input_total.xlsx")
+            xlsx_path = joinpath(folderpath,"GTEP_input_total.xlsx")
             
             #network
             println("Reading network")
-            input_data["Zonedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"zonedata"))
-            input_data["Linedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"linedata"))
+            input_data["Zonedata"]=DataFrame(XLSX.readtable(xlsx_path,"zonedata"))
+            input_data["Linedata"]=DataFrame(XLSX.readtable(xlsx_path,"linedata"))
             #technology
             println("Reading technology")
             if config_set["aggregated!"]==1
-                input_data["Gendata"] = aggregate_gendata_gtep(DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata")))
+                input_data["Gendata"] = aggregate_gendata_gtep(DataFrame(XLSX.readtable(xlsx_path,"gendata")))
             else
-                input_data["Gendata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata"))
+                input_data["Gendata"]=DataFrame(XLSX.readtable(xlsx_path,"gendata"))
             end 
             
-            input_data["Storagedata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"storagedata"))
+            input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path,"storagedata"))
             if flexible_demand == 1
                 try
-                    input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"flexddata"))
+                    input_data["DRdata"]=DataFrame(XLSX.readtable(xlsx_path,"flexddata"))
                 catch
-                    # Backward compatibility for older DR workbook templates
-                    input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
+                    try
+                        # Backward compatibility for older DR workbook templates
+                        input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"flexddata"))
+                    catch
+                        input_data["DRdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"flexddata.xlsx"),"storagedata"))
+                    end
                 end
             end
             #time series
             println("Reading time series")
-            input_data["Loaddata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"load_timeseries_regional"))
+            input_data["Loaddata"]=DataFrame(XLSX.readtable(xlsx_path,"load_timeseries_regional"))
             normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
-            input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:,"NI"] : zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
-                input_data["DRtsdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"dr_timeseries_regional"))
+                input_data["DRtsdata"]=DataFrame(XLSX.readtable(xlsx_path,"dr_timeseries_regional"))
                 normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "dr_timeseries_regional")
             end
             #candidate
             println("Reading resource candidate")
-            input_data["Estoragedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"Estoragedata_candidate"))
-            input_data["Linedata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"linedata_candidate"))
-            input_data["Gendata_candidate"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"gendata_candidate"))
+            input_data["Estoragedata_candidate"]=DataFrame(XLSX.readtable(xlsx_path,"Estoragedata_candidate"))
+            input_data["Linedata_candidate"]=DataFrame(XLSX.readtable(xlsx_path,"linedata_candidate"))
+            input_data["Gendata_candidate"]=DataFrame(XLSX.readtable(xlsx_path,"gendata_candidate"))
             #policies
             println("Reading polices")
-            input_data["CBPdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"carbonpolicies"))
+            input_data["CBPdata"]=DataFrame(XLSX.readtable(xlsx_path,"carbonpolicies"))
             #rpspolicydata
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(joinpath(folderpath,"GTEP_input_total.xlsx"),"rpspolicies"))
+            input_data["RPSdata"]=DataFrame(XLSX.readtable(xlsx_path,"rpspolicies"))
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=DataFrame(XLSX.readtable(joinpath(folderpath, "GTEP_input_total.xlsx"),"single_parameter"))
-            xlsx_path = joinpath(folderpath,"GTEP_input_total.xlsx")
+            input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path,"single_parameter"))
             sheets = XLSX.sheetnames(xlsx_path)
             if "gen_availability_timeseries" in sheets
                 input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
@@ -261,7 +265,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading time series")
             input_data["Loaddata"]=CSV.read(joinpath(folderpath,"load_timeseries_regional.csv"),DataFrame)
             normalize_timeseries_time_columns!(input_data["Loaddata"]; context="load_timeseries_regional")
-            input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:,"NI"] : zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
                 normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
@@ -360,7 +364,47 @@ function load_data(config_set::Dict,path::AbstractString)
             normalize_timeseries_time_columns!(input_data["Solardata"]; context="solar_timeseries_regional")
             validate_aligned_time_columns!(input_data["Loaddata"], input_data["Winddata"], "wind_timeseries_regional")
             validate_aligned_time_columns!(input_data["Loaddata"], input_data["Solardata"], "solar_timeseries_regional")
-            input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            try
+                input_data["NodalLoaddata"] = DataFrame(XLSX.readtable(xlsx_path, "load_timeseries_nodal"))
+                normalize_timeseries_time_columns!(input_data["NodalLoaddata"]; context="load_timeseries_nodal")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalLoaddata"], "load_timeseries_nodal")
+                println("Reading optional load_timeseries_nodal")
+            catch
+                # Optional sheet: load_timeseries_nodal
+            end
+            try
+                input_data["NodalNIdata"] = DataFrame(XLSX.readtable(xlsx_path, "ni_timeseries_nodal"))
+                normalize_timeseries_time_columns!(input_data["NodalNIdata"]; context="ni_timeseries_nodal")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNIdata"], "ni_timeseries_nodal")
+                println("Reading optional ni_timeseries_nodal")
+            catch
+                # Optional sheet: ni_timeseries_nodal
+            end
+            try
+                input_data["NodalNITargetdata"] = DataFrame(XLSX.readtable(xlsx_path, "ni_timeseries_nodal_target"))
+                normalize_timeseries_time_columns!(input_data["NodalNITargetdata"]; context="ni_timeseries_nodal_target")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNITargetdata"], "ni_timeseries_nodal_target")
+                println("Reading optional ni_timeseries_nodal_target")
+            catch
+                # Optional sheet: ni_timeseries_nodal_target
+            end
+            try
+                input_data["NodalNICapdata"] = DataFrame(XLSX.readtable(xlsx_path, "ni_timeseries_nodal_cap"))
+                normalize_timeseries_time_columns!(input_data["NodalNICapdata"]; context="ni_timeseries_nodal_cap")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNICapdata"], "ni_timeseries_nodal_cap")
+                println("Reading optional ni_timeseries_nodal_cap")
+            catch
+                # Optional sheet: ni_timeseries_nodal_cap
+            end
+            try
+                input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
+                normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
+                println("Reading optional gen_availability_timeseries")
+            catch
+                # Optional sheet: gen_availability_timeseries
+            end
+            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:,"NI"] : zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
                 input_data["DRtsdata"]=DataFrame(XLSX.readtable(xlsx_path,"dr_timeseries_regional"))
                 normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
@@ -374,6 +418,10 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path,"single_parameter"))
+            sheets = XLSX.sheetnames(xlsx_path)
+            if "rep_period_weights" in sheets
+                input_data["RepWeightData"] = DataFrame(XLSX.readtable(xlsx_path, "rep_period_weights"))
+            end
 
             println("xlsx Files Successfully Load From $folderpath")
 
@@ -426,7 +474,42 @@ function load_data(config_set::Dict,path::AbstractString)
             normalize_timeseries_time_columns!(input_data["Solardata"]; context="solar_timeseries_regional")
             validate_aligned_time_columns!(input_data["Loaddata"], input_data["Winddata"], "wind_timeseries_regional")
             validate_aligned_time_columns!(input_data["Loaddata"], input_data["Solardata"], "solar_timeseries_regional")
-            input_data["NIdata"]=input_data["Loaddata"][:,"NI"]
+            nodal_load_csv_path = joinpath(folderpath, "load_timeseries_nodal.csv")
+            if isfile(nodal_load_csv_path)
+                input_data["NodalLoaddata"] = CSV.read(nodal_load_csv_path, DataFrame)
+                normalize_timeseries_time_columns!(input_data["NodalLoaddata"]; context="load_timeseries_nodal")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalLoaddata"], "load_timeseries_nodal")
+                println("Reading optional load_timeseries_nodal.csv")
+            end
+            nodal_ni_csv_path = joinpath(folderpath, "ni_timeseries_nodal.csv")
+            if isfile(nodal_ni_csv_path)
+                input_data["NodalNIdata"] = CSV.read(nodal_ni_csv_path, DataFrame)
+                normalize_timeseries_time_columns!(input_data["NodalNIdata"]; context="ni_timeseries_nodal")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNIdata"], "ni_timeseries_nodal")
+                println("Reading optional ni_timeseries_nodal.csv")
+            end
+            nodal_ni_target_csv_path = joinpath(folderpath, "ni_timeseries_nodal_target.csv")
+            if isfile(nodal_ni_target_csv_path)
+                input_data["NodalNITargetdata"] = CSV.read(nodal_ni_target_csv_path, DataFrame)
+                normalize_timeseries_time_columns!(input_data["NodalNITargetdata"]; context="ni_timeseries_nodal_target")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNITargetdata"], "ni_timeseries_nodal_target")
+                println("Reading optional ni_timeseries_nodal_target.csv")
+            end
+            nodal_ni_cap_csv_path = joinpath(folderpath, "ni_timeseries_nodal_cap.csv")
+            if isfile(nodal_ni_cap_csv_path)
+                input_data["NodalNICapdata"] = CSV.read(nodal_ni_cap_csv_path, DataFrame)
+                normalize_timeseries_time_columns!(input_data["NodalNICapdata"]; context="ni_timeseries_nodal_cap")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["NodalNICapdata"], "ni_timeseries_nodal_cap")
+                println("Reading optional ni_timeseries_nodal_cap.csv")
+            end
+            af_csv_path = joinpath(folderpath, "gen_availability_timeseries.csv")
+            if isfile(af_csv_path)
+                input_data["AFdata"] = CSV.read(af_csv_path, DataFrame)
+                normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
+                validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
+                println("Reading optional gen_availability_timeseries.csv")
+            end
+            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:,"NI"] : zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
                 input_data["DRtsdata"]=CSV.read(joinpath(folderpath,"dr_timeseries_regional.csv"),DataFrame)
                 normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="dr_timeseries_regional")
@@ -440,6 +523,10 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=CSV.read(joinpath(folderpath, "single_parameter.csv"),DataFrame)
+            rep_weight_csv = joinpath(folderpath, "rep_period_weights.csv")
+            if isfile(rep_weight_csv)
+                input_data["RepWeightData"] = CSV.read(rep_weight_csv, DataFrame)
+            end
 
             println("CSV Files Successfully Load From $folderpath")
         end   

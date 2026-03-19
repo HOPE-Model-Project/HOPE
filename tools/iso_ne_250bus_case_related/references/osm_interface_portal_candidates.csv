@@ -1,0 +1,116 @@
+Interface,OSMType,OSMId,Name,SubstationType,VoltageTag,VoltageKV,Circuits,Operator,Ref,Latitude,Longitude,AnchorWeight
+HQHIGATE,way,1046944585,,transition,115000,115.0,1,Vermont Electric Power Company,,44.696751,-73.351003,1.0
+HQHIGATE,way,1049377932,,transition,115000,115.0,1,Vermont Electric Power Company,,44.637271,-73.273651,1.0
+HQHIGATE,way,1052054054,,transition,115000,115.0,1,New York Power Authority,,44.702052,-73.384821,1.0
+HQHIGATE,way,1450106311,,generation,,,1,Green Lantern Solar,,44.78265,-73.061728,1.0
+HQ_P1_P2,way,101817259,Amherst Substation,transmission,345000;34500,345.0,1,Eversource,,42.808992,-71.592883,3.0
+HQ_P1_P2,way,81529768,Deerfield Substation,transmission,345000;115000,345.0,1,Eversource,,43.141896,-71.184799,3.0
+HQ_P1_P2,way,733447470,Eagle Substation,transmission,345000;115000,345.0,1,Eversource,,42.831175,-71.483534,3.0
+HQ_P1_P2,way,81604584,Golden Hills Substation,transmission,345000,345.0,1,National Grid,,42.47167,-71.04542,3.0
+HQ_P1_P2,way,383037049,Hyde Park Substation,transmission,345000;115000;13800,345.0,1,Eversource,496,42.27371,-71.120633,3.0
+HQ_P1_P2,way,29620770,Kingston Street Substation,transmission,345000;115000,345.0,1,Eversource,,42.352908,-71.059869,3.0
+HQ_P1_P2,way,50304489,Lawrence Road Substation,transmission,345000,345.0,1,Eversource,,42.79066,-71.377808,3.0
+HQ_P1_P2,way,50304490,Lawrence Road Substation,transmission,345000,345.0,1,Eversource,,42.791442,-71.376963,3.0
+HQ_P1_P2,way,81995133,Lexington Substation,transmission,345000;115000,345.0,1,Eversource,320,42.444927,-71.266246,3.0
+HQ_P1_P2,way,43315304,North Cambridge Substation,transmission,345000,345.0,1,Eversource,509,42.39167,-71.142751,3.0
+HQ_P1_P2,way,39197836,Scobie Pond 345kV Substation,transmission,345000;115000,345.0,1,Eversource,,42.904242,-71.342552,3.0
+HQ_P1_P2,way,81823632,Seabrook Transition Station,transition,345000,345.0,1,NextEra Energy,,42.900733,-70.853929,3.0
+HQ_P1_P2,way,81700477,Tewksbury Substation No. 22A,transmission,345000,345.0,1,National Grid,22A,42.622978,-71.242665,3.0
+HQ_P1_P2,way,368310186,Timber Swamp Substation,transmission,345000;34500,345.0,1,Eversource,,42.949941,-70.868523,3.0
+HQ_P1_P2,way,134796664,Wachusett Substation,transmission,345000;115000;69000,345.0,1,National Grid,47,42.360136,-71.775768,3.0
+HQ_P1_P2,way,81606442,Wakefield Junction Substation,transmission,345000;115000,345.0,1,National Grid,,42.505446,-71.041692,3.0
+HQ_P1_P2,way,134982891,Ward Hill Substation,transmission,345000;115000,345.0,1,National Grid,,42.744401,-71.113678,3.0
+HQ_P1_P2,way,162312930,West Amesbury Substation,transmission,345000;115000,345.0,1,National Grid,,42.832957,-70.972325,3.0
+HQ_P1_P2,way,81721779,Woburn Substation,transmission,345000;115000,345.0,1,Eversource,211,42.462397,-71.153929,3.0
+HQ_P1_P2,way,1119997547,Dunbarton Tap Substation,transmission,230000,230.0,1,National Grid,,43.064329,-71.579856,2.0
+HQ_P1_P2,way,136560648,Framingham Substation,transmission,230000;115000,230.0,1,Eversource,240,42.268488,-71.398557,2.0
+HQ_P1_P2,way,50422775,Granite Ridge Substation,transmission,230000;115000,230.0,1,National Grid,,42.904626,-71.423966,2.0
+HQ_P1_P2,way,687002222,Merrimack Substation,transmission,230000;115000,230.0,1,Eversource,,43.1405,-71.470182,2.0
+HQ_P1_P2,way,50321454,North Litchfield Substation,transmission,230000,230.0,1,National Grid,,42.873882,-71.4392,2.0
+HQ_P1_P2,way,134796643,Pratts Junction Substation,transmission,230000;115000;69000,230.0,1,National Grid,225,42.471374,-71.738162,2.0
+HQ_P1_P2,way,82104553,Sudbury Substation,transmission,230000;115000,230.0,1,Eversource,342,42.360023,-71.397268,2.0
+HQ_P1_P2,way,81700488,Tewksbury Substation No. 22,transmission,230000;115000;13800,230.0,1,National Grid,22,42.624114,-71.246109,2.0
+HQ_P1_P2,way,82009166,Waltham Substation,transmission,230000;115000,230.0,1,Eversource,282,42.377793,-71.263288,2.0
+HQ_P1_P2,way,81670766,Canal Street Transiton Station,transition,115000,115.0,1,National Grid,,42.514993,-70.895781,1.0
+HQ_P1_P2,way,46973545,Edgar Substation,transmission,115000,115.0,1,Eversource,,42.240468,-70.964889,1.0
+HQ_P1_P2,way,1165519263,L'Energia Substation,generation,115000,115.0,1,National Grid,,42.631174,-71.311943,1.0
+HQ_P1_P2,way,184849496,Needham Transition Station,transition,115000,115.0,1,Eversource,,42.255664,-71.232138,1.0
+HQ_P1_P2,way,1476700206,North River Terminal,transmission,115000,115.0,1,National Grid,30,42.534872,-70.89018,1.0
+HQ_P1_P2,way,1467118070,Stafford St Transmission Substation,transmission,115000,115.0,1,National Grid,,42.227986,-71.868679,1.0
+HQ_P1_P2,way,382290105,Swift's Beach Tap,transition,115000,115.0,1,Town of Braintree Light Department,,42.228717,-70.962626,1.0
+HQ_P1_P2,way,1476683346,Waite Street Substation,transmission,115000,115.0,1,National Grid,594,42.533468,-70.887283,1.0
+HQ_P1_P2,way,214276153,,transmission,,,1,BOSTON EDISON COMPANY,,42.433844,-71.19066,1.0
+HQ_P1_P2,way,1264682894,,generation,,,1,Kearsarge Energy,,43.01666,-71.49073,1.0
+HQ_P1_P2,way,1415438977,,generation,,,1,,,42.993688,-71.494981,1.0
+NORTHPORT,way,140834334,Archers Lane Transition Station,transition,345000,345.0,1,Eversource,,41.299385,-73.413437,3.0
+NORTHPORT,way,140838595,East Devon Substation,transmission,345000;115000,345.0,1,Eversource,,41.227526,-73.098358,3.0
+NORTHPORT,way,140172255,East Shore Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.287859,-72.904472,3.0
+NORTHPORT,way,140834333,Hoyts Hill Transition Station,transition,345000,345.0,1,Eversource,,41.366833,-73.390016,3.0
+NORTHPORT,way,141135047,Norwalk Junction Transition Station,transition,345000;115000,345.0,1,Eversource,21M,41.176724,-73.417065,3.0
+NORTHPORT,way,141135046,Norwalk Substation,transmission,345000;115000,345.0,1,Eversource,9S,41.127844,-73.42865,3.0
+NORTHPORT,way,140295802,Plumtree Substation,transmission,345000;115000,345.0,1,Eversource,,41.391587,-73.40198,3.0
+NORTHPORT,way,759333854,Singer Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.167763,-73.18556,3.0
+NORTHPORT,way,327414428,Bridgeport Energy Substation,generation,115000,115.0,1,United Illuminating Company,,41.16994,-73.18536,1.0
+NORTHPORT,way,140829159,Devon Substation,generation,115000,115.0,1,Eversource,7R,41.209095,-73.107135,1.0
+NORTHPORT,way,141130122,Indian Well Substation,transmission,115000,115.0,1,United Illuminating Company,47P,41.325492,-73.100019,1.0
+NORTHPORT,way,60816523,Katonah Substation,transmission,115000;46000,115.0,1,NYSEG,,41.276624,-73.687052,1.0
+NORTHPORT,way,141135041,Norwalk Harbor Transition Station,transition,115000,115.0,1,Eversource,6J,41.080703,-73.428812,1.0
+NORTHPORT,way,140990925,Pequonnock Transition Station,transition,115000,115.0,1,United Illuminating Company,,41.186117,-73.170608,1.0
+NORTHPORT,way,1150255720,Wheelabrator Bridgeport Substation,generation,115000,115.0,1,Wheelabrator Technologies,,41.163068,-73.208427,1.0
+ROSETON,way,139249550,Agawam Substation,transmission,345000;115000,345.0,1,Eversource,,42.090595,-72.634754,3.0
+ROSETON,way,139630804,Alps Substation,transmission,345000,345.0,1,National Grid,,42.596212,-73.497121,3.0
+ROSETON,way,139903894,Athens Substation,transmission,345000,345.0,1,,,42.270925,-73.850085,3.0
+ROSETON,way,135566530,Berkshire Substation,transmission,345000;115000,345.0,1,Eversource,,42.46847,-73.093466,3.0
+ROSETON,way,323014599,Besicorp Empire Substation,transmission,345000,345.0,1,National Grid,,42.6241,-73.748687,3.0
+ROSETON,way,1221667976,Knickerbocker Substation,transmission,345000,345.0,1,,,42.494353,-73.737689,3.0
+ROSETON,way,139903895,Leeds Substation,transmission,345000,345.0,1,Consolidated Edison,,42.264599,-73.846711,3.0
+ROSETON,way,139232239,Manchester Substation,transmission,345000;115000,345.0,1,Eversource,,41.77063,-72.557503,3.0
+ROSETON,way,140111530,New Scotland Substation,transmission,345000;115000,345.0,1,National Grid,,42.609213,-73.904361,3.0
+ROSETON,way,112265824,North Bloomfield Substation,transmission,345000;115000,345.0,1,Eversource,,41.890714,-72.758586,3.0
+ROSETON,way,86251100,Pleasant Valley Substation,transmission,345000,345.0,1,Consolidated Edison,,41.739729,-73.834145,3.0
+ROSETON,way,81411053,Reynolds Substation,transmission,345000;115000,345.0,1,National Grid,,42.672772,-73.687906,3.0
+ROSETON,way,139277466,Bear Swamp Substation,transmission,230000;115000;13800,230.0,1,National Grid,1019,42.683833,-72.949714,2.0
+ROSETON,way,387265182,Eastover Road Station,transmission,230000;115000,230.0,1,National Grid,2931,42.800165,-73.629139,2.0
+ROSETON,way,143582454,,transition,115000,115.0,1,,,42.691514,-73.804463,1.0
+ROSETON,way,248610189,,transition,115000,115.0,1,Eversource,,42.487558,-73.218761,1.0
+ROSETON,way,322386583,,transmission,115000,115.0,1,,,42.573837,-73.859835,1.0
+ROSETON,way,323014598,,generation,115000,115.0,1,,,42.624579,-73.750258,1.0
+ROSETON,way,358724049,,transition,115000,115.0,1,,,42.627212,-73.765354,1.0
+ROSETON,way,382666388,,transition,115000,115.0,1,,,42.185242,-73.653856,1.0
+ROSETON,way,382666391,,transition,115000,115.0,1,,,42.182847,-73.653206,1.0
+ROSETON,way,847817916,,transition,115000,115.0,1,,,42.693544,-73.80135,1.0
+ROSETON,way,1020789743,,transition,115000,115.0,1,,,41.709907,-73.940012,1.0
+ROSETON,way,1446410607,,generation,115000,115.0,1,,,42.930113,-73.713237,1.0
+ROSETON,way,321933884,Albany Steam Substation,generation,115000,115.0,1,,,42.594911,-73.762431,1.0
+ROSETON,way,310702004,Churchtown Substation,transmission,115000,115.0,1,NYSEG,,42.193126,-73.742675,1.0
+ROSETON,way,139635979,Doreen Substation,transmission,115000;23000,115.0,1,Eversource,1816,42.442793,-73.205399,1.0
+ROSETON,way,243833492,Fairmont Switching Station,transmission,115000,115.0,1,Eversource,,42.198825,-72.58951,1.0
+ROSETON,way,140649634,Fiera Bush Station,generation,115000,115.0,1,National Grid,,42.575209,-73.861614,1.0
+ROSETON,way,139286064,Hoosick Substation,transmission,115000,115.0,1,National Grid,,42.912156,-73.35748,1.0
+ROSETON,way,138286433,Mulberry Substation,transmission,115000;34500,115.0,1,NYSEG,,42.923983,-73.683127,1.0
+ROSETON,way,707254997,Pittsfield Generating LP Substation,generation,115000,115.0,1,"Pittsfield Generating Company, LP",,42.455915,-73.218315,1.0
+ROSETON,way,1470163506,Deerfield No. 2 Substation,generation,69000,69.0,1,National Grid,,42.57324,-72.707217,1.0
+ROSETON,way,1470163505,Deerfield No. 3 Substation,generation,69000,69.0,1,National Grid,,42.599491,-72.733379,1.0
+ROSETON,way,1470431027,Cheshire Harbor Substation,generation,13800,13.8,1,National Grid,,42.591356,-73.14145,1.0
+ROSETON,way,140350758,,transmission,,,1,,,42.876815,-73.677587,1.0
+SALBRYNB,way,142380352,Chester Static VAR Compensator,transmission,345000,345.0,1,Versant Power,,45.397625,-68.525761,3.0
+SALBRYNB,way,142377593,Keene Road 345kV Substation,transmission,345000,345.0,1,Versant Power,,45.397605,-68.529155,3.0
+SALBRYNB,way,74321535,Keswick 230kV Substation,transmission,345000;230000,345.0,1,NB Power,,46.057057,-66.847246,3.0
+SALBRYNB,way,74321375,Keswick 345kV Substation,transmission,345000,345.0,1,NB Power,,46.056614,-66.849973,3.0
+SALBRYNB,way,581345032,Saint Andre Substation,transmission,345000;138000,345.0,1,NB Power,,47.165115,-67.730397,3.0
+SALBRYNB,way,409755306,,transmission,138000;69000,138.0,1,NB Power,,47.370454,-68.278379,1.2
+SALBRYNB,way,680594206,Beechwood Generating Station,transmission,138000;69000,138.0,1,,,46.543026,-67.666521,1.2
+SALBRYNB,way,766121308,,transmission,69000,69.0,1,,,46.52995,-67.88434,1.0
+SHOREHAM,way,139886600,Beseck Substation,transmission,345000,345.0,1,Eversource,,41.489263,-72.75492,3.0
+SHOREHAM,way,140838595,East Devon Substation,transmission,345000;115000,345.0,1,Eversource,,41.227526,-73.098358,3.0
+SHOREHAM,way,140172255,East Shore Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.287859,-72.904472,3.0
+SHOREHAM,way,49810081,Haddam Neck Substation 14B,transmission,345000,345.0,1,Eversource,,41.488133,-72.492818,3.0
+SHOREHAM,way,49810097,Scovill Rock Substation,transmission,345000,345.0,1,Eversource,22P,41.510452,-72.569845,3.0
+SHOREHAM,way,759333854,Singer Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.167763,-73.18556,3.0
+SHOREHAM,way,327414428,Bridgeport Energy Substation,generation,115000,115.0,1,United Illuminating Company,,41.16994,-73.18536,1.0
+SHOREHAM,way,140829159,Devon Substation,generation,115000,115.0,1,Eversource,7R,41.209095,-73.107135,1.0
+SHOREHAM,way,140383643,Haddam Substation,transmission,115000,115.0,1,Eversource,11C,41.460933,-72.47716,1.0
+SHOREHAM,way,141130122,Indian Well Substation,transmission,115000,115.0,1,United Illuminating Company,47P,41.325492,-73.100019,1.0
+SHOREHAM,way,140990925,Pequonnock Transition Station,transition,115000,115.0,1,United Illuminating Company,,41.186117,-73.170608,1.0
+SHOREHAM,way,1148963697,Waterbury Substation,generation,115000,115.0,1,Eversource,,41.544177,-73.041447,1.0
+SHOREHAM,way,1150255720,Wheelabrator Bridgeport Substation,generation,115000,115.0,1,Wheelabrator Technologies,,41.163068,-73.208427,1.0

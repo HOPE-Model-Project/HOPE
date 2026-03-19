@@ -64,5 +64,6 @@ export VALID_MODEL_MODES, HOURS_PER_YEAR, REQUIRED_FILES
 export get_project_root, get_case_paths, get_paths
 export validate_case_directory, validate_model_mode, safe_file_read, safe_remove_directory
 export ensure_output_directory, apply_technology_mapping, aggregate_capacity_data
+export marginal_load_price_from_dual
 
 end

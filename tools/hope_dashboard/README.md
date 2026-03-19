@@ -48,3 +48,4 @@ Open:
 - This V1 uses a clean schematic network layout from `busdata.csv` and `Summary_Congestion_Line_Hourly.csv`.
 - Transmission-loss analytics are folded into the map, KPI strip, ranking hover, and bus decomposition view rather than a dedicated loss panel.
 - OpenStreetMap is not used in V1 because RTS24 bus inputs do not contain geospatial lat/lon coordinates.
+- If a case has multiple output folders, the dashboard will use `dashboard_output.txt` or `dashboard_output_path.txt` in the case root when present; otherwise it falls back to `output/`, then to the newest valid `output*` folder.

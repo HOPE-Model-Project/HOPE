@@ -1,0 +1,97 @@
+{
+  "localized_ni_share": 0.7,
+  "demand_power": 0.5,
+  "distance_power": 0.75,
+  "distance_floor_miles": 5.0,
+  "overwrite_regional_ni": false,
+  "interface_cluster_specs": {
+    "SALBRYNB": {
+      "anchor_buses": [
+        "182",
+        "190",
+        "58"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 45.197605,
+      "lat_max": 47.570454,
+      "lon_min": -68.729155,
+      "lon_max": -66.647246
+    },
+    "ROSETON": {
+      "anchor_buses": [
+        "98",
+        "146",
+        "249"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 41.509907,
+      "lat_max": 43.130113,
+      "lon_min": -74.140012,
+      "lon_max": -72.357503
+    },
+    "HQ_P1_P2": {
+      "anchor_buses": [
+        "120",
+        "123",
+        "116"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 42.027986,
+      "lat_max": 43.341896,
+      "lon_min": -72.068679,
+      "lon_max": -70.653929
+    },
+    "HQHIGATE": {
+      "anchor_buses": [
+        "3",
+        "18",
+        "181"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 44.437271,
+      "lat_max": 44.98265,
+      "lon_min": -73.584821,
+      "lon_max": -72.861728
+    },
+    "SHOREHAM": {
+      "anchor_buses": [
+        "118",
+        "224",
+        "33"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 40.963068,
+      "lat_max": 41.744177,
+      "lon_min": -73.408427,
+      "lon_max": -72.27716
+    },
+    "NORTHPORT": {
+      "anchor_buses": [
+        "107",
+        "103",
+        "227"
+      ],
+      "states": [],
+      "loadzones": [],
+      "max_buses": null,
+      "lat_min": 40.880703,
+      "lat_max": 41.591587,
+      "lon_min": -73.887052,
+      "lon_max": -72.704472
+    }
+  },
+  "target_system_ni_source": "regional_load.NI",
+  "max_official_gap_mw": 0.0,
+  "max_target_gap_mw": 1.8189894035458565e-12,
+  "max_nodal_gap_mw": 1.000444171950221e-11
+}

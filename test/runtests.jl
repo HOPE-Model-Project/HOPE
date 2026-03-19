@@ -2,5 +2,6 @@ using HOPE
 using Test
 
 @testset "HOPE.jl" begin
-    # Write your tests here.
+    include("test-basic-test.jl")
+    include("test-lmp-sign-regression.jl")
 end

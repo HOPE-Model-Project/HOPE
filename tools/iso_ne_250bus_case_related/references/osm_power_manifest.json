@@ -1,0 +1,20 @@
+{
+  "source": "OpenStreetMap via Overpass API",
+  "url": "https://overpass-api.de/api/interpreter",
+  "bbox": [
+    40.85,
+    -74.95,
+    47.65,
+    -66.55
+  ],
+  "substations": 369,
+  "corridor_points": 44427,
+  "interface_candidates": 115,
+  "files": {
+    "raw_json": "E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\tools\\iso_ne_250bus_case_related\\raw_sources\\osm_power_new_england.json",
+    "substations_csv": "E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\tools\\iso_ne_250bus_case_related\\references\\osm_substations.csv",
+    "corridor_points_csv": "E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\tools\\iso_ne_250bus_case_related\\references\\osm_corridor_points.csv",
+    "interface_candidates_csv": "E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\tools\\iso_ne_250bus_case_related\\references\\osm_interface_portal_candidates.csv",
+    "interface_summary_csv": "E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\tools\\iso_ne_250bus_case_related\\references\\osm_interface_portal_summary.csv"
+  }
+}

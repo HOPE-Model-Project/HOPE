@@ -1,0 +1,370 @@
+OSMType,OSMId,Name,SubstationType,VoltageTag,VoltageKV,Circuits,Operator,Ref,Latitude,Longitude,AnchorWeight
+way,24364552,Poste La Prairie,transmission,315000;120000,315.0,1,Hydro-Québec,,45.436457,-73.424537,2.73913
+way,27736159,Poste des Laurentides,transmission,735000;315000;230000,735.0,1,Hydro-Québec,,46.858626,-71.314778,6.391304
+way,29620770,Kingston Street Substation,transmission,345000;115000,345.0,1,Eversource,,42.352908,-71.059869,3.0
+way,33144100,Poste Hertel,transmission,735000;315000,735.0,1,Hydro-Québec,,45.40932,-73.430205,6.391304
+way,33284151,Poste Viger,transmission,315000;120000,315.0,1,Hydro-Québec,,45.488105,-73.544142,2.73913
+way,33869203,Poste Atwater,transmission,315000;120000;25000,315.0,1,Hydro-Québec,,45.473652,-73.571123,2.73913
+way,33973590,Poste Baie-d'Urfé,transmission,120000;69000;25000;12000,120.0,1,Hydro-Québec,,45.419417,-73.920948,1.043478
+way,34040833,Poste de l'Aqueduc,transmission,315000;120000,315.0,1,Hydro-Québec,,45.428616,-73.616006,2.73913
+way,34252628,Poste de Boucherville,transmission,735000;315000;230000,735.0,1,Hydro-Québec,,45.600407,-73.366405,6.391304
+way,34317219,Poste Notre-Dame,transmission,315000,315.0,1,Hydro-Québec,,45.582433,-73.513337,2.73913
+way,39197836,Scobie Pond 345kV Substation,transmission,345000;115000,345.0,1,Eversource,,42.904242,-71.342552,3.0
+way,43050362,Millstone Substation,transmission,345000,345.0,1,Eversource,,41.314866,-72.16533,3.0
+way,43315304,North Cambridge Substation,transmission,345000,345.0,1,Eversource,509,42.39167,-71.142751,3.0
+way,46973544,Holbrook Substation,transmission,345000;115000,345.0,1,,,42.167159,-70.998529,3.0
+way,46973545,Edgar Substation,transmission,115000,115.0,1,Eversource,,42.240468,-70.964889,1.0
+way,49810081,Haddam Neck Substation 14B,transmission,345000,345.0,1,Eversource,,41.488133,-72.492818,3.0
+way,49810097,Scovill Rock Substation,transmission,345000,345.0,1,Eversource,22P,41.510452,-72.569845,3.0
+way,50304489,Lawrence Road Substation,transmission,345000,345.0,1,Eversource,,42.79066,-71.377808,3.0
+way,50304490,Lawrence Road Substation,transmission,345000,345.0,1,Eversource,,42.791442,-71.376963,3.0
+way,50321454,North Litchfield Substation,transmission,230000,230.0,1,National Grid,,42.873882,-71.4392,2.0
+way,50422775,Granite Ridge Substation,transmission,230000;115000,230.0,1,National Grid,,42.904626,-71.423966,2.0
+way,60816523,Katonah Substation,transmission,115000;46000,115.0,1,NYSEG,,41.276624,-73.687052,1.0
+way,61243114,Elwood Substation,transmission,138000;69000,138.0,1,LILCO,6RL,40.87715,-73.339628,1.2
+way,67140690,Poste de Sherbrooke,transmission,220000;120000,220.0,1,Hydro-Québec,,45.412083,-72.002333,1.913043
+way,73571276,Millwood Substation,transmission,345000;138000,345.0,1,,,41.192762,-73.800337,3.0
+way,73578036,Sprainbrook Substation,transmission,345000;138000,345.0,1,Consolidated Edison,,40.957536,-73.856365,3.0
+way,73667439,Dunwoodie Substation,transmission,345000;138000,345.0,1,Consolidated Edison,,40.939537,-73.857954,3.0
+way,74321375,Keswick 345kV Substation,transmission,345000,345.0,1,NB Power,,46.056614,-66.849973,3.0
+way,74321535,Keswick 230kV Substation,transmission,345000;230000,345.0,1,NB Power,,46.057057,-66.847246,3.0
+way,79211815,Rock Tavern Substation (115kV),transmission,115000;69000,115.0,1,Central Hudson Gas & Electric,,41.467498,-74.194558,1.0
+way,79293030,Moses Switching Station,transmission,230000;115000,230.0,1,New York Power Authority,,45.00376,-74.805349,2.0
+way,79716400,Auburn Street Substation,transmission,345000;115000,345.0,1,National Grid,,42.078174,-70.974279,3.0
+way,81128961,Dennison Station,transmission,115000,115.0,1,National Grid,960,44.954797,-74.862187,1.0
+way,81411053,Reynolds Substation,transmission,345000;115000,345.0,1,National Grid,,42.672772,-73.687906,3.0
+way,81529768,Deerfield Substation,transmission,345000;115000,345.0,1,Eversource,,43.141896,-71.184799,3.0
+way,81604584,Golden Hills Substation,transmission,345000,345.0,1,National Grid,,42.47167,-71.04542,3.0
+way,81606442,Wakefield Junction Substation,transmission,345000;115000,345.0,1,National Grid,,42.505446,-71.041692,3.0
+way,81670766,Canal Street Transiton Station,transition,115000,115.0,1,National Grid,,42.514993,-70.895781,1.0
+way,81700477,Tewksbury Substation No. 22A,transmission,345000,345.0,1,National Grid,22A,42.622978,-71.242665,3.0
+way,81700488,Tewksbury Substation No. 22,transmission,230000;115000;13800,230.0,1,National Grid,22,42.624114,-71.246109,2.0
+way,81721779,Woburn Substation,transmission,345000;115000,345.0,1,Eversource,211,42.462397,-71.153929,3.0
+way,81823632,Seabrook Transition Station,transition,345000,345.0,1,NextEra Energy,,42.900733,-70.853929,3.0
+way,81995133,Lexington Substation,transmission,345000;115000,345.0,1,Eversource,320,42.444927,-71.266246,3.0
+way,82004992,Surowiec Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,43.93156,-70.203247,3.0
+way,82009166,Waltham Substation,transmission,230000;115000,230.0,1,Eversource,282,42.377793,-71.263288,2.0
+way,82104553,Sudbury Substation,transmission,230000;115000,230.0,1,Eversource,342,42.360023,-71.397268,2.0
+way,83405517,Shoreham Power Station,transmission,138000,138.0,1,Long Island Power Authority,8Z,40.958301,-72.866577,1.2
+way,83418654,Wading River Gas Turbines,transmission,138000,138.0,1,,8R,40.956068,-72.87742,1.2
+way,83527142,Greenlawn Substation,transmission,138000;69000,138.0,1,,6UL,40.859608,-73.387338,1.2
+way,84790909,Newington 345kV Substation,transmission,345000,345.0,1,Eversource,,43.098159,-70.792619,3.0
+way,86220645,North Chelsea Substation,transmission,115000;69000,115.0,1,NYSEG,,41.56438,-73.937909,1.0
+way,86220649,,transition,345000,345.0,1,,,41.563503,-73.954673,3.0
+way,86220650,East Fishkill Substation,transmission,345000;115000,345.0,1,NYSEG,,41.568013,-73.835098,3.0
+way,86249380,Wood Street Substation,transmission,345000;115000,345.0,1,NYSEG,,41.352984,-73.793725,3.0
+way,86251100,Pleasant Valley Substation,transmission,345000,345.0,1,Consolidated Edison,,41.739729,-73.834145,3.0
+way,86300404,Buchanan Substation,transmission,345000;138000,345.0,1,Consolidated Edison,,41.264306,-73.946975,3.0
+way,92530268,St. Isidore Transformer Station,transmission,230000,230.0,1,,,45.375495,-74.849788,2.0
+way,92544660,Poste Langlois,transmission,315000;120000,315.0,1,Hydro-Québec,,45.287193,-74.014217,2.73913
+way,92549780,Poste des Cèdres,transmission,120000,120.0,1,Hydro-Québec,,45.311891,-74.027507,1.043478
+way,92676944,Poste Chénier,transmission,735000,735.0,1,Hydro-Québec,,45.587575,-74.059886,6.391304
+way,92692708,Poste de Lafontaine,transmission,315000,315.0,1,Hydro-Québec,,45.711444,-74.057484,2.73913
+way,95201299,Athenia Switching Station,transmission,230000;138000;13800,230.0,1,Public Service Enterprise Group,ATH,40.861197,-74.158992,2.0
+way,95825721,Ramapo Substation,transmission,500000,500.0,1,Con Edison,RAM,41.149942,-74.154934,4.347826
+way,95930521,Waldwick Substation,transmission,345000;230000,345.0,1,PSE&G,,41.016895,-74.12572,3.0
+way,96456442,Poste de Lévis,transmission,735000;315000;230000,735.0,1,Hydro-Québec,,46.708023,-71.19072,6.391304
+way,99324160,Poste de Kingsey,transmission,230000;120000,230.0,1,Hydro-Québec,,45.841261,-72.004764,2.0
+way,99327233,Poste de la Chute-Hemmings,generation,120000,120.0,1,Hydro-Québec,,45.863956,-72.451124,1.043478
+way,99787196,Poste Nicolet,transmission,735000;230000,735.0,1,Hydro-Québec,,46.080502,-72.254484,6.391304
+way,99968103,Poste de Beauceville,transmission,230000;120000,230.0,1,Hydro-Québec,,46.224532,-70.795562,2.0
+way,100242013,Poste de la Mauricie,transmission,315000;230000,315.0,1,Hydro-Québec,,46.476949,-72.641547,2.73913
+way,100314850,Poste Gentilly 2,transmission,230000,230.0,1,Hydro-Québec,,46.39372,-72.354926,2.0
+way,100315622,Poste de Bécancour,transmission,230000;120000,230.0,1,Hydro-Québec,,46.363656,-72.37423,2.0
+way,101817259,Amherst Substation,transmission,345000;34500,345.0,1,Eversource,,42.808992,-71.592883,3.0
+way,101872214,Poste Saint-Narcisse,transmission,69000,69.0,1,Hydro-Québec,,46.548319,-72.412333,1.0
+way,101946689,Poste Leneuf,transmission,315000;69000,315.0,1,Hydro-Québec,,46.722892,-71.791797,2.73913
+way,104084354,Poste de Québec,transmission,315000;230000,315.0,1,Hydro-Québec,,46.831011,-71.264229,2.73913
+way,104320770,Poste de Montmagny,transmission,230000;120000;69000,230.0,1,Hydro-Québec,,46.963269,-70.526399,2.0
+way,104431364,Poste de la Jacques-Cartier,transmission,735000;315000,735.0,1,Hydro-Québec,,46.793583,-71.724853,6.391304
+way,110303217,Poste de Duvernay,transmission,735000;315000;120000,735.0,1,Hydro-Québec,,45.663373,-73.670007,6.391304
+way,112265824,North Bloomfield Substation,transmission,345000;115000,345.0,1,Eversource,,41.890714,-72.758586,3.0
+way,114625761,Poste Sorel,transmission,230000;120000,230.0,1,Hydro-Québec,,46.03244,-73.137484,2.0
+way,124919871,Poste de Léry,transmission,315000;120000,315.0,1,Hydro-Québec,,45.285729,-73.895491,2.73913
+way,125704539,,generation,230000,230.0,1,Hydro-Québec,,45.312799,-73.917278,2.0
+way,128556148,,generation,,,1,,,43.248555,-73.819652,1.0
+way,129284212,Poste de Châteauguay,transmission,735000;315000,735.0,1,Hydro-Québec,,45.253923,-73.870505,6.391304
+way,134606011,,transmission,34500,34.5,1,,,43.852949,-70.795141,1.0
+way,134796643,Pratts Junction Substation,transmission,230000;115000;69000,230.0,1,National Grid,225,42.471374,-71.738162,2.0
+way,134796664,Wachusett Substation,transmission,345000;115000;69000,345.0,1,National Grid,47,42.360136,-71.775768,3.0
+way,134832527,Millbury Substation No. 3,transmission,345000,345.0,1,National Grid,3,42.188107,-71.737741,3.0
+way,134982891,Ward Hill Substation,transmission,345000;115000,345.0,1,National Grid,,42.744401,-71.113678,3.0
+way,135200088,Northfield Substation,transmission,345000;115000,345.0,1,Eversource,,42.611382,-72.468342,3.0
+way,135200113,Ludlow Substation,transmission,345000;115000,345.0,1,Eversource,,42.19481,-72.446651,3.0
+way,135566530,Berkshire Substation,transmission,345000;115000,345.0,1,Eversource,,42.46847,-73.093466,3.0
+way,135584387,Gilboa Substation,transmission,345000,345.0,1,Consolidated Edison,,42.440039,-74.447905,3.0
+way,136560648,Framingham Substation,transmission,230000;115000,230.0,1,Eversource,240,42.268488,-71.398557,2.0
+way,136924986,Stoughton Substation,transmission,345000,345.0,1,Eversource,,42.14157,-71.101065,3.0
+way,136962266,Medway Substation No. 65,transmission,,,1,Eversource,65,42.1365,-71.447519,1.0
+way,136962270,West Walpole Substation,transmission,345000;115000,345.0,1,Eversource,,42.131694,-71.268179,3.0
+way,136997706,Medway Substation No. 446,transmission,345000;230000,345.0,1,Eversource,446,42.139139,-71.448077,3.0
+way,137725010,Luther Forest Station,transmission,115000,115.0,1,National Grid,,42.963674,-73.748056,1.0
+way,137840368,Bridgewater Substation,transmission,345000;115000,345.0,1,National Grid,,41.972012,-71.017333,3.0
+way,138286433,Mulberry Substation,transmission,115000;34500,115.0,1,NYSEG,,42.923983,-73.683127,1.0
+way,138895633,Granite Substation,transmission,230000;115000,230.0,1,Vermont Electric Power Company,,44.118812,-72.498923,2.0
+way,138912070,Vernon VT Substation,transmission,345000;115000,345.0,1,Vermont Electric Power Company,,42.782869,-72.518595,3.0
+way,138917420,West Rutland Substation,transmission,345000;115000,345.0,1,Vermont Electric Power Company,,43.633701,-73.057801,3.0
+way,138927367,Newfane Substation,transmission,345000;46000,345.0,1,Vermont Electric Power Company,,42.968042,-72.652359,3.0
+way,139232219,Barbour Hill Substation,transmission,345000;115000,345.0,1,Eversource,,41.854379,-72.528541,3.0
+way,139232239,Manchester Substation,transmission,345000;115000,345.0,1,Eversource,,41.77063,-72.557503,3.0
+way,139249550,Agawam Substation,transmission,345000;115000,345.0,1,Eversource,,42.090595,-72.634754,3.0
+way,139277466,Bear Swamp Substation,transmission,230000;115000;13800,230.0,1,National Grid,1019,42.683833,-72.949714,2.0
+way,139286064,Hoosick Substation,transmission,115000,115.0,1,National Grid,,42.912156,-73.35748,1.0
+way,139553666,Card Substation,transmission,345000;115000;69000,345.0,1,Eversource,11F,41.702067,-72.23385,3.0
+way,139587105,Rotterdam Substation,transmission,345000;230000;115000;69000,345.0,1,National Grid,,42.828971,-73.997548,3.0
+way,139630804,Alps Substation,transmission,345000,345.0,1,National Grid,,42.596212,-73.497121,3.0
+way,139635979,Doreen Substation,transmission,115000;23000,115.0,1,Eversource,1816,42.442793,-73.205399,1.0
+way,139730003,Kleen Substation,transmission,345000,345.0,1,Eversource,,41.554203,-72.596774,3.0
+way,139744675,Killingly Substation,transmission,345000;115000,345.0,1,Eversource,,41.881719,-71.891156,3.0
+way,139830164,Carpenter Hill Substation,transmission,345000;115000,345.0,1,National Grid,,42.128702,-71.997103,3.0
+way,139886600,Beseck Substation,transmission,345000,345.0,1,Eversource,,41.489263,-72.75492,3.0
+way,139886605,Southington Substation,transmission,345000;115000,345.0,1,Eversource,4C,41.588212,-72.866809,3.0
+way,139890741,Frost Bridge Substation,transmission,345000;115000,345.0,1,Eversource,8R,41.612322,-73.060511,3.0
+way,139896636,Long Mountain Substation,transmission,345000,345.0,1,Eversource,,41.620289,-73.44233,3.0
+way,139903894,Athens Substation,transmission,345000,345.0,1,,,42.270925,-73.850085,3.0
+way,139903895,Leeds Substation,transmission,345000,345.0,1,Consolidated Edison,,42.264599,-73.846711,3.0
+way,140012533,Sherman Road Substation,transmission,345000,345.0,1,Rhode Island Energy,,42.010419,-71.673767,3.0
+way,140046323,West Farnum #17 Substation,transmission,345000;115000,345.0,1,Rhode Island Energy,,41.969662,-71.538769,3.0
+way,140047680,Ocean State Substation,transmission,345000,345.0,1,LS Power Equity Partners LLC,,42.009431,-71.66966,3.0
+way,140052625,Kent County Substation,transmission,345000;115000,345.0,1,Rhode Island Energy,,41.683732,-71.479491,3.0
+way,140099249,Sockanosset Substation,transmission,115000;23000,115.0,1,Rhode Island Energy,24,41.754191,-71.440374,1.0
+way,140111530,New Scotland Substation,transmission,345000;115000,345.0,1,National Grid,,42.609213,-73.904361,3.0
+way,140155928,Montville Substation,transmission,345000;115000,345.0,1,Eversource,,41.428316,-72.103382,3.0
+way,140172255,East Shore Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.287859,-72.904472,3.0
+way,140251931,Hurley Avenue Substation,transmission,345000;115000;69000,345.0,1,,,41.936751,-74.047825,3.0
+way,140259930,Roseton Substation,transmission,345000,345.0,1,,,41.574818,-73.978631,3.0
+way,140295802,Plumtree Substation,transmission,345000;115000,345.0,1,Eversource,,41.391587,-73.40198,3.0
+way,140305494,,transition,115000,115.0,1,National Grid,,43.664202,-73.901323,1.0
+way,140305496,,transition,115000,115.0,1,National Grid,,43.664482,-73.897732,1.0
+way,140350758,,transmission,,,1,,,42.876815,-73.677587,1.0
+way,140383643,Haddam Substation,transmission,115000,115.0,1,Eversource,11C,41.460933,-72.47716,1.0
+way,140404129,Lake Road Substation,transmission,345000,345.0,1,Eversource,,41.874667,-71.895761,3.0
+way,140411092,Tunnel Substation,generation,115000;69000,115.0,1,Eversource,,41.554739,-72.042838,1.0
+way,140649634,Fiera Bush Station,generation,115000,115.0,1,National Grid,,42.575209,-73.861614,1.0
+way,140829159,Devon Substation,generation,115000,115.0,1,Eversource,7R,41.209095,-73.107135,1.0
+way,140834333,Hoyts Hill Transition Station,transition,345000,345.0,1,Eversource,,41.366833,-73.390016,3.0
+way,140834334,Archers Lane Transition Station,transition,345000,345.0,1,Eversource,,41.299385,-73.413437,3.0
+way,140838595,East Devon Substation,transmission,345000;115000,345.0,1,Eversource,,41.227526,-73.098358,3.0
+way,140990925,Pequonnock Transition Station,transition,115000,115.0,1,United Illuminating Company,,41.186117,-73.170608,1.0
+way,141040328,Admiral Street Cable Terminal,transition,115000,115.0,1,Rhode Island Energy,,41.842407,-71.421152,1.0
+way,141049525,Comstock Substation,transmission,115000;34500,115.0,1,NYSEG,,43.460731,-73.412021,1.0
+way,141078306,Fitzwilliam Substation,transmission,345000;115000,345.0,1,Eversource,,42.800527,-72.148719,3.0
+way,141078310,Vermont Yankee Substation,transmission,345000;115000,345.0,1,Vermont Electric Power Company,,42.780005,-72.515988,3.0
+way,141130122,Indian Well Substation,transmission,115000,115.0,1,United Illuminating Company,47P,41.325492,-73.100019,1.0
+way,141135041,Norwalk Harbor Transition Station,transition,115000,115.0,1,Eversource,6J,41.080703,-73.428812,1.0
+way,141135046,Norwalk Substation,transmission,345000;115000,345.0,1,Eversource,9S,41.127844,-73.42865,3.0
+way,141135047,Norwalk Junction Transition Station,transition,345000;115000,345.0,1,Eversource,21M,41.176724,-73.417065,3.0
+way,141373736,Orrington Substation,transmission,345000;115000,345.0,1,Versant Power,,44.740214,-68.754031,3.0
+way,141527652,,generation,,,1,,,41.59362,-71.429147,1.0
+way,142217252,,transition,115000,115.0,1,National Grid,,43.485768,-73.785688,1.0
+way,142217253,,transition,115000,115.0,1,National Grid,,43.487908,-73.787749,1.0
+way,142377593,Keene Road 345kV Substation,transmission,345000,345.0,1,Versant Power,,45.397605,-68.529155,3.0
+way,142380352,Chester Static VAR Compensator,transmission,345000,345.0,1,Versant Power,,45.397625,-68.525761,3.0
+way,142394413,Buxton Substation,transmission,345000,345.0,1,Central Maine Power Company,,43.663464,-70.553209,3.0
+way,142394414,South Gorham Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,43.644093,-70.431985,3.0
+way,142431633,Massena Substation,transmission,765000;345000,765.0,1,New YorK Power Authority,,44.921267,-74.835276,6.652174
+way,142717879,Mason Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,43.991099,-69.67158,3.0
+way,142752400,Maine Yankee 345kV Substation,transmission,345000,345.0,1,Central Maine Power Company,,43.953598,-69.695429,3.0
+way,142856223,,generation,115000,115.0,1,,,43.249391,-73.808951,1.0
+way,143582454,,transition,115000,115.0,1,,,42.691514,-73.804463,1.0
+way,143914257,Poste de la Chaudière,transmission,230000;120000;69000,230.0,1,Hydro-Québec,,46.699185,-71.29618,2.0
+way,144460903,Pilgrim Substation,generation,345000,345.0,1,Entergy,,41.943433,-70.579668,3.0
+way,144460919,Jordan Tap,transmission,345000,345.0,1,Eversource,,41.906808,-70.62939,3.0
+way,144460920,Snake Hill Road Tap,transmission,345000,345.0,1,Eversource,,41.882126,-70.656305,3.0
+way,144460925,Canal Substation,transmission,345000;115000,345.0,1,Eversource,980,41.769211,-70.510773,3.0
+way,144805940,Carver Substation,transmission,345000;115000,345.0,1,Eversource,,41.897942,-70.788291,3.0
+way,145014683,Berry Street Substation,transmission,345000;115000,345.0,1,National Grid,,42.020178,-71.3353,3.0
+way,148479231,Ryan Substation,transmission,230000,230.0,1,New York Power Authority,,44.89105,-73.985831,2.0
+way,162312930,West Amesbury Substation,transmission,345000;115000,345.0,1,National Grid,,42.832957,-70.972325,3.0
+way,162320148,,transition,115000,115.0,1,,,42.960654,-73.780387,1.0
+way,164187904,Graham Substation,transmission,115000,115.0,1,Versant Power,,44.824313,-68.705477,1.0
+way,165782020,"Poste Leclercville, HDVC",transition,450000,450.0,1,Hydro-Québec,,46.593622,-71.971974,3.913043
+way,165782022,"Poste Grondines, HDVC",transition,450000,450.0,1,Hydro-Québec,,46.62586,-72.014678,3.913043
+way,166474302,Poste de Saraguay,transmission,315000;12000,315.0,1,Hydro-Québec,,45.505722,-73.747997,2.73913
+way,167686244,Livermore Falls Substation,transmission,115000,115.0,1,Central Maine Power Company,,44.47817,-70.171467,1.0
+way,168012274,Graham 46kV Substation,transmission,46000,46.0,1,Bangor Hydro-Electric Company,,44.82245,-68.708609,1.0
+way,168115738,Poste de Chomedey,transmission,315000;120000,315.0,1,Hydro-Québec,,45.561309,-73.803788,2.73913
+way,168279627,,transmission,,,1,Bangor Hydro-Electric Company,,44.776273,-68.776984,1.0
+way,170763759,Ivaco TS,transmission,230000,230.0,1,Hydro One,,45.61296,-74.707376,2.0
+way,175648229,Coopers Corners Substation,transmission,345000;115000,345.0,1,NYSEG,,41.669589,-74.76131,3.0
+way,175766520,Duley Substation,transmission,230000,230.0,1,New York Power Authority,,44.831535,-73.63667,2.0
+way,175766529,Plattsburgh Substation,transmission,230000;115000,230.0,1,New York Power Authority,,44.759469,-73.493941,2.0
+way,175766583,Willis Substation,transmission,345000;230000,345.0,1,New York Power Authority,,44.889261,-74.118493,3.0
+way,175921874,South Mahwah,transmission,345000,345.0,1,Orange & Rockland,59,41.086578,-74.145991,3.0
+way,175926062,Ladentown Substation,transmission,345000,345.0,1,Orange & Rockland,56,41.183878,-74.076029,3.0
+way,176696219,,transmission,115000,115.0,1,,,41.575425,-74.077775,1.0
+way,176696227,,generation,115000,115.0,1,,,41.573428,-73.965277,1.0
+way,176696229,,transition,,,1,,,41.570043,-73.968396,1.0
+way,184564045,Poste La Vérendrye,transmission,735000,735.0,1,Hydro-Québec,,47.497547,-74.935716,6.391304
+way,184849496,Needham Transition Station,transition,115000,115.0,1,Eversource,,42.255664,-71.232138,1.0
+way,188140536,Middletown Tap 2,transmission,345000;138000,345.0,1,Orange & Rockland Utiities Inc,,41.422925,-74.403954,3.0
+way,197389032,,transmission,115000,115.0,1,,,42.277536,-74.93456,1.0
+way,201247095,Poste des Appalaches,transmission,735000;230000,735.0,1,Hydro-Québec,,46.134217,-71.396262,6.391304
+way,206130537,,transmission,230000,230.0,1,Hydro-Québec,,47.443003,-72.798031,2.0
+way,208002705,,transmission,138000,138.0,1,Orange & Rockland,,41.309078,-74.259759,1.2
+way,214276153,,transmission,,,1,BOSTON EDISON COMPANY,,42.433844,-71.19066,1.0
+way,232194254,Poste de Deschambault,transmission,315000,315.0,1,Hydro-Québec,,46.70201,-71.936489,2.73913
+way,238796878,Stony Brook Substation,transmission,345000;115000,345.0,1,Massachusetts Municipal Wholesale Electric Company,,42.198006,-72.508587,3.0
+way,243833492,Fairmont Switching Station,transmission,115000,115.0,1,Eversource,,42.198825,-72.58951,1.0
+way,248610189,,transition,115000,115.0,1,Eversource,,42.487558,-73.218761,1.0
+way,255501930,Fairfield Station,generation,115000,115.0,1,National Grid,,43.062556,-74.899392,1.0
+way,308579947,West Barnstable Substation,transmission,345000;115000,345.0,1,Eversource,,41.68592,-70.35024,3.0
+way,309504538,Fair Lawn Substation,transmission,230000;138000;69000;26000,230.0,1,PSE&G,,40.949305,-74.128785,2.0
+way,310702004,Churchtown Substation,transmission,115000,115.0,1,NYSEG,,42.193126,-73.742675,1.0
+way,321933884,Albany Steam Substation,generation,115000,115.0,1,,,42.594911,-73.762431,1.0
+way,322386583,,transmission,115000,115.0,1,,,42.573837,-73.859835,1.0
+way,322402551,Poste Montérégie,transmission,735000;120000,735.0,1,Hydro-Québec,,45.499039,-72.713417,6.391304
+way,323014598,,generation,115000,115.0,1,,,42.624579,-73.750258,1.0
+way,323014599,Besicorp Empire Substation,transmission,345000,345.0,1,National Grid,,42.6241,-73.748687,3.0
+way,327192655,Manchester Substation,transmission,115000,115.0,1,Central Hudson,,41.689106,-73.879873,1.0
+way,327414428,Bridgeport Energy Substation,generation,115000,115.0,1,United Illuminating Company,,41.16994,-73.18536,1.0
+way,358724049,,transition,115000,115.0,1,,,42.627212,-73.765354,1.0
+way,368310186,Timber Swamp Substation,transmission,345000;34500,345.0,1,Eversource,,42.949941,-70.868523,3.0
+way,382290105,Swift's Beach Tap,transition,115000,115.0,1,Town of Braintree Light Department,,42.228717,-70.962626,1.0
+way,382666388,,transition,115000,115.0,1,,,42.185242,-73.653856,1.0
+way,382666391,,transition,115000,115.0,1,,,42.182847,-73.653206,1.0
+way,383037049,Hyde Park Substation,transmission,345000;115000;13800,345.0,1,Eversource,496,42.27371,-71.120633,3.0
+way,383055667,Cleary-Flood Substation,generation,115000,115.0,1,Taunton Municipal Lighting Plant,,41.865309,-71.105457,1.0
+way,383102704,Academy Substation,transmission,345000;138000,345.0,1,Consolidated Edison,,40.859973,-73.919033,3.0
+way,383474535,,transition,138000,138.0,1,,,41.136055,-74.029689,1.2
+way,383474548,,transition,138000,138.0,1,,,41.144012,-74.028096,1.2
+way,387265182,Eastover Road Station,transmission,230000;115000,230.0,1,National Grid,2931,42.800165,-73.629139,2.0
+way,396623554,,generation,115000,115.0,1,,,44.979994,-74.751538,1.0
+way,400353852,Poste du Massif-du-Sud,generation,120000,120.0,1,Hydro-Québec,,46.566592,-70.485954,1.043478
+way,400475702,,generation,115000,115.0,1,Village of Lake Placid,,44.274108,-73.975834,1.0
+way,402542141,Allens Falls,generation,115000,115.0,1,Brookfield Renewable US,,44.66026,-74.860459,1.0
+way,409012015,Parishville,generation,115000,115.0,1,Brookfield Renewable US,,44.630149,-74.825321,1.0
+way,409755306,,transmission,138000;69000,138.0,1,NB Power,,47.370454,-68.278379,1.2
+way,412191877,Cedar Grove Substation,transmission,230000;69000,230.0,1,Public Service Enterprise Group,,40.868456,-74.221799,2.0
+way,423874222,New Haven Substation,transmission,345000;115000;46000,345.0,1,Vermont Electric Power Company,,44.119271,-73.165683,3.0
+way,480542158,Poste de Saint-Robert-Bellarmin,generation,120000,120.0,1,Hydro-Québec,,45.700775,-70.536519,1.043478
+way,487456978,Poste Leman,transmission,120000,120.0,1,Hydro-Québec,,46.535889,-72.7626,1.043478
+way,487542776,,transmission,120000,120.0,1,Hydro-Québec,,46.612349,-72.673637,1.043478
+way,491788233,Poste de Lanaudière,transmission,315000;120000,315.0,1,,,46.016219,-73.414327,2.73913
+way,494306803,Poste Des Moulins,generation,230000,230.0,1,Invenergy Wind Canada,,46.146313,-71.330758,2.0
+way,495564978,Comerford Substation,transmission,230000,230.0,1,National Grid,,44.3208,-72.002858,2.0
+way,495564997,Littleton Substation,transmission,230000;115000,230.0,1,Eversource,,44.329202,-71.884475,2.0
+way,506739126,,transition,,,1,Orange & Rockland,,41.060291,-74.108811,1.0
+way,511092191,Poste de Lachenaie,transmission,315000;25000,315.0,1,Hydro-Québec,,45.72556,-73.539972,2.73913
+way,511172266,Poste de Témiscouata,generation,120000,120.0,1,Hydro-Québec,,47.636958,-69.12189,1.043478
+way,525260982,Hopatcong Switching Station,transmission,500000,500.0,1,Public Service Enterprise Group,,40.991467,-74.635313,4.347826
+way,543616525,Elliot Substation,transmission,345000,345.0,1,Eversource,,43.167951,-70.817667,3.0
+way,543804363,Raven Farm Substation,transmission,345000,345.0,1,Central Maine Power Company,,43.781793,-70.202788,3.0
+way,547569637,B5D-B31L SS JCT,transmission,,,1,,,45.239073,-74.390015,1.0
+way,567177044,Sugarloaf Substation,transmission,345000;138000,345.0,1,Orange & Rockland,,41.30811,-74.258439,3.0
+way,581345032,Saint Andre Substation,transmission,345000;138000,345.0,1,NB Power,,47.165115,-67.730397,3.0
+way,633057991,Poste de Weedon,generation,46000,46.0,1,Hydro-Sherbrooke,,45.661873,-71.46415,1.0
+way,637681518,Poste Judith-Jasmin,transmission,735000;120000;25000,735.0,1,Hydro-Québec,,45.717429,-73.72364,6.391304
+way,665590821,Orrington Substation,transmission,345000,345.0,1,Versant Power,,44.738312,-68.752469,3.0
+way,668566638,Newington Energy Substation,generation,345000,345.0,1,Eversource,,43.105148,-70.806206,3.0
+way,669500209,,generation,120000,120.0,1,,,46.105887,-71.68386,1.043478
+way,669594105,Larrabee Road Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,44.141403,-70.185768,3.0
+way,680594206,Beechwood Generating Station,transmission,138000;69000,138.0,1,,,46.543026,-67.666521,1.2
+way,682726557,Modena Substation,transmission,115000,115.0,1,Central Hudson,,41.649137,-74.121313,1.0
+way,682727486,South Cairo Substation,transmission,69000,69.0,1,Central Hudson,,42.291255,-73.986424,1.0
+way,682732189,Westerlo Substation,transmission,69000,69.0,1,Central Hudson,,42.451708,-74.063567,1.0
+way,682776450,Myers Corner Substation,transmission,69000,69.0,1,Central Hudson,,41.602001,-73.880411,1.0
+way,682790853,Sand Dock Substation,transmission,115000,115.0,1,,,41.648917,-73.938124,1.0
+way,682956207,Lawrenceville Substation,transmission,69000,69.0,1,Central Hudson Gas & Electric,,42.223698,-73.986169,1.0
+way,684943541,Poste Rockfield,transmission,120000;12470,120.0,1,Hydro-Québec,,45.439001,-73.65687,1.043478
+way,687002222,Merrimack Substation,transmission,230000;115000,230.0,1,Eversource,,43.1405,-71.470182,2.0
+way,704824708,Poste de Saint-Césaire,transmission,230000;120000;49000,230.0,1,Hydro-Québec,,45.411478,-72.99135,2.0
+way,707254997,Pittsfield Generating LP Substation,generation,115000,115.0,1,"Pittsfield Generating Company, LP",,42.455915,-73.218315,1.0
+way,725474922,Coolodge Substation,transmission,345000;115000,345.0,1,Vermont Electric Power Company,,43.429193,-72.660143,3.0
+way,733447470,Eagle Substation,transmission,345000;115000,345.0,1,Eversource,,42.831175,-71.483534,3.0
+way,759333854,Singer Substation,transmission,345000;115000,345.0,1,United Illuminating Company,,41.167763,-73.18556,3.0
+way,762948167,Rock Tavern Substation (345kV),transmission,345000,345.0,1,Central Hudson Gas & Electric,,41.46749,-74.197075,3.0
+way,766121308,,transmission,69000,69.0,1,,,46.52995,-67.88434,1.0
+way,772275613,,transmission,34500,34.5,1,,,43.801997,-70.450284,1.0
+way,842714311,,generation,46000,46.0,1,,,43.040272,-74.850245,1.0
+way,843310891,Piercefield Regulator Station,transmission,46000,46.0,1,National Grid,,44.232752,-74.57046,1.0
+way,847817916,,transition,115000,115.0,1,,,42.693544,-73.80135,1.0
+way,884660310,Middletown Tap,transition,345000,345.0,1,,,41.421304,-74.428454,3.0
+way,902821309,,transition,345000,345.0,1,Eversource,,41.782064,-70.582313,3.0
+way,902821310,,transition,345000,345.0,1,Eversource,,41.782377,-70.581471,3.0
+way,902830032,Bourne Transition Station,transition,115000,115.0,1,Eversource,,41.766585,-70.556715,1.0
+way,903161748,Merchants Way Substation,transition,115000,115.0,1,National Grid,,41.685847,-70.298087,1.0
+way,909012196,,generation,115000,115.0,1,,,43.426573,-72.661599,1.0
+way,918490593,Moore Substation,transmission,230000;115000;34500,230.0,1,National Grid,,44.336101,-71.875425,2.0
+way,938448865,Poste de Trois-Rivières,transmission,230000,230.0,1,Hydro-Québec,,46.364202,-72.601802,2.0
+way,940515989,,transmission,120000,120.0,1,Hydro-Québec,,46.53572,-72.766883,1.043478
+way,940516050,Poste des Hêtres,transmission,230000;120000;69000,230.0,1,Hydro-Québec,,46.572952,-72.714367,2.0
+way,951242092,,generation,46000,46.0,1,,,43.090036,-74.766683,1.0
+way,961152437,Poste du Bout-de-l'Île,transmission,735000;315000;120000,735.0,1,Hydro-Québec,,45.664807,-73.524496,6.391304
+way,998496432,,transition,138000,138.0,1,Orange & Rockland,,41.043788,-73.965297,1.2
+way,1015192600,,transmission,34500,34.5,1,,,44.411202,-71.717993,1.0
+way,1020589185,Mill C,generation,46000,46.0,1,NYSEG,,44.69822,-73.613448,1.0
+way,1020789743,,transition,115000,115.0,1,,,41.709907,-73.940012,1.0
+way,1021288568,Blake,generation,115000,115.0,1,Brookfield Renewable US,,44.506325,-74.753328,1.0
+way,1021293176,Higley Falls,generation,115000,115.0,1,Brookfield Renewable US,,44.530315,-74.933154,1.0
+way,1046944585,,transition,115000,115.0,1,Vermont Electric Power Company,,44.696751,-73.351003,1.0
+way,1049377932,,transition,115000,115.0,1,Vermont Electric Power Company,,44.637271,-73.273651,1.0
+way,1050091459,,transition,120000,120.0,1,Hydro-Québec,,46.225901,-70.794782,1.043478
+way,1052054054,,transition,115000,115.0,1,New York Power Authority,,44.702052,-73.384821,1.0
+way,1075629718,Cricket Valley Substation,transmission,345000,345.0,1,NYSEG,,41.676571,-73.578742,3.0
+way,1089487553,,generation,345000,345.0,1,,,41.412239,-74.43438,3.0
+way,1089980814,,generation,69000,69.0,1,,,41.843461,-74.542932,1.0
+way,1099345926,Albion Road Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,44.574228,-69.509443,3.0
+way,1101329542,Coopers Mills Road Substation,transmission,345000;115000,345.0,1,Central Maine Power Company,,44.296651,-69.557014,3.0
+way,1119997547,Dunbarton Tap Substation,transmission,230000,230.0,1,National Grid,,43.064329,-71.579856,2.0
+way,1124296382,,generation,115000,115.0,1,,,43.29751,-73.884246,1.0
+way,1125765402,Yarmouth 4 Substation,transmission,345000,345.0,1,Central Maine Power Company,,43.751574,-70.156724,3.0
+way,1141832640,Lisbon Substation,generation,115000,115.0,1,Wheelabrator Technologies Inc.,,41.584134,-72.041337,1.0
+way,1148963697,Waterbury Substation,generation,115000,115.0,1,Eversource,,41.544177,-73.041447,1.0
+way,1150255720,Wheelabrator Bridgeport Substation,generation,115000,115.0,1,Wheelabrator Technologies,,41.163068,-73.208427,1.0
+way,1150790468,ANP Bellingham Substation,transmission,345000,345.0,1,ANP Bellingham Energy Company LLC,,42.109295,-71.451753,3.0
+way,1150821103,ANP Blackstone Substation,transmission,345000,345.0,1,ANP Blackstone Energy Company LLC,,42.059467,-71.513902,3.0
+way,1150821104,NEA Bellingham Substation,transmission,345000,345.0,1,Northeast Energy Associates LP,,42.091907,-71.48384,3.0
+way,1152308932,Millenium Substation,generation,115000,115.0,1,National Grid,,42.113382,-72.015308,1.0
+way,1154872292,Plainfield Substation,generation,115000,115.0,1,Eversource,,41.664686,-71.924069,1.0
+way,1154890695,Brayton Point 345kV Substation,transmission,345000,345.0,1,National Grid,,41.713935,-71.190988,3.0
+way,1158286707,Stony Brook Substation,generation,115000,115.0,1,Massachusetts Municipal Wholesale Electric Company,,42.197797,-72.510036,1.0
+way,1158286708,Stony Brook Substation,generation,115000,115.0,1,Massachusetts Municipal Wholesale Electric Company,,42.19725,-72.510281,1.0
+way,1165519263,L'Energia Substation,generation,115000,115.0,1,National Grid,,42.631174,-71.311943,1.0
+way,1165658092,,transition,120000,120.0,1,Hydro-Québec,,45.474577,-73.572041,1.043478
+way,1169738255,Saddle Brook Substation,transmission,230000;138000;69000;13800,230.0,1,PSE&G,,40.888864,-74.100949,2.0
+way,1172887810,Fulton County Landfill,generation,69000,69.0,1,National Grid,,43.01094,-74.469937,1.0
+way,1178601133,,generation,34500,34.5,1,,,43.305362,-73.640229,1.0
+way,1179701473,,generation,115000,115.0,1,,,42.966523,-73.587308,1.0
+way,1179701475,,generation,115000,115.0,1,,,42.962979,-73.586741,1.0
+way,1181283032,Barnstable Substation,transmission,230000,230.0,1,Vineyard Wind LLC,,41.684296,-70.285414,2.0
+way,1206006337,,generation,115000,115.0,1,Burgess BioPower,,44.471126,-71.174747,1.0
+way,1206230666,,generation,22000,22.0,1,Great Lakes Hydro America,,44.399781,-71.190221,1.0
+way,1211968179,Centrale Westbury,generation,46000,46.0,1,Hydro-Sherbrooke,,45.498473,-71.620064,1.0
+way,1212148780,,generation,34500;12470,34.5,1,,,41.153792,-74.636202,1.0
+way,1215785989,Alcoa Station,transmission,115000,115.0,1,National Grid,902,44.961815,-74.891728,1.0
+way,1221435281,Poste du Mont-Sainte-Marguerite,generation,120000,120.0,1,,,46.239402,-71.04091,1.043478
+way,1221667976,Knickerbocker Substation,transmission,345000,345.0,1,,,42.494353,-73.737689,3.0
+way,1221810455,Princetown Substation,transmission,345000,345.0,1,,,42.840113,-74.102288,3.0
+way,1234784937,,generation,34500,34.5,1,,,41.189149,-74.592291,1.0
+way,1259104610,Poste Stukely Sud,transmission,120000;49000,120.0,1,Hydro-Québec,,45.322123,-72.400984,1.043478
+way,1264682894,,generation,,,1,Kearsarge Energy,,43.01666,-71.49073,1.0
+way,1293539059,Stark,generation,115000,115.0,1,Brookfield Renewable US,,44.455062,-74.760888,1.0
+way,1295385222,Franklin Falls Station,generation,46000,46.0,1,National Grid,843,44.436928,-73.972735,1.0
+way,1295400980,Black Brook,generation,46000,46.0,1,Oakvale Construction Co,,44.459882,-73.743026,1.0
+way,1304303565,,transition,138000,138.0,1,Orange & Rockland,,41.248575,-73.991898,1.2
+way,1304760518,Woodbury Transition Yard,transition,34500,34.5,1,Orange & Rockland,,41.317636,-74.121651,1.0
+way,1305101834,,transition,115000,115.0,1,,,41.566693,-73.953505,1.0
+way,1305101837,,transition,115000,115.0,1,,,41.566522,-73.953561,1.0
+way,1305581006,,generation,69000,69.0,1,,,41.571052,-74.782821,1.0
+way,1313573308,,transmission,34500,34.5,1,National Grid,,41.175038,-71.569875,1.0
+way,1387862312,,generation,,,1,,,45.590886,-73.657654,1.0
+way,1415438977,,generation,,,1,,,42.993688,-71.494981,1.0
+way,1419689608,,transition,115000,115.0,1,,,43.427117,-72.660855,1.0
+way,1419689609,,transition,115000,115.0,1,,,43.428717,-72.658951,1.0
+way,1424663031,,generation,,,1,,,43.099026,-70.791304,1.0
+way,1424883900,,generation,132000,132.0,1,,AP06,41.075851,-71.167918,1.147826
+way,1446410607,,generation,115000,115.0,1,,,42.930113,-73.713237,1.0
+way,1450106311,,generation,,,1,Green Lantern Solar,,44.78265,-73.061728,1.0
+way,1467110383,Snake Hill Substation,generation,115000,115.0,1,National Grid,,42.125545,-72.001671,1.0
+way,1467118070,Stafford St Transmission Substation,transmission,115000,115.0,1,National Grid,,42.227986,-71.868679,1.0
+way,1467179588,,generation,,,1,,,41.896432,-70.788721,1.0
+way,1469624611,Thorndike Cascade Substation,generation,13200,13.2,1,,,42.186829,-72.327065,1.0
+way,1470163505,Deerfield No. 3 Substation,generation,69000,69.0,1,National Grid,,42.599491,-72.733379,1.0
+way,1470163506,Deerfield No. 2 Substation,generation,69000,69.0,1,National Grid,,42.57324,-72.707217,1.0
+way,1470431027,Cheshire Harbor Substation,generation,13800,13.8,1,National Grid,,42.591356,-73.14145,1.0
+way,1472101207,Bunker Road Substation,generation,13200,13.2,1,National Grid,102,41.258422,-70.051153,1.0
+way,1476683346,Waite Street Substation,transmission,115000,115.0,1,National Grid,594,42.533468,-70.887283,1.0
+way,1476700206,North River Terminal,transmission,115000,115.0,1,National Grid,30,42.534872,-70.89018,1.0
+way,1484430160,Forbes Street Substation,generation,23000,23.0,1,Rhode Island Energy,,41.779825,-71.347622,1.0
+way,1489435959,,generation,34500,34.5,1,Revity Energy LLC,,41.415829,-71.737778,1.0

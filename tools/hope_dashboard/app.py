@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash import Dash, Input, Output, State, dcc, html, ctx, no_update
 
-from data_loader import CaseData, load_case
+from data_loader import CaseData, load_case, resolve_dashboard_output_dir
 
 
 DEFAULT_CASE = "ModelCases/RTS24_PCM_multizone4_congested_1month_case"
@@ -24,16 +25,23 @@ GRID_LAYOUT_DEFAULT = [
 def _discover_dashboard_cases() -> list[dict]:
     root = Path(__file__).resolve().parents[2] / "ModelCases"
     options: list[dict] = []
+    pcm_pattern = re.compile(
+        r"^\s*model_mode\s*:\s*['\"]?PCM['\"]?(?:\s+#.*)?\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    )
     for case_dir in sorted(root.iterdir(), key=lambda p: p.name.lower()):
         if not case_dir.is_dir():
             continue
         settings = case_dir / "Settings" / "HOPE_model_settings.yml"
-        nodal_output = case_dir / "output" / "power_price_decomposition_nodal.csv"
-        line_summary = case_dir / "output" / "Analysis" / "Summary_Congestion_Line_Hourly.csv"
-        if not settings.exists() or not nodal_output.exists() or not line_summary.exists():
+        if not settings.exists():
+            continue
+        output_dir = resolve_dashboard_output_dir(case_dir)
+        nodal_output = output_dir / "power_price_decomposition_nodal.csv"
+        line_summary = output_dir / "Analysis" / "Summary_Congestion_Line_Hourly.csv"
+        if not nodal_output.exists() or not line_summary.exists():
             continue
         text = settings.read_text(encoding="utf-8", errors="ignore")
-        if 'model_mode: "PCM"' not in text and "model_mode: 'PCM'" not in text:
+        if not pcm_pattern.search(text):
             continue
         rel_path = str(case_dir.relative_to(root.parent)).replace("\\", "/")
         options.append({"label": case_dir.name, "value": rel_path})
@@ -93,7 +101,16 @@ def _line_color(shadow: float) -> str:
     return "#e63946"
 
 
-def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, map_layer: str, theme: str, selected_line: int | None) -> go.Figure:
+def _network_figure(
+    case: CaseData,
+    hour: int,
+    selected_bus: str,
+    compare_bus: str,
+    ref_bus: str,
+    map_layer: str,
+    theme: str,
+    selected_line: int | None,
+) -> go.Figure:
     hourly_line = case.line_hourly[case.line_hourly["Hour"] == hour].copy()
     hourly_node = case.nodal_price[case.nodal_price["Hour"] == hour].copy()
     palette = _theme_palette(theme)
@@ -105,30 +122,60 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
     }[map_layer]
 
     fig = go.Figure()
+    has_geo = (
+        {"Latitude", "Longitude"}.issubset(case.busdata.columns)
+        and pd.to_numeric(case.busdata["Latitude"], errors="coerce").notna().any()
+        and pd.to_numeric(case.busdata["Longitude"], errors="coerce").notna().any()
+    )
+    highlighted_buses = {str(selected_bus), str(compare_bus), str(ref_bus)}
+    gen_lookup = {}
+    if not case.bus_gen_summary.empty:
+        gen_lookup = {
+            str(row["Bus_id"]): row
+            for _, row in case.bus_gen_summary.iterrows()
+        }
 
-    # Zone panels.
-    for z, (x0, y0, x1, y1) in case.zone_rect.items():
-        fill = case.zone_colors.get(z, "#f1f5f9")
-        fig.add_shape(
-            type="rect",
-            x0=x0,
-            y0=y0,
-            x1=x1,
-            y1=y1,
-            line=dict(color=palette["zone_line"], width=1, dash="dot"),
-            fillcolor=fill,
-            opacity=0.28 if theme == "dark" else 0.45,
-            layer="below",
-        )
-        fig.add_annotation(
-            x=x0 + 0.18,
-            y=y1 + 0.16,
-            text=z,
-            showarrow=False,
-            xanchor="left",
-            yanchor="bottom",
-            font=dict(size=14, color=palette["text"]),
-        )
+    if has_geo:
+        geo_bus = case.busdata.copy()
+        geo_bus["Latitude"] = pd.to_numeric(geo_bus["Latitude"], errors="coerce")
+        geo_bus["Longitude"] = pd.to_numeric(geo_bus["Longitude"], errors="coerce")
+        geo_bus = geo_bus.dropna(subset=["Latitude", "Longitude"])
+        for zone, grp in geo_bus.groupby(geo_bus["Zone_id"].astype(str)):
+            fig.add_trace(
+                go.Scattergeo(
+                    lon=[float(grp["Longitude"].median())],
+                    lat=[float(grp["Latitude"].median())],
+                    mode="text",
+                    text=[str(zone)],
+                    textfont=dict(size=15, color=palette["text"]),
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+    else:
+        # Zone panels.
+        for z, (x0, y0, x1, y1) in case.zone_rect.items():
+            fill = case.zone_colors.get(z, "#f1f5f9")
+            fig.add_shape(
+                type="rect",
+                x0=x0,
+                y0=y0,
+                x1=x1,
+                y1=y1,
+                line=dict(color=palette["zone_line"], width=1, dash="dot"),
+                fillcolor=fill,
+                opacity=0.28 if theme == "dark" else 0.45,
+                layer="below",
+            )
+            fig.add_annotation(
+                x=x0 + 0.18,
+                y=y1 + 0.16,
+                text=z,
+                showarrow=False,
+                xanchor="left",
+                yanchor="bottom",
+                font=dict(size=14, color=palette["text"]),
+            )
 
     # Lines.
     for row in hourly_line.itertuples(index=False):
@@ -139,24 +186,38 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
         x0, y0 = case.bus_xy[fb]
         x1, y1 = case.bus_xy[tb]
         shadow = float(row.ShadowPrice) if row.ShadowPrice == row.ShadowPrice else 0.0
-        fig.add_trace(
-            go.Scatter(
-                x=[x0, x1],
-                y=[y0, y1],
-                mode="lines",
-                line=dict(width=_line_width(float(row.Loading_pct)), color=_line_color(shadow)),
-                hoverinfo="text",
-                text=(
-                    f"Line {row.Line}: {fb}->{tb}<br>"
-                    f"Flow={float(row.Flow_MW):.1f} MW<br>"
-                    f"Line loss={float(row.LineLoss_MW):.2f} MW<br>"
-                    f"Loading={float(row.Loading_pct):.1f}%<br>"
-                    f"Shadow={shadow:.3f}<br>"
-                    f"Rent={float(row.CongestionRent):.2f}"
-                ),
-                showlegend=False,
-            )
+        line_text = (
+            f"Line {row.Line}: {fb}->{tb}<br>"
+            f"Flow={float(row.Flow_MW):.1f} MW<br>"
+            f"Line loss={float(row.LineLoss_MW):.2f} MW<br>"
+            f"Loading={float(row.Loading_pct):.1f}%<br>"
+            f"Shadow={shadow:.3f}<br>"
+            f"Rent={float(row.CongestionRent):.2f}"
         )
+        if has_geo:
+            fig.add_trace(
+                go.Scattergeo(
+                    lon=[x0, x1],
+                    lat=[y0, y1],
+                    mode="lines",
+                    line=dict(width=_line_width(float(row.Loading_pct)), color=_line_color(shadow)),
+                    hoverinfo="text",
+                    text=line_text,
+                    showlegend=False,
+                )
+            )
+        else:
+            fig.add_trace(
+                go.Scatter(
+                    x=[x0, x1],
+                    y=[y0, y1],
+                    mode="lines",
+                    line=dict(width=_line_width(float(row.Loading_pct)), color=_line_color(shadow)),
+                    hoverinfo="text",
+                    text=line_text,
+                    showlegend=False,
+                )
+            )
 
     if selected_line is not None:
         selected_rows = hourly_line[hourly_line["Line"] == selected_line]
@@ -167,28 +228,44 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
             if fb in case.bus_xy and tb in case.bus_xy:
                 x0, y0 = case.bus_xy[fb]
                 x1, y1 = case.bus_xy[tb]
-                fig.add_trace(
-                    go.Scatter(
-                        x=[x0, x1],
-                        y=[y0, y1],
-                        mode="lines+markers",
-                        line=dict(width=7.0, color="#22c55e"),
-                        marker=dict(size=11, color="#22c55e", line=dict(width=1, color=palette["card"])),
-                        hoverinfo="text",
-                        text=(
-                            f"Selected line L{int(row['Line'])}: {fb}->{tb}<br>"
-                            f"Flow={float(row['Flow_MW']):.1f} MW<br>"
-                            f"Loading={float(row['Loading_pct']):.1f}%<br>"
-                            f"Shadow={float(row['ShadowPrice']):.2f} $/MWh<br>"
-                            f"Rent={float(row['CongestionRent']):.2f} $<br>"
-                            f"Line loss={float(row['LineLoss_MW']):.2f} MW"
-                        ),
-                        showlegend=False,
-                    )
+                highlighted_buses.update({fb, tb})
+                selected_text = (
+                    f"Selected line L{int(row['Line'])}: {fb}->{tb}<br>"
+                    f"Flow={float(row['Flow_MW']):.1f} MW<br>"
+                    f"Loading={float(row['Loading_pct']):.1f}%<br>"
+                    f"Shadow={float(row['ShadowPrice']):.2f} $/MWh<br>"
+                    f"Rent={float(row['CongestionRent']):.2f} $<br>"
+                    f"Line loss={float(row['LineLoss_MW']):.2f} MW"
                 )
+                if has_geo:
+                    fig.add_trace(
+                        go.Scattergeo(
+                            lon=[x0, x1],
+                            lat=[y0, y1],
+                            mode="lines+markers",
+                            line=dict(width=7.0, color="#22c55e"),
+                            marker=dict(size=11, color="#22c55e", line=dict(width=1, color=palette["card"])),
+                            hoverinfo="text",
+                            text=selected_text,
+                            showlegend=False,
+                        )
+                    )
+                else:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[x0, x1],
+                            y=[y0, y1],
+                            mode="lines+markers",
+                            line=dict(width=7.0, color="#22c55e"),
+                            marker=dict(size=11, color="#22c55e", line=dict(width=1, color=palette["card"])),
+                            hoverinfo="text",
+                            text=selected_text,
+                            showlegend=False,
+                        )
+                    )
 
     # Nodes.
-    node_x, node_y, node_text, node_color, node_size = [], [], [], [], []
+    node_x, node_y, node_text, node_color, node_size, node_ids = [], [], [], [], [], []
     for row in hourly_node.itertuples(index=False):
         b = str(row.Bus)
         if b not in case.bus_xy:
@@ -202,9 +279,21 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
         size = 16
         if b == selected_bus:
             size = 22
+        elif b == compare_bus:
+            size = 20
         elif b == ref_bus:
             size = 20
         node_size.append(size)
+        node_ids.append(b)
+        gen_info = gen_lookup.get(b)
+        gen_text = ""
+        if gen_info is not None and float(gen_info["InstalledCapacityMW"]) > 0.0:
+            gen_text = (
+                f"<br>Installed generation={float(gen_info['InstalledCapacityMW']):.1f} MW"
+                f"<br>Units={int(gen_info['UnitCount'])}"
+            )
+            if str(gen_info["TechMix"]).strip():
+                gen_text += f"<br>Tech mix={gen_info['TechMix']}"
         node_text.append(
             f"Bus {b} | Zone {row.Zone}<br>"
             f"Map layer {map_layer}={layer_value:.2f} $/MWh<br>"
@@ -212,6 +301,7 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
             f"Energy component (ref)={float(row.Energy):.2f} $/MWh<br>"
             f"Congestion component vs ref={float(row.Congestion):.2f} $/MWh<br>"
             f"Loss component={float(row.Loss):.2f} $/MWh"
+            f"{gen_text}"
         )
 
     cmin = float(np.nanmin(node_color)) if node_color else 0.0
@@ -220,38 +310,101 @@ def _network_figure(case: CaseData, hour: int, selected_bus: str, ref_bus: str, 
         cmin -= 1.0
         cmax += 1.0
 
-    fig.add_trace(
-        go.Scatter(
-            x=node_x,
-            y=node_y,
-            mode="markers+text",
-            text=[f"{b}" for b in hourly_node["Bus"].astype(str).tolist()],
-            textposition="top center",
-            customdata=[["bus", str(b)] for b in hourly_node["Bus"].astype(str).tolist()],
-            marker=dict(
-                size=node_size,
-                color=node_color,
-                colorscale="RdYlBu_r",
-                cmin=cmin,
-                cmax=cmax,
-                colorbar=dict(title=map_layer),
-                line=dict(color=palette["text"], width=0.8),
-            ),
-            hoverinfo="text",
-            hovertext=node_text,
-            showlegend=False,
+    label_text = [b if b in highlighted_buses else "" for b in node_ids]
+    if has_geo:
+        fig.add_trace(
+            go.Scattergeo(
+                lon=node_x,
+                lat=node_y,
+                mode="markers",
+                customdata=[["bus", b] for b in node_ids],
+                marker=dict(
+                    size=node_size,
+                    color=node_color,
+                    colorscale="RdYlBu_r",
+                    cmin=cmin,
+                    cmax=cmax,
+                    colorbar=dict(title=map_layer),
+                    line=dict(color=palette["text"], width=0.7),
+                ),
+                hoverinfo="text",
+                hovertext=node_text,
+                showlegend=False,
+            )
         )
-    )
+        labeled_lon = [lon for lon, bus in zip(node_x, node_ids) if bus in highlighted_buses]
+        labeled_lat = [lat for lat, bus in zip(node_y, node_ids) if bus in highlighted_buses]
+        labeled_text = [bus for bus in node_ids if bus in highlighted_buses]
+        if labeled_text:
+            fig.add_trace(
+                go.Scattergeo(
+                    lon=labeled_lon,
+                    lat=labeled_lat,
+                    mode="text",
+                    text=labeled_text,
+                    textposition="top center",
+                    textfont=dict(size=11, color=palette["text"]),
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+        lon_vals = pd.to_numeric(case.busdata["Longitude"], errors="coerce").dropna()
+        lat_vals = pd.to_numeric(case.busdata["Latitude"], errors="coerce").dropna()
+        fig.update_layout(
+            autosize=True,
+            margin=dict(l=10, r=10, t=10, b=10),
+            paper_bgcolor=palette["card"],
+            font=dict(family=APP_FONT, size=12, color=palette["text"]),
+            geo=dict(
+                projection_type="mercator",
+                bgcolor=palette["card"],
+                showland=True,
+                landcolor=palette["plot"],
+                showlakes=False,
+                showcountries=False,
+                showcoastlines=True,
+                coastlinecolor=palette["grid"],
+                coastlinewidth=1,
+                showsubunits=True,
+                subunitcolor=palette["grid"],
+                subunitwidth=0.7,
+                lonaxis=dict(range=[float(lon_vals.min()) - 0.45, float(lon_vals.max()) + 0.45]),
+                lataxis=dict(range=[float(lat_vals.min()) - 0.35, float(lat_vals.max()) + 0.35]),
+            ),
+        )
+    else:
+        fig.add_trace(
+            go.Scatter(
+                x=node_x,
+                y=node_y,
+                mode="markers+text",
+                text=label_text,
+                textposition="top center",
+                customdata=[["bus", b] for b in node_ids],
+                marker=dict(
+                    size=node_size,
+                    color=node_color,
+                    colorscale="RdYlBu_r",
+                    cmin=cmin,
+                    cmax=cmax,
+                    colorbar=dict(title=map_layer),
+                    line=dict(color=palette["text"], width=0.8),
+                ),
+                hoverinfo="text",
+                hovertext=node_text,
+                showlegend=False,
+            )
+        )
 
-    fig.update_layout(
-        autosize=True,
-        margin=dict(l=10, r=10, t=10, b=10),
-        plot_bgcolor=palette["plot"],
-        paper_bgcolor=palette["card"],
-        font=dict(family=APP_FONT, size=12, color=palette["text"]),
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
-    )
+        fig.update_layout(
+            autosize=True,
+            margin=dict(l=10, r=10, t=10, b=10),
+            plot_bgcolor=palette["plot"],
+            paper_bgcolor=palette["card"],
+            font=dict(family=APP_FONT, size=12, color=palette["text"]),
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
+        )
     return fig
 
 
@@ -1371,7 +1524,7 @@ def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer
         selected_line = int(hourly_line.sort_values(metric_col, ascending=False).iloc[0]["Line"]) if not hourly_line.empty else None
     kpi = _kpi_block(case, int(hour), str(bus), str(compare_bus))
     line_detail = _selected_line_detail(case, int(hour), selected_line, str(rank_metric))
-    network_fig = _network_figure(case, int(hour), str(bus), str(ref_bus), str(map_layer), str(theme), selected_line)
+    network_fig = _network_figure(case, int(hour), str(bus), str(compare_bus), str(ref_bus), str(map_layer), str(theme), selected_line)
     ts_fig = _timeseries_figure(case, str(bus), str(compare_bus), str(ref_bus), str(theme))
     line_fig = _line_ranking_figure(case, int(hour), str(rank_metric), str(theme), selected_line)
     return kpi, line_detail, network_fig, ts_fig, line_fig

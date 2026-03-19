@@ -301,4 +301,24 @@ function resolve_rep_day_mode(config_set::AbstractDict; context::AbstractString 
     return endogenous_rep_day, external_rep_day, representative_day_mode
 end
 
+"""
+    marginal_load_price_from_dual(con_ref, semantics::Symbol)
+
+Convert a JuMP equality-constraint dual into the marginal objective change from
+adding +1 MW of load.
+
+Supported semantics:
+- `:balance_rhs_load` for constraints written like `supply == load`
+- `:ptdf_injection_definition` for constraints written like
+  `inj == supply - load`
+"""
+function marginal_load_price_from_dual(con_ref, semantics::Symbol)
+    if semantics == :balance_rhs_load
+        return dual(con_ref)
+    elseif semantics == :ptdf_injection_definition
+        return -dual(con_ref)
+    end
+    throw(ArgumentError("Unsupported marginal-load price semantics: $(semantics)"))
+end
+
 end # Guard against redefinition

@@ -10,13 +10,20 @@ In `HOPE_model_settings.yml`, set:
 - `network_model: 2` for nodal DCOPF (angle-based).
 - `network_model: 3` for nodal DCOPF (PTDF-based).
 
-When using nodal modes (`2`/`3`), provide nodal mapping via `busdata` and `branchdata` (or ensure `linedata` includes equivalent bus columns).
+When using nodal modes (`2`/`3`), provide nodal mapping via `busdata` and `branchdata` (or ensure `linedata` includes equivalent bus columns). Native nodal load must come from `load_timeseries_nodal`, and optional bus-level NI can come from `ni_timeseries_nodal`.
 
 Related run-control settings:
 - `unit_commitment: 1` makes PCM a MILP.
 - `write_shadow_prices: 1` triggers MILP -> fixed-LP re-solve for dual/LMP recovery when `unit_commitment: 1`.
 - `summary_table: 1` writes summary analytics to `output/Analysis/Summary_*.csv`.
 - `transmission_loss: 1` enables a piecewise-linear transmission loss approximation based on absolute line flow. This is currently supported for `network_model = 1` and `2`, but not `3`.
+
+Price-output note:
+- HOPE exports `power_price*.csv` as the marginal objective cost of `+1 MW` load.
+- Because raw equality-constraint duals can flip sign under equivalent reformulations, HOPE applies a formulation-specific sign mapping internally.
+- For `network_model = 0/1/2`, exported price follows the raw dual of the load-balance row.
+- For `network_model = 3`, exported price uses the negative of the raw dual of `PTDFInjDef_con`.
+- This mapping is regression-tested on both the ISO-NE nodal angle case and the RTS24 nodal PTDF case.
 
 Simple workflow for line losses:
 1. Keep `transmission_loss: 0` if you want the default lossless PCM run.
@@ -76,6 +83,34 @@ This is the input dataset for existing generators.
 |Min_up_time|Minimum up time for turning on a generator, hour|
 ---
 
+## gen_availability_timeseries (optional)
+
+This optional dataset provides hourly **generator-level** availability factors for PCM. It can be used for plant-based VRE profiles and for thermal derating.
+
+Accepted names:
+- CSV: `gen_availability_timeseries.csv`
+- XLSX sheet: `gen_availability_timeseries`
+
+Expected generator columns:
+- `G1`, `G2`, ..., `G(N)`
+- ordering follows the row order of `gendata.csv`
+
+Required time columns:
+- `Time Period`
+- `Hours`
+
+Optional time columns:
+- `Month`
+- `Day`
+
+Behavior in current PCM:
+- If any generator column is provided here, PCM uses that hourly AF for that generator.
+- For wind/solar generators with no hourly `G#` column, PCM falls back to zonal `wind_timeseries_regional` or `solar_timeseries_regional`.
+- For non-VRE generators with no hourly `G#` column, PCM falls back to the static `AF` column in `gendata`.
+- For thermal generators, the hourly AF only derates the generation upper bound. PCM keeps reserve, ramp, and UC availability logic on the original `1-FOR` basis.
+
+So this file is now the main **generator-level availability override** for PCM, with zonal VRE profiles and static generator AF used as fallbacks when a generator-specific hourly column is not supplied.
+
 ## linedata
 
 This is the input dataset for existing transmission lines (e.g., transmission capacity limit for each inter-zonal transmission line).
@@ -97,9 +132,15 @@ This dataset defines nodal buses and bus-to-zone mapping.
 Required columns for nodal modes:
 - `Bus_id`
 - `Zone_id`
+- one nodal peak-load basis column:
+  - `Demand (MW)`, or
+  - `Load (MW)`, or
+  - `Pd`, or
+  - `PD`, or
+  - `Load_share`
 
 Optional columns:
-- `Load_share` (or bus demand-like columns) to distribute zonal load/DR/load-shed to buses.
+- `State` for nodal state-policy accounting. When `network_model` is `2` or `3`, PCM now uses bus-to-state mapping for carbon/RPS accounting if this column is provided. If omitted, PCM falls back to the state of the bus's assigned zone.
 
 CSV name: `busdata.csv`  
 XLSX sheet name: `busdata`
@@ -163,6 +204,8 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 This is the input dataset for the annual hourly solar PV generation profile in each zone. Each zone has 8760 data points and the values are per unit.
 
+Even if `gen_availability_timeseries` is provided, this zonal file is still used as the fallback profile for any solar generator that does not have its own `G#` column in the generator-level AF input.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -177,6 +220,8 @@ This is the input dataset for the annual hourly solar PV generation profile in e
 ## wind_timeseries_regional
 
 This is the input dataset for the annual hourly wind generation profile in each zone. Each zone has 8760 data points and the values are per unit.
+
+Even if `gen_availability_timeseries` is provided, this zonal file is still used as the fallback profile for any wind generator that does not have its own `G#` column in the generator-level AF input.
 
 ---
 |**Column Name** | **Description**|
@@ -193,6 +238,11 @@ This is the input dataset for the annual hourly wind generation profile in each 
 
 This is the input dataset for the annual hourly load profile in each zone. Each zone has 8760 data points and the values are per unit.
 
+In current HOPE PCM:
+- `network_model = 0` or `1`: this file is used directly for load modeling
+- `network_model = 2` or `3`: this file is still required as the chronology anchor for aligned time-series inputs, but native nodal load must come from `load_timeseries_nodal`
+- `NI` in this file remains the system/zonal NI input and the fallback NI source for nodal PCM when `ni_timeseries_nodal` is not provided
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
@@ -204,6 +254,147 @@ This is the input dataset for the annual hourly load profile in each zone. Each 
 |... |...|
 |NI | Net load import on a specific period, day, and month|
 ---
+
+## load_timeseries_nodal (required for nodal PCM)
+
+This dataset provides the annual hourly nodal load profile for nodal PCM. It is required when:
+
+- `network_model = 2`
+- `network_model = 3`
+
+HOPE interprets each bus column as a unitless hourly multiplier and builds native bus load as:
+
+- `Bus peak load * nodal hourly multiplier`
+
+The bus peak-load basis comes from `busdata`, then HOPE rescales it within each zone so nodal peak loads sum to the zone peak load in `zonedata`.
+
+Accepted names:
+- CSV: `load_timeseries_nodal.csv`
+- XLSX sheet: `load_timeseries_nodal`
+
+Required time columns:
+- `Time Period`
+- `Hours`
+
+Accepted legacy aliases:
+- `Period` -> `Hours`
+- `Hour` -> `Hours`
+
+Optional time columns:
+- `Month`
+- `Day`
+
+Required load columns:
+- one column per bus
+- column names must match `busdata.Bus_id` exactly
+
+Example:
+
+| Time Period | Hours | Month | Day | Bus 1 | Bus 2 | Bus 3 |
+| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| 1 | 1 | 7 | 1 | 0.82 | 0.79 | 0.91 |
+| 1 | 2 | 7 | 1 | 0.80 | 0.77 | 0.88 |
+
+Important behavior:
+- HOPE no longer falls back to `zonal hourly load * static bus share` in nodal modes.
+- If `load_timeseries_nodal` is missing in nodal PCM, HOPE will stop with an input error.
+
+## ni_timeseries_nodal (optional for nodal PCM)
+
+This optional dataset provides the annual hourly **bus-level NI injections** for nodal PCM. It is used only when:
+
+- `network_model = 2`
+- `network_model = 3`
+
+Each bus column is interpreted directly in **MW**:
+
+- positive value = net import injection into the modeled system at that bus
+- negative value = net export withdrawal from the modeled system at that bus
+
+Accepted names:
+- CSV: `ni_timeseries_nodal.csv`
+- XLSX sheet: `ni_timeseries_nodal`
+
+Required time columns:
+- `Time Period`
+- `Hours`
+
+Accepted legacy aliases:
+- `Period` -> `Hours`
+- `Hour` -> `Hours`
+
+Optional time columns:
+- `Month`
+- `Day`
+
+Required NI columns:
+- one column per bus
+- column names must match `busdata.Bus_id` exactly
+
+Example:
+
+| Time Period | Hours | Month | Day | Bus 118 | Bus 182 | Bus 249 |
+| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| 1 | 1 | 7 | 1 | 250 | 120 | -40 |
+| 1 | 2 | 7 | 1 | 260 | 110 | -35 |
+
+Behavior:
+- If `ni_timeseries_nodal` is provided, HOPE uses it directly in nodal power balance instead of allocating `load_timeseries_regional.NI` by bus load share.
+- HOPE still reads `load_timeseries_regional.NI`; when both inputs are present, HOPE compares the hourly row sums and uses the nodal NI input as authoritative for nodal PCM.
+- When `ni_timeseries_nodal` is omitted, nodal PCM falls back to the legacy load-share allocation of system NI.
+- In the ISO-NE 250-bus example, `ni_timeseries_nodal` is generated in preprocessing from official ISO-NE interface chronology, then scaled to the case-level NI magnitude and distributed with interface-centered nodal weights plus a small load-share balancing tail.
+
+## ni_timeseries_nodal_target / ni_timeseries_nodal_cap (optional pair for flexible nodal PCM)
+
+These two optional datasets activate **flexible nodal NI** in nodal PCM:
+
+- `network_model = 2`
+- `network_model = 3`
+
+Accepted names:
+- CSV: `ni_timeseries_nodal_target.csv`, `ni_timeseries_nodal_cap.csv`
+- XLSX sheets: `ni_timeseries_nodal_target`, `ni_timeseries_nodal_cap`
+
+Interpretation:
+- `ni_timeseries_nodal_target` is the preferred hourly bus-level NI profile.
+- `ni_timeseries_nodal_cap` is the hourly bus-level NI bound the solver may move toward when internal generation and network limits make the target infeasible or too expensive.
+
+Both datasets use the same time-column rules and bus-column rules as `ni_timeseries_nodal`.
+
+Required behavior:
+- both files/sheets must be present together
+- bus columns must match `busdata.Bus_id`
+- `abs(target)` must not exceed `abs(cap)` at any bus-hour
+- nonzero target/cap entries must have consistent signs at a bus-hour
+
+Model behavior:
+- when both target/cap inputs are present, HOPE ignores fixed `ni_timeseries_nodal` for nodal balance and instead optimizes actual nodal NI between the target and cap bounds
+- deviation from the target is penalized in the objective using `PT_NI_DEV`
+- outputs include:
+  - `power_ni_nodal.csv`
+  - `power_ni_zonal.csv`
+  - `power_ni_deviation_nodal.csv`
+
+The ISO-NE 250-bus example uses this workflow to treat official ISO-NE interchange as the lower NI target while preserving a higher synthetic NI cap needed to keep the case workable.
+
+## rep_period_weights (required when `external_rep_day = 1`)
+
+This optional-to-required dataset is used when users provide their own clustered representative periods for PCM.
+
+Accepted names:
+- CSV: `rep_period_weights.csv`
+- XLSX sheet: `rep_period_weights`
+
+Required columns:
+- `Time Period`
+- `Weight`
+
+Behavior:
+- If `external_rep_day = 1`, PCM requires this file/sheet.
+- `Time Period` values must match the `Time Period` values used in `load_timeseries_regional` and the other aligned time-series inputs.
+- `Weight` is the annual scaling/count for each representative period.
+
+This matches the same external representative-period workflow used by GTEP.
 
 ## flexddata (required when `flexible_demand = 1`)
 
@@ -272,6 +463,7 @@ Implementation note: PCM reads these fields through an internal helper (`get_sin
 |BigM | For penalty purpose, unitless|
 |PT_RPS | Penalty of the state not satisfying RPS requirement, default = 10000000000000|
 |PT_emis | Penalty of the state not satisfying CO2 emission requirement, default = 10000000000000|
+|PT_NI_DEV | Penalty for deviating from `ni_timeseries_nodal_target` when flexible nodal NI is active, default = 500|
 |reg_up_requirement | Hourly REG-UP requirement as fraction of system load, default = 0|
 |reg_dn_requirement | Hourly REG-DN requirement as fraction of system load, default = 0|
 |spin_requirement | Hourly SPIN requirement as fraction of system load, default = 0.03|

@@ -436,8 +436,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             println("Dual values are unavailable for GTEP power price output. For MILP runs, set write_shadow_prices=1 (and inv_dcs_bin=1) to run fixed-LP dual recovery.")
         else
             P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
-            dual_matrix = dual.(model[:PB_con])
-            dual_t_h = [[dual_matrix[i,t,h] for t in T for h in H_t[t]] for i in I]
+            dual_t_h = [[marginal_load_price_from_dual(model[:PB_con][i,t,h], :balance_rhs_load) for t in T for h in H_t[t]] for i in I]
             #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
             dual_t_h = transpose(hcat(dual_t_h...))
             dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
@@ -887,6 +886,49 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
 
+        P_ni_df = DataFrame()
+        P_ni_nodal_df = DataFrame()
+        P_ni_dev_nodal_df = DataFrame()
+        if network_model in [2, 3] && nodal_output_map !== nothing && haskey(model, :NodeNI)
+            N = [n for n in 1:length(nodal_output_map.bus_labels)]
+            node_ni_values = value.(model[:NodeNI])
+            node_ni_h = hcat([Array(node_ni_values[:,h]) for h in H]...)
+            P_ni_nodal_df = DataFrame(
+                Bus = [nodal_output_map.bus_labels[n] for n in N],
+                Zone = [Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]] for n in N],
+                State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N],
+                AnnSum = [sum(node_ni_h[n, :]) for n in N]
+            )
+            P_ni_nodal_df = hcat(P_ni_nodal_df, DataFrame(node_ni_h, [Symbol("h$h") for h in H]))
+            CSV.write(joinpath(outpath, "power_ni_nodal.csv"), P_ni_nodal_df, writeheader=true)
+
+            zone_ni_h = [sum(node_ni_h[n, h_idx] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h_idx in 1:length(H)]
+            P_ni_df = DataFrame(
+                Zone = Zonedata[:, "Zone_id"],
+                AnnSum = [sum(zone_ni_h[i, :]) for i in I]
+            )
+            P_ni_df = hcat(P_ni_df, DataFrame(zone_ni_h, [Symbol("h$h") for h in H]))
+            CSV.write(joinpath(outpath, "power_ni_zonal.csv"), P_ni_df, writeheader=true)
+
+            if haskey(model, :NodeNITarget) && haskey(model, :node_ni_dev_pos) && haskey(model, :node_ni_dev_neg)
+                node_ni_target_values = value.(model[:NodeNITarget])
+                node_ni_target_h = hcat([Array(node_ni_target_values[:,h]) for h in H]...)
+                node_ni_dev_pos = value.(model[:node_ni_dev_pos])
+                node_ni_dev_neg = value.(model[:node_ni_dev_neg])
+                node_ni_abs_dev_h = hcat([Array(node_ni_dev_pos[:,h] .+ node_ni_dev_neg[:,h]) for h in H]...)
+                P_ni_dev_nodal_df = DataFrame(
+                    Bus = [nodal_output_map.bus_labels[n] for n in N],
+                    Zone = [Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]] for n in N],
+                    State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N],
+                    TargetAnnSum = [sum(node_ni_target_h[n, :]) for n in N],
+                    ActualAnnSum = [sum(node_ni_h[n, :]) for n in N],
+                    AbsDevAnnSum = [sum(node_ni_abs_dev_h[n, :]) for n in N]
+                )
+                P_ni_dev_nodal_df = hcat(P_ni_dev_nodal_df, DataFrame(node_ni_abs_dev_h, [Symbol("h$h") for h in H]))
+                CSV.write(joinpath(outpath, "power_ni_deviation_nodal.csv"), P_ni_dev_nodal_df, writeheader=true)
+            end
+        end
+
         ##Renewable curtailments
         P_ct_df = DataFrame(
             Technology = vcat(Gendata[[g for g in intersect(G,union(G_PV,G_W))],"Type"]),
@@ -980,9 +1022,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         elseif !duals_available
             println("Dual values are unavailable (likely due integer UC). Skip LMP/congestion-dual outputs; set unit_commitment=2 for price analysis.")
         elseif network_model == 1 && haskey(model, :PB_con)
-            dual_matrix = dual.(model[:PB_con])
-            # JuMP dual sign is opposite to market LMP sign for this balance orientation.
-            price_zone_matrix = -[dual_matrix[i,h] for i in I, h in H]
+            price_zone_matrix = [marginal_load_price_from_dual(model[:PB_con][i,h], :balance_rhs_load) for i in I, h in H]
             dual_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
             P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), dual_h_df)
             CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
@@ -998,8 +1038,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
         elseif network_model == 2 && haskey(model, :PBNode_con) && nodal_output_map !== nothing
             N = [n for n in 1:length(nodal_output_map.bus_labels)]
-            dual_matrix = dual.(model[:PBNode_con])
-            price_node_matrix = -[dual_matrix[n,h] for n in N, h in H]
+            price_node_matrix = [marginal_load_price_from_dual(model[:PBNode_con][n,h], :balance_rhs_load) for n in N, h in H]
             nodal_h_df = DataFrame(price_node_matrix, [Symbol("h$h") for h in H])
             P_price_nodal_df = DataFrame(
                 Bus = [nodal_output_map.bus_labels[n] for n in N],
@@ -1070,8 +1109,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
         elseif network_model == 3 && haskey(model, :PTDFInjDef_con) && nodal_output_map !== nothing
             N = [n for n in 1:length(nodal_output_map.bus_labels)]
-            dual_matrix = dual.(model[:PTDFInjDef_con])
-            price_node_matrix = -[dual_matrix[n,h] for n in N, h in H]
+            price_node_matrix = [marginal_load_price_from_dual(model[:PTDFInjDef_con][n,h], :ptdf_injection_definition) for n in N, h in H]
             nodal_h_df = DataFrame(price_node_matrix, [Symbol("h$h") for h in H])
             P_price_nodal_df = DataFrame(
                 Bus = [nodal_output_map.bus_labels[n] for n in N],
@@ -1141,8 +1179,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             P_price_decomp_zonal_df = decomp_zone_rows
             CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
         elseif network_model == 0 && haskey(model, :SystemPB_con)
-            dual_vec = dual.(model[:SystemPB_con])
-            sys_price = reshape([-dual_vec[h] for h in H], 1, length(H))
+            sys_price = reshape([marginal_load_price_from_dual(model[:SystemPB_con][h], :balance_rhs_load) for h in H], 1, length(H))
             P_price_df = hcat(DataFrame(Region = ["System"]), DataFrame(sys_price, [Symbol("h$h") for h in H]))
             CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
             decomp_rows = DataFrame(Region=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
@@ -1763,6 +1800,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         Results_dict = Dict(
             "power_loadshedding" => P_ls_df,
+            "power_ni_zonal" => P_ni_df,
+            "power_ni_nodal" => P_ni_nodal_df,
+            "power_ni_deviation_nodal" => P_ni_dev_nodal_df,
             "power_renewable_curtailment" =>P_ct_df,
             "power_hourly" => P_gen_df,
             "power_price" => P_price_df,

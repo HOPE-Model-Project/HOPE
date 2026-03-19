@@ -1,0 +1,9 @@
+LoadZone,Description,State,ParentCapacityZone_2023_24
+CT,Connecticut,CT,ROP
+ME,Maine,ME,Maine
+NH,New Hampshire,NH,NNE
+RI,Rhode Island,RI,SENE
+VT,Vermont,VT,NNE
+NEMA/Boston,Northeastern Massachusetts and Boston,MA,SENE
+SEMA,Southeastern Massachusetts,MA,SENE
+WCMA,Western/Central Massachusetts,MA,ROP

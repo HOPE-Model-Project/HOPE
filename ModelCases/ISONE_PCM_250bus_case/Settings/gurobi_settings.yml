@@ -1,0 +1,16 @@
+# Gurobi Solver Parameters
+# Common solver settings
+Feasib_Tol: 1.0e-05
+Optimal_Tol: 1e-5
+TimeLimit: 110000
+Pre_Solve: 1
+Method: 2
+
+# Gurobi-specific solver settings
+MIPGap: 1e-3
+BarConvTol: 1.0e-08
+NumericFocus: 0
+Crossover: -1
+BarObjRng: 1e+75
+PreDual: 0
+AggFill: 10

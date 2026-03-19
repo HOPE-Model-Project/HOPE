@@ -104,7 +104,7 @@ Nodal balance per bus `n`:
 + \sum_{s \in S_n}(dc_{s,h}-c_{s,h})
 - \sum_{l \in LS_n} f_{l,h}
 + \sum_{l \in LR_n} f_{l,h}
-+ NI_{n,h}
++ NI^{actual}_{n,h}
 = Load_{n,h}
 ```
 
@@ -116,7 +116,20 @@ When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to each n
 loss_{l,h} = \rho_l |f_{l,h}|
 ```
 
-In current code, nodal load and interchange are allocated from zone-level terms using bus load shares.
+Nodal load comes from `load_timeseries_nodal`. Nodal interchange uses direct bus-level input from `ni_timeseries_nodal` when provided; otherwise HOPE falls back to allocating system NI from zone-level terms using bus load shares. In the ISO-NE 250-bus example, that nodal NI file is built from official interface chronology, scaled to the synthetic case NI magnitude, and blended with a small load-share balancing tail so the nodal case remains solvable without smearing NI uniformly across the system.
+
+When both `ni_timeseries_nodal_target` and `ni_timeseries_nodal_cap` are provided, HOPE instead treats nodal NI as a decision variable bounded between the target and cap profiles. Deviation from the target profile is penalized in the objective:
+
+```math
+NI^{actual}_{n,h} - NI^{target}_{n,h}
+= dev^{+}_{n,h} - dev^{-}_{n,h}
+```
+
+```math
+\mathrm{NIDeviationPenalty}
+= PT^{NI}_{dev}\sum_{t\in T}N_t\sum_{h\in H_t}\sum_{n\in N}
+\left(dev^{+}_{n,h}+dev^{-}_{n,h}\right)
+```
 
 DC line physics:
 
@@ -143,7 +156,7 @@ Nodal injection definition:
 ```math
 inj_{n,h} = \sum_{g \in G_n} p_{g,h}
 + \sum_{s \in S_n}(dc_{s,h}-c_{s,h})
-+ NI_{n,h} - Load_{n,h}
++ NI^{actual}_{n,h} - Load_{n,h}
 ```
 
 Injection balance:
@@ -289,3 +302,33 @@ When duals are available, PCM writes:
 - optional summary analytics in `output/Analysis/Summary_*.csv` when `summary_table = 1`.
 
 For `unit_commitment = 1` MILP runs, set `write_shadow_prices = 1` to trigger fixed-LP re-solve for dual recovery.
+
+### Price Sign Convention
+
+HOPE exports PCM prices as the **marginal objective change from a +1 MW increase in load**. That is the economic quantity users typically mean by LMP.
+
+Important implementation note:
+
+- The raw sign of `dual(constraint)` is **not** stable across algebraically equivalent equality constraints.
+- In particular, multiplying an equality row by `-1` can flip the raw dual sign without changing the economics.
+
+So HOPE now applies a formulation-specific sign rule when writing prices:
+
+- `network_model = 0`, `1`, or `2`:
+  - power balance is written in `supply == load` form
+  - exported price = `dual(balance_constraint)`
+- `network_model = 3`:
+  - the reported nodal price comes from the PTDF injection-definition row `inj == supply - load`
+  - exported price = `-dual(PTDFInjDef_con)`
+
+This rule is now regression-tested against two independent checks:
+
+- `shadow_price`
+- a direct `+1 MW` load perturbation test
+
+The regression is implemented in `test/test-lmp-sign-regression.jl` and currently covers:
+
+- the ISO-NE 250-bus nodal angle case
+- the RTS24 nodal PTDF case
+
+So the sign convention is now tied to the **formulation family**, not to a specific case's historical behavior.

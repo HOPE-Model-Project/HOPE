@@ -149,11 +149,16 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		Gendata = input_data["Gendata"]
 		Storagedata = input_data["Storagedata"]
 		Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
+		AFdata = haskey(input_data, "AFdata") ? copy(input_data["AFdata"]) : nothing
 		#reservedata=
 		#time series
 		Winddata = input_data["Winddata"]
 		Solardata = input_data["Solardata"]
 		Loaddata = input_data["Loaddata"]
+		NodalLoaddata = haskey(input_data, "NodalLoaddata") ? input_data["NodalLoaddata"] : nothing
+		NodalNIdata = haskey(input_data, "NodalNIdata") ? input_data["NodalNIdata"] : nothing
+		NodalNITargetdata = haskey(input_data, "NodalNITargetdata") ? input_data["NodalNITargetdata"] : nothing
+		NodalNICapdata = haskey(input_data, "NodalNICapdata") ? input_data["NodalNICapdata"] : nothing
 		NIdata = input_data["NIdata"]
 		#policies
 		CBPdata = input_data["CBPdata"]
@@ -170,6 +175,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		Num_Eline=size(Linedata,1);
 		Num_zone=length(Zonedata[:,"Zone_id"]);
 		Num_sto=size(Storagedata,1);
+		Ordered_gen_nm = ["G$(g)" for g in 1:Num_gen]
 		
 
 		#Index-Zone Mapping dict
@@ -344,21 +350,30 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		# Nodal layer (active only when network_model in [2,3])
 		bus_labels = Any[]
 		bus_to_zone_idx = Dict{Any,Int}()
+		bus_state_map = Dict{Any,Any}()
 		if network_model in [2, 3]
 			if Busdata !== nothing
 				bus_cols = Set(string.(names(Busdata)))
 				bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
 				bus_zone_col = first_existing_col(bus_cols, ["Zone_id", "zone_id", "Zone", "zone"])
+				bus_state_col = first_existing_col(bus_cols, ["State", "state"])
 				if bus_id_col === nothing || bus_zone_col === nothing
 					throw(ArgumentError("Busdata for nodal mode must include Bus_id and Zone_id (or equivalent)."))
 				end
 				bus_labels = [Busdata[r, bus_id_col] for r in 1:size(Busdata, 1)]
 				for r in 1:size(Busdata, 1)
+					bus_id = Busdata[r, bus_id_col]
 					zone_nm = Busdata[r, bus_zone_col]
 					if !haskey(Zone_idx_dict, zone_nm)
 						throw(ArgumentError("Busdata row $(r) has zone $(zone_nm) not found in zonedata.Zone_id."))
 					end
-					bus_to_zone_idx[Busdata[r, bus_id_col]] = Zone_idx_dict[zone_nm]
+					bus_to_zone_idx[bus_id] = Zone_idx_dict[zone_nm]
+					if bus_state_col !== nothing
+						bus_state = Busdata[r, bus_state_col]
+						if !(ismissing(bus_state) || bus_state === nothing || (bus_state isa AbstractString && isempty(strip(bus_state))))
+							bus_state_map[bus_id] = bus_state
+						end
+					end
 				end
 			else
 				bus_labels = collect(unique(vcat([Linedata[l, from_bus_col] for l in L], [Linedata[l, to_bus_col] for l in L])))
@@ -374,13 +389,17 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			throw(ArgumentError("Nodal network_model=$(network_model) requires non-empty bus set. Provide busdata/branchdata (or linedata with from_bus/to_bus)."))
 		end
 		bus_zone_of_n = Dict{Int,Int}()
+		bus_state_of_n = Dict{Int,Any}()
 		if network_model in [2, 3]
 			for n in N_bus
 				if !haskey(bus_to_zone_idx, bus_labels[n])
 					throw(ArgumentError("No zone mapping found for bus $(bus_labels[n])."))
 				end
 				bus_zone_of_n[n] = bus_to_zone_idx[bus_labels[n]]
+				bus_state_of_n[n] = haskey(bus_state_map, bus_labels[n]) ? bus_state_map[bus_labels[n]] : Zonedata[bus_zone_of_n[n], "State"]
 			end
+			W = sort(unique([bus_state_of_n[n] for n in N_bus]))
+			W_prime = W
 		end
 		N_i = [network_model in [2, 3] ? [n for n in N_bus if haskey(bus_to_zone_idx, bus_labels[n]) && bus_to_zone_idx[bus_labels[n]] == i] : Int[] for i in I]
 		L_from_n = Dict(l => (network_model in [2, 3] ? Bus_idx_dict[Linedata[l, from_bus_col]] : 0) for l in L)
@@ -389,8 +408,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		LR_n = [network_model in [2, 3] ? findall(l -> L_to_n[l] == n, L) : Int[] for n in N_bus]
 		G_n = [Int[] for _ in N_bus]
 		S_n = [Int[] for _ in N_bus]
-		bus_load_share = Dict{Int,Float64}()
+		bus_zone_weight = Dict{Int,Float64}()
+		PK_bus = Dict{Int,Float64}()
+		P_n_t = Dict{Tuple{Int,Int},Float64}()
+		NodeNI_h = Dict{Tuple{Int,Int},Float64}()
+		NodeNITarget_h = Dict{Tuple{Int,Int},Float64}()
+		NodeNICap_h = Dict{Tuple{Int,Int},Float64}()
+		nodal_ni_active = false
+		flexible_nodal_ni_active = false
 		if network_model in [2, 3]
+			if Busdata === nothing
+				throw(ArgumentError("Nodal PCM requires busdata.csv."))
+			end
+			if NodalLoaddata === nothing
+				throw(ArgumentError("Nodal PCM requires load_timeseries_nodal.csv (or sheet load_timeseries_nodal). Zonal load x bus-share fallback is no longer used in nodal modes."))
+			end
 			gendata_cols_local = Set(string.(names(Gendata)))
 			gen_bus_col = first_existing_col(gendata_cols_local, ["Bus_id", "bus_id", "Bus", "bus"])
 			for g in G
@@ -413,53 +445,99 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				end
 				push!(S_n[n_idx], s)
 			end
-			if Busdata !== nothing
-				bus_cols = Set(string.(names(Busdata)))
-				bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
-				load_share_col = first_existing_col(bus_cols, ["Load_share", "load_share", "Demand_share", "demand_share"])
-				load_mw_col = first_existing_col(bus_cols, ["Demand (MW)", "Load (MW)", "Pd", "PD"])
-				for i in I
-					nodes = N_i[i]
-					if isempty(nodes)
-						continue
-					end
-					raw = zeros(Float64, length(nodes))
-					for (k_idx, n_idx) in enumerate(nodes)
-						bid = bus_labels[n_idx]
-						row_idx = findfirst(Busdata[:, bus_id_col] .== bid)
-						if row_idx === nothing
-							raw[k_idx] = 0.0
-						elseif load_share_col !== nothing
-							raw[k_idx] = Float64(Busdata[row_idx, load_share_col])
-						elseif load_mw_col !== nothing
-							raw[k_idx] = Float64(Busdata[row_idx, load_mw_col])
-						else
-							raw[k_idx] = 1.0
-						end
-					end
-					den = sum(raw)
-					if den <= 0
-						for n_idx in nodes
-							bus_load_share[n_idx] = 1.0 / length(nodes)
-						end
+			bus_cols = Set(string.(names(Busdata)))
+			bus_id_col = first_existing_col(bus_cols, ["Bus_id", "bus_id", "bus_i", "BUS_I", "Bus"])
+			load_share_col = first_existing_col(bus_cols, ["Load_share", "load_share", "Demand_share", "demand_share"])
+			load_mw_col = first_existing_col(bus_cols, ["Demand (MW)", "Load (MW)", "Pd", "PD"])
+			if bus_id_col === nothing
+				throw(ArgumentError("Nodal PCM busdata must include Bus_id."))
+			end
+			if load_share_col === nothing && load_mw_col === nothing
+				throw(ArgumentError("Nodal PCM requires busdata to include either Load_share or a bus peak-load column (Demand (MW), Load (MW), Pd, or PD)."))
+			end
+			for i in I
+				nodes = N_i[i]
+				if isempty(nodes)
+					continue
+				end
+				raw = zeros(Float64, length(nodes))
+				for (k_idx, n_idx) in enumerate(nodes)
+					bid = bus_labels[n_idx]
+					row_idx = findfirst(Busdata[:, bus_id_col] .== bid)
+					if row_idx === nothing
+						throw(ArgumentError("Bus $(bid) is missing from busdata."))
+					elseif load_share_col !== nothing
+						raw[k_idx] = Float64(Busdata[row_idx, load_share_col])
 					else
-						for (k_idx, n_idx) in enumerate(nodes)
-							bus_load_share[n_idx] = raw[k_idx] / den
-						end
+						raw[k_idx] = Float64(Busdata[row_idx, load_mw_col])
 					end
 				end
-			else
-				for i in I
-					nodes = N_i[i]
-					if !isempty(nodes)
-						for n_idx in nodes
-							bus_load_share[n_idx] = 1.0 / length(nodes)
-						end
+				den = sum(raw)
+				if den <= 0
+					throw(ArgumentError("Zone $(Idx_zone_dict[i]) has non-positive nodal peak-load basis in busdata."))
+				end
+				zone_peak = Float64(Zonedata[i, "Demand (MW)"])
+				for (k_idx, n_idx) in enumerate(nodes)
+					bus_zone_weight[n_idx] = raw[k_idx] / den
+					PK_bus[n_idx] = zone_peak * bus_zone_weight[n_idx]
+				end
+			end
+			parse_timeseries_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
+			nodal_time_cols = Set(["Time Period", "Hours", "Month", "Day", "Period", "Hour", "NI"])
+			expected_bus_cols = [string(bus_labels[n]) for n in N_bus]
+			missing_nodal_cols = setdiff(expected_bus_cols, string.(names(NodalLoaddata)))
+			if !isempty(missing_nodal_cols)
+				throw(ArgumentError("load_timeseries_nodal is missing bus columns: $(collect(missing_nodal_cols))."))
+			end
+			extra_nodal_cols = setdiff(string.(names(NodalLoaddata)), union(nodal_time_cols, Set(expected_bus_cols)))
+			if !isempty(extra_nodal_cols)
+				println("Info: Ignoring extra columns in load_timeseries_nodal: $(collect(extra_nodal_cols)).")
+			end
+			NodalLoaddata_ordered = select(NodalLoaddata, expected_bus_cols)
+			for h in H, n in N_bus
+				val = NodalLoaddata_ordered[h, expected_bus_cols[n]]
+				P_n_t[(h,n)] = parse_timeseries_float(val)
+			end
+			nodal_ni_time_cols = Set(["Time Period", "Hours", "Month", "Day", "Period", "Hour"])
+			function load_nodal_ni_timeseries!(dest::Dict{Tuple{Int,Int},Float64}, frame, dataset_name::AbstractString)
+				missing_nodal_ni_cols = setdiff(expected_bus_cols, string.(names(frame)))
+				if !isempty(missing_nodal_ni_cols)
+					throw(ArgumentError("$(dataset_name) is missing bus columns: $(collect(missing_nodal_ni_cols))."))
+				end
+				extra_nodal_ni_cols = setdiff(string.(names(frame)), union(nodal_ni_time_cols, Set(expected_bus_cols)))
+				if !isempty(extra_nodal_ni_cols)
+					println("Info: Ignoring extra columns in $(dataset_name): $(collect(extra_nodal_ni_cols)).")
+				end
+				frame_ordered = select(frame, expected_bus_cols)
+				for h in H, n in N_bus
+					dest[(h,n)] = parse_timeseries_float(frame_ordered[h, expected_bus_cols[n]])
+				end
+			end
+			if (NodalNITargetdata === nothing) != (NodalNICapdata === nothing)
+				throw(ArgumentError("Flexible nodal NI requires both ni_timeseries_nodal_target and ni_timeseries_nodal_cap."))
+			end
+			if NodalNITargetdata !== nothing && NodalNICapdata !== nothing
+				load_nodal_ni_timeseries!(NodeNITarget_h, NodalNITargetdata, "ni_timeseries_nodal_target")
+				load_nodal_ni_timeseries!(NodeNICap_h, NodalNICapdata, "ni_timeseries_nodal_cap")
+				for h in H, n in N_bus
+					target = NodeNITarget_h[(h,n)]
+					cap = NodeNICap_h[(h,n)]
+					if abs(target) > abs(cap) + 1.0e-6
+						throw(ArgumentError("Flexible nodal NI target exceeds cap in absolute value at bus $(bus_labels[n]), hour $(h): target=$(target), cap=$(cap)."))
+					end
+					if sign(target) != 0.0 && sign(cap) != 0.0 && sign(target) != sign(cap)
+						throw(ArgumentError("Flexible nodal NI target/cap sign mismatch at bus $(bus_labels[n]), hour $(h): target=$(target), cap=$(cap)."))
 					end
 				end
+				flexible_nodal_ni_active = true
+				nodal_ni_active = true
+			elseif NodalNIdata !== nothing
+				load_nodal_ni_timeseries!(NodeNI_h, NodalNIdata, "ni_timeseries_nodal")
+				nodal_ni_active = true
 			end
 		end
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
+		N_w = Dict(w => (network_model in [2, 3] ? [n for n in N_bus if bus_state_of_n[n] == w] : Int[]) for w in W) # Set of buses in state w for nodal policy accounting
 		WER_w = Dict{Any,Vector{Any}}() #Set of states that state w can export renewable credits to (excludes w itself), subset of W
 		WIR_w = Dict{Any,Vector{Any}}() #Set of states that state w can import renewable credits from (excludes w itself), subset of W
 		W_set = Set(W)
@@ -468,6 +546,18 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			import_sources = unique(RPSdata[RPSdata[:, "To_state"] .== w, "From_state"])
 			WER_w[w] = [w_prime for w_prime in export_targets if (w_prime in W_set) && (w_prime != w)]
 			WIR_w[w] = [w_prime for w_prime in import_sources if (w_prime in W_set) && (w_prime != w)]
+		end
+		G_w_policy = Dict{Any,Vector{Int}}()
+		for w in W
+			if network_model in [2, 3]
+				gens = Int[]
+				for n in N_w[w]
+					append!(gens, G_n[n])
+				end
+				G_w_policy[w] = unique(gens)
+			else
+				G_w_policy[w] = isempty(I_w[w]) ? Int[] : unique(vcat([G_i[i] for i in I_w[w]]...))
+			end
 		end
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
@@ -514,14 +604,41 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			B_l = Dict(l => 1.0 for l in L)
 		end
 		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
+		NIdata_eff = [to_float(v) for v in NIdata]
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			target_nodal_ni_system = [sum(NodeNITarget_h[(h,n)] for n in N_bus) for h in H]
+			cap_nodal_ni_system = [sum(NodeNICap_h[(h,n)] for n in N_bus) for h in H]
+			max_target_ni_diff = maximum(abs.(NIdata_eff .- target_nodal_ni_system))
+			println("Info: Using flexible nodal NI with target/cap inputs in nodal PCM.")
+			if max_target_ni_diff > 1.0e-6
+				println("Info: ni_timeseries_nodal_target total differs from load_timeseries_regional.NI (max abs diff = $(round(max_target_ni_diff, digits=6))). Using nodal NI target directly.")
+			end
+			NIdata_eff = target_nodal_ni_system
+		elseif network_model in [2, 3] && nodal_ni_active
+			nodal_ni_system = [sum(NodeNI_h[(h,n)] for n in N_bus) for h in H]
+			max_ni_diff = maximum(abs.(NIdata_eff .- nodal_ni_system))
+			if max_ni_diff > 1.0e-6
+				println("Info: ni_timeseries_nodal total differs from load_timeseries_regional.NI (max abs diff = $(round(max_ni_diff, digits=6))). Using nodal NI directly in nodal PCM.")
+			else
+				println("Info: Using ni_timeseries_nodal directly in nodal PCM.")
+			end
+			NIdata_eff = nodal_ni_system
+		end
 		#N=get_TPmatched_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t						#Number of time periods (days) represented by time period (day) t per year, ∑_(t∈T)▒〖N_t.|H_t |〗= 8760
-		NI=Dict([(i,h) =>NIdata[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			NI = Dict((i,h) => sum(NodeNITarget_h[(h,n)] for n in N_i[i]) for i in I for h in H)
+		elseif network_model in [2, 3] && nodal_ni_active
+			NI = Dict((i,h) => sum(NodeNI_h[(h,n)] for n in N_i[i]) for i in I for h in H)
+		else
+			NI=Dict([(i,h) =>NIdata_eff[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])#IH	#Net imports in zone i in h, MWh
+		end
 		#NI_t = Dict([t => Dict([(i,h) =>Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 		#P=Dict([(d,h) => Loaddata[:,Idx_zone_dict[d]][h] for d in D for h in H])#d,h			#Active power demand of d in hour h, MW
 		P_t = Loaddata_ordered
 		PK=Zonedata[:,"Demand (MW)"]#d						#Peak power demand, MW
 		PT_rps = get_singlepar("PT_RPS", 1.0e13)									#RPS violation penalty, $/MWh
 		PT_emis = get_singlepar("PT_emis", 1.0e13)								#Carbon emission violation penalty, $/t
+		PT_ni_dev = get_singlepar("PT_NI_DEV", 500.0)								#Flexible NI target-deviation penalty, $/MWh
 		reg_up_requirement = get_singlepar("reg_up_requirement", 0.0)
 		reg_dn_requirement = get_singlepar("reg_dn_requirement", 0.0)
 		spin_requirement = get_singlepar("spin_requirement", 0.03)
@@ -627,7 +744,13 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			
 		#for multiple time period, we need to use following TS parameters
 		#NI_t = Dict([t => Dict([(h,i) =>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
-		NI_h = Dict([(h,i)=>Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			NI_h = Dict((h,i) => sum(NodeNITarget_h[(h,n)] for n in N_i[i]) for i in I for h in H)
+		elseif network_model in [2, 3] && nodal_ni_active
+			NI_h = Dict((h,i) => sum(NodeNI_h[(h,n)] for n in N_i[i]) for i in I for h in H)
+		else
+			NI_h = Dict([(h,i)=>NIdata_eff[h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H])
+		end
 		P_t = Loaddata_ordered  #hi
 		
 		#For T
@@ -635,9 +758,51 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Winddata_ordered[:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
 		
-		AFRES_hg = Dict([(g) => Dict([(h, i) => Solardata_ordered[h, Idx_zone_dict[i]] for h in H for i in I]) for g in G_PV])
-		AFREW_hg = Dict([(g) => Dict([(h, i) => Winddata_ordered[h, Idx_zone_dict[i]] for h in H for i in I]) for g in G_W])
-		AFRE_hg = merge(+, AFRES_hg, AFREW_hg)#[g][h,i]
+		AF_g_static = [Float64(coalesce(v, 1.0)) for v in Gendata[:,"AF"]]
+		provided_af_cols = Set{String}()
+		if AFdata !== nothing
+			required_af_time_cols = ["Time Period", "Hours"]
+			missing_af_time_cols = setdiff(required_af_time_cols, names(AFdata))
+			if !isempty(missing_af_time_cols)
+				throw(ArgumentError("Missing required time columns in PCM generator availability input: $(collect(missing_af_time_cols)). Expected at least Time Period and Hours."))
+			end
+			validate_aligned_time_columns!(Loaddata, AFdata, "gen_availability_timeseries")
+			provided_af_cols = Set(String.(intersect(names(AFdata), Ordered_gen_nm)))
+			missing_gen_af_cols = setdiff(Ordered_gen_nm, names(AFdata))
+			if !isempty(provided_af_cols)
+				println("Info: PCM will use generator-level AF for $(length(provided_af_cols)) generators from gen_availability_timeseries.")
+			end
+			if !isempty(missing_gen_af_cols)
+				println("Info: PCM generators missing hourly AF columns will fall back to zonal VRE profiles or static AF.")
+			end
+		end
+		gen_zone_idx = Dict(g => Zone_idx_dict[Gendata[g, "Zone"]] for g in G)
+		solar_af_at(g, h) = if AFdata !== nothing && (Ordered_gen_nm[g] in provided_af_cols)
+			to_float_or_default(AFdata[h, Ordered_gen_nm[g]], to_float(Solardata_ordered[h, Idx_zone_dict[gen_zone_idx[g]]]))
+		else
+			to_float(Solardata_ordered[h, Idx_zone_dict[gen_zone_idx[g]]])
+		end
+		wind_af_at(g, h) = if AFdata !== nothing && (Ordered_gen_nm[g] in provided_af_cols)
+			to_float_or_default(AFdata[h, Ordered_gen_nm[g]], to_float(Winddata_ordered[h, Idx_zone_dict[gen_zone_idx[g]]]))
+		else
+			to_float(Winddata_ordered[h, Idx_zone_dict[gen_zone_idx[g]]])
+		end
+		function generator_af_fallback(g, h)
+			if g in G_PV
+				return solar_af_at(g, h)
+			elseif g in G_W
+				return wind_af_at(g, h)
+			else
+				return AF_g_static[g]
+			end
+		end
+		function generator_af_at(g, h)
+			if AFdata !== nothing && (Ordered_gen_nm[g] in provided_af_cols)
+				return to_float_or_default(AFdata[h, Ordered_gen_nm[g]], generator_af_fallback(g, h))
+			end
+			return generator_af_fallback(g, h)
+		end
+		AF_gh = Dict((g,h) => generator_af_at(g, h) for g in G for h in H)
 		if flexible_demand == 1
 			DR_DF_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
 			DR_PB_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
@@ -680,6 +845,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		elseif network_model == 3
 			@variable(model, inj[N_bus,H])							#Net nodal injection for PTDF-based DCOPF, MW
 		end
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			@variable(model, node_ni_actual[N_bus,H])
+			@variable(model, node_ni_dev_pos[N_bus,H] >= 0)
+			@variable(model, node_ni_dev_neg[N_bus,H] >= 0)
+		end
 		@variable(model, soc[S,H]>=0)						#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H]>=0)							#Charging power of storage s from grid in hour h, MW
 		@variable(model, dc[S,H]>=0)						#Discharging power of storage s into grid in hour h, MW
@@ -720,6 +890,19 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		else
 			@expression(model, DR_OPT[i in I, h in H], 0)
 		end
+		if network_model in [2, 3]
+			@expression(model, NodeNativeLoad[n in N_bus, h in H], PK_bus[n] * P_n_t[(h,n)])
+			@expression(model, NodeLoad[n in N_bus, h in H], model[:NodeNativeLoad][n,h] + bus_zone_weight[n] * (DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
+			if flexible_nodal_ni_active
+				@expression(model, NodeNITarget[n in N_bus, h in H], NodeNITarget_h[(h,n)])
+				@expression(model, NodeNICap[n in N_bus, h in H], NodeNICap_h[(h,n)])
+				@expression(model, NodeNI[n in N_bus, h in H], model[:node_ni_actual][n,h])
+			elseif nodal_ni_active
+				@expression(model, NodeNI[n in N_bus, h in H], NodeNI_h[(h,n)])
+			else
+				@expression(model, NodeNI[n in N_bus, h in H], bus_zone_weight[n] * NI_h[h, bus_zone_of_n[n]])
+			end
+		end
 		if transmission_loss == 1 && network_model in [1, 2]
 			@expression(model, LineLoss[l in L, h in H], line_loss_rate[l] * model[:f_abs][l,h])
 		end
@@ -745,8 +928,6 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h] + model[:ZoneLineLoss][i,h],base_name = "PB_con")
 		elseif network_model == 2
 			# [PCM-C1.2] Nodal DCOPF angle-based
-			@expression(model, NodeLoad[n in N_bus, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
-			@expression(model, NodeNI[n in N_bus, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
 			if transmission_loss == 1
 				@expression(model, NodeLineLoss[n in N_bus, h in H], 0.5 * sum(model[:LineLoss][l,h] for l in vcat(LS_n[n], LR_n[n])))
 			else
@@ -766,8 +947,6 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			end
 		else
 			# [PCM-C1.3] Nodal DCOPF PTDF-based
-			@expression(model, NodeLoad[n in N_bus, h in H], bus_load_share[n] * (sum(P_t[h,d]*PK[d] for d in D_i[bus_zone_of_n[n]]) + DR_OPT[bus_zone_of_n[n],h] - p_LS[bus_zone_of_n[n],h]))
-			@expression(model, NodeNI[n in N_bus, h in H], bus_load_share[n] * NI_h[h, bus_zone_of_n[n]])
 			@expression(model, NetInj[n in N_bus, h in H], sum(p[g,h] for g in G_n[n])
 				+ sum(dc[s,h] - c[s,h] for s in S_n[n])
 				+ NodeNI[n,h]
@@ -777,7 +956,17 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@constraint(model, FPTDF_con[l in L, h in H], f[l,h] == sum(PTDF_l_n[(l,n)] * model[:inj][n,h] for n in N_bus), base_name = "FPTDF_con")
 		end
 		# [PCM-C1.NI] NI upper bound
-		NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			NodeNIActualTargetLink_con = @constraint(model, [n in N_bus, h in H],
+				model[:node_ni_actual][n,h] - model[:NodeNITarget][n,h] == model[:node_ni_dev_pos][n,h] - model[:node_ni_dev_neg][n,h],
+				base_name = "NodeNIActualTargetLink_con")
+			NodeNIActualCap_con = @constraint(model, [n in N_bus, h in H],
+				min(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]) <= model[:node_ni_actual][n,h] <= max(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]),
+				base_name = "NodeNIActualCap_con")
+			NI_con = @constraint(model, [h in H, i in I], model[:ni][h,i] == sum(model[:node_ni_actual][n,h] for n in N_i[i]), base_name = "NI_con")
+		else
+			NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
+		end
 		if operation_reserve_mode == 2
 			@expression(model, ReserveUpG[g in G, h in H], r_G_REG_UP[g,h] + r_G_SPIN[g,h] + r_G_NSPIN[g,h])
 			@expression(model, ReserveDnG[g in G, h in H], r_G_REG_DN[g,h])
@@ -794,7 +983,15 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@expression(model, ReserveUpS[s in S, h in H], 0)
 			@expression(model, ReserveDnS[s in S, h in H], 0)
 		end
-		@expression(model, Load_system[h in H], sum(sum(P_t[h,d]*PK[d] for d in D_i[i]) for i in I))
+		if network_model in [2, 3]
+			@expression(model, Load_system[h in H], sum(NodeNativeLoad[n,h] for n in N_bus))
+			@expression(model, StatePolicyLoad[w in W, h in H],
+				sum(NodeNativeLoad[n,h] for n in N_w[w]))
+		else
+			@expression(model, Load_system[h in H], sum(sum(P_t[h,d]*PK[d] for d in D_i[i]) for i in I))
+			@expression(model, StatePolicyLoad[w in W, h in H],
+				sum(sum(P_t[h,d] * PK[d] for d in D_i[i]) for i in I_w[w]))
+		end
 		@expression(model, REG_UP_requirement[h in H], reg_up_requirement * Load_system[h])
 		@expression(model, REG_DN_requirement[h in H], reg_dn_requirement * Load_system[h])
 		@expression(model, SPIN_requirement[h in H], spin_requirement * Load_system[h])
@@ -835,11 +1032,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@constraint(model, TLAbsNeg_con[l in L, h in H], model[:f_abs][l,h] >= -f[l,h], base_name = "TLAbsNeg_con")
 			@constraint(model, TLAbsUb_con[l in L, h in H], model[:f_abs][l,h] <= F_max_eff[l], base_name = "TLAbsUb_con")
 		end
-
+		AvailableCapacity = Dict((g,h) => AF_gh[(g,h)] * P_max[g] for g in G for h in H)
 		if config_set["unit_commitment"] == 0
 			# [PCM-C3.A] Generator operating limits without UC
-			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
-			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
+			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
 			# [PCM-C3.HD] Downward headroom (non-UC)
 			HeadroomDN_con = @constraint(model, [g in G_F, h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_con")
 			# [PCM-C3.R] Reserve capability and response limits (non-UC)
@@ -859,10 +1056,10 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
 		else
 			# [PCM-C3.B] Generator operating limits with UC
-			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g],base_name = "CLe_con")
-			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == (1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
+			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
 			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] ,base_name = "CLeL_con")
-			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= (1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
+			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
 			# [PCM-C3.HD] Downward headroom (UC-aware)
 			HeadroomDN_nonUC_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_nonUC_con")
 			HeadroomDN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], model[:pmin][g,h] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_UC_con")
@@ -886,25 +1083,29 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 	
 			# [PCM-C3.RU] Ramp-up (UC-aware and non-UC variants)
 			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
-			RP_UP_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
+			RP_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
 		
 			# [PCM-C3.RD] Ramp-down (UC-aware and non-UC variants)
 			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h] -p[g,h-1] >= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
-			RP_DN_UC_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
+			RP_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
 			
 		end
 
 		# [PCM-C1/C3] Load shedding bound
-		LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h]<= sum(P_t[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
+		if network_model in [2, 3]
+			LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h] <= sum(model[:NodeNativeLoad][n,h] for n in N_i[i]), base_name = "LS_con")
+		else
+			LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h]<= sum(P_t[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
+		end
 		
 		
 		##############
 		##Renewbales##
 		##############
 		# [PCM-C3] Renewable availability for existing VRE
-		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_con")
-		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AFRE_hg[g][h,i]*P_max[g],base_name = "ReAe_MR_con")
-		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AFRE_hg[g][h,i]*P_max[g]-p[g,h])
+		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AvailableCapacity[(g,h)],base_name = "ReAe_con")
+		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AvailableCapacity[(g,h)],base_name = "ReAe_MR_con")
+		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AvailableCapacity[(g,h)]-p[g,h])
 		
 		
 		
@@ -948,23 +1149,23 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		if clean_energy_policy == 1
 			# [PCM-C5.1] State-level renewable generation accounting
-			RPS_pw_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
+			RPS_pw_con = @constraint(model, [w in W, g in intersect(G_w_policy[w],G_RPS)],
 								pw[g,w] == sum(N[t]*sum(p[g,h] for h in H_t[t]) for t in T), base_name = "RPS_pw_con")
 
 			# [PCM-C5.2] REC export feasibility (pwe from w to w')
-			RPS_expt_con = @constraint(model, [w in W, g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS)],
+			RPS_expt_con = @constraint(model, [w in W, g in intersect(G_w_policy[w],G_RPS)],
 								pw[g,w] >= sum(pwe[g,w,w_prime] for w_prime in WER_w[w]), base_name = "RPS_expt_con")
 
 			# [PCM-C5.3] REC import feasibility (pwe from w' to w)
-			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w], g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS)],
+			RPS_impt_con = @constraint(model, [w in W, w_prime in WIR_w[w], g in intersect(G_w_policy[w_prime],G_RPS)],
 								pw[g,w_prime] >= pwe[g,w_prime,w], base_name = "RPS_impt_con")
 
 			# [PCM-C5.4] State RPS balance with REC trading and slack
-			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
-									+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(union([G_i[i] for i in I_w[w_prime]]...),G_RPS))
-									- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(union([G_i[i] for i in I_w[w]]...),G_RPS))
+			RPS_con = @constraint(model, [w in W], sum(pw[g,w] for g in intersect(G_w_policy[w],G_RPS))
+									+ sum(pwe[g,w_prime,w] for w_prime in WIR_w[w] for g in intersect(G_w_policy[w_prime],G_RPS))
+									- sum(pwe[g,w,w_prime] for w_prime in WER_w[w] for g in intersect(G_w_policy[w],G_RPS))
 									+ pt_rps[w]
-									>= sum(N[t]*sum(sum(P_t[h,d]*PK[d]*RPS[w] for d in D_i[i]) for i in I_w[w] for h in H_t[t]) for t in T), base_name = "RPS_con")
+									>= sum(N[t]*sum(StatePolicyLoad[w,h] * RPS[w] for h in H_t[t]) for t in T), base_name = "RPS_con")
 		else
 			RPS_off_con = @constraint(model, [w in W], pt_rps[w] == 0, base_name = "RPS_off_con")
 		end
@@ -972,16 +1173,21 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		###############
 		#CarbonPolices#				
 		###############
-		@expression(model, StateCarbonEmission[w in W],
-			sum(sum(N[t]*sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H_t[t]) for t in T) for i in I_w[w]))
+		if network_model in [2, 3]
+			@expression(model, StateCarbonEmission[w in W],
+				sum(N[t] * sum(sum(EF[g] * p[g,h] for g in intersect(G_F, G_n[n])) for n in N_w[w], h in H_t[t]) for t in T))
+		else
+			@expression(model, StateCarbonEmission[w in W],
+				sum(sum(N[t]*sum(EF[g]*p[g,h] for g in intersect(G_F,G_i[i]) for h in H_t[t]) for t in T) for i in I_w[w]))
+		end
 		if carbon_policy == 2
 			# [PCM-C5.B1] Option B: state allowance cap
 			SCAL_con = @constraint(model, [w in W],
-				sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) <= get(ALW_state, w, 0.0),
+				sum(a[g] for g in intersect(G_w_policy[w], G_F)) <= get(ALW_state, w, 0.0),
 				base_name = "SCAL_con")
 			# [PCM-C5.B2] Option B: allowances + slack cover annual emissions
 			BAL_con = @constraint(model, [w in W],
-				StateCarbonEmission[w] <= sum(a[g] for g in intersect(union([G_i[i] for i in I_w[w]]...), G_F)) + em_emis[w],
+				StateCarbonEmission[w] <= sum(a[g] for g in intersect(G_w_policy[w], G_F)) + em_emis[w],
 				base_name = "BAL_con")
 		elseif carbon_policy == 1
 			# [PCM-C5.A] Option A: state annual emissions cap with slack
@@ -1016,6 +1222,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 
 		#Loss of load penalty
 		@expression(model, LoadShedding, sum(VOLL*N[t]*sum(p_LS[i,h] for h in H_t[t]) for i in I for t in T))
+		if network_model in [2, 3] && flexible_nodal_ni_active
+			@expression(model, NIDeviationPenalty, PT_ni_dev * sum(N[t] * sum(model[:node_ni_dev_pos][n,h] + model[:node_ni_dev_neg][n,h] for n in N_bus for h in H_t[t]) for t in T))
+		else
+			@expression(model, NIDeviationPenalty, 0.0)
+		end
 
 		#RPS volitation penalty
 		if clean_energy_policy == 1
@@ -1048,7 +1259,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 
 		#Minmize objective fuction: STCost + DR_OPCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
-		@objective(model,Min, STCost + DR_OPcost + OPCost + LoadShedding + RPSPenalty + CarbonCapPenalty)
+		@objective(model,Min, STCost + DR_OPcost + OPCost + LoadShedding + NIDeviationPenalty + RPSPenalty + CarbonCapPenalty)
 		return model
 	end
 end 

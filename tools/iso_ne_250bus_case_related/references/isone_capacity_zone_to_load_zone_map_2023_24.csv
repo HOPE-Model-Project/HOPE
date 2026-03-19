@@ -1,0 +1,9 @@
+Zone_id,LoadZone,State,Mapping_Basis,Comment
+Maine,ME,ME,2023-24 capacity commitment period,Maine remains a separate nested export-constrained capacity zone
+NNE,NH,NH,2023-24 capacity commitment period,NNE includes New Hampshire
+NNE,VT,VT,2023-24 capacity commitment period,NNE includes Vermont
+ROP,CT,CT,2023-24 capacity commitment period,ROP includes Connecticut
+ROP,WCMA,MA,2023-24 capacity commitment period,ROP includes Western/Central Massachusetts
+SENE,NEMA/Boston,MA,2023-24 capacity commitment period,SENE includes Northeastern Massachusetts and Boston
+SENE,SEMA,MA,2023-24 capacity commitment period,SENE includes Southeastern Massachusetts
+SENE,RI,RI,2023-24 capacity commitment period,SENE includes Rhode Island
