@@ -145,6 +145,8 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 <br clear="both"/>
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
+<br clear="both"/>
+<img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="700" alt="MIT CEEPR logo" />
 
 
 
