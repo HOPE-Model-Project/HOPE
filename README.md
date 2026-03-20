@@ -8,7 +8,6 @@
 
 
 
-<img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 
 ## How to cite HOPE?
 You can cite the paper: 
@@ -20,9 +19,9 @@ Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimiza
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
-3. `OPF` mode: (under development): an optimal power flow model
-4. `DART` mode: (under development): a bilevel market model for simulating day-ahead and real-time markets
-5. `HOPE-AI` mode: (under development): an AI agent helps nesting all HOPE modes to implement complex modeling work. 
+3. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
+4. `OPF` mode: (under development): an optimal power flow model
+5. `HOPE-AI` mode: (under development): an AI agent helps connect all HOPE modules to enable complex modeling workflows.
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
@@ -146,7 +145,7 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <br clear="both"/>
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
 <br clear="both"/>
-<img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="320" alt="MIT CEEPR logo" />
+<img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="280" alt="MIT CEEPR logo" />
 
 
 
