@@ -27,7 +27,7 @@ Users can select the proper mode of HOPE based on their research needs. Each mod
 
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
 
-Current HOPE model is also maintaining by researchers at MIT, incuding Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel) 
+Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel) 
 
 # Preparation Phase
 ## 1. Install Julia
@@ -143,7 +143,7 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 # Program Sponsors
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 <br clear="both"/>
-<img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="300" height="150" />
+<img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="320" height="160" />
 <br clear="both"/>
 <img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="280" alt="MIT CEEPR logo" />
 
