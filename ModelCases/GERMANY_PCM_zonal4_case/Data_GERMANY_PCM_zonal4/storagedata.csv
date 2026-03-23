@@ -1,0 +1,9 @@
+Zone,Bus_id,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost ($/MWh),EF,CC,Charging Rate,Discharging Rate
+50Hertz,50Hertz,BES,2940.11576,1470.05788,0.9,0.9,1.0,0.0,0.95,0.5,1.0
+50Hertz,50Hertz,PHS,9318.4,1164.8,0.84,0.84,0.5,0.0,0.95,1.0,1.0
+Amprion,Amprion,BES,1956.30216,978.15108,0.9,0.9,1.0,0.0,0.95,0.5,1.0
+Amprion,Amprion,PHS,18784.0,2348.0,0.84,0.84,0.5,0.0,0.95,1.0,1.0
+TenneT,TenneT,BES,2261.35916,1130.67958,0.9,0.9,1.0,0.0,0.95,0.5,1.0
+TenneT,TenneT,PHS,17968.96,2246.12,0.84,0.84,0.5,0.0,0.95,1.0,1.0
+TransnetBW,TransnetBW,BES,1644.38992,822.19496,0.9,0.9,1.0,0.0,0.95,0.5,1.0
+TransnetBW,TransnetBW,PHS,17706.0,2213.25,0.84,0.84,0.5,0.0,0.95,1.0,1.0

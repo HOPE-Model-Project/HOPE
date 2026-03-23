@@ -11,6 +11,7 @@ Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
@@ -32,6 +33,7 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
+DataStructures = "0.19.3"
 Shapefile = "0.13.3"
 julia = "1"
 

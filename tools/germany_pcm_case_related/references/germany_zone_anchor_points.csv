@@ -1,0 +1,13 @@
+﻿Zone_id,AnchorName,Latitude,Longitude,Source,Notes
+50Hertz,Berlin,52.5200,13.4050,manual_research_anchor,Initial east-Germany anchor for first-pass zone assignment
+50Hertz,Leipzig,51.3397,12.3731,manual_research_anchor,Initial east-Germany anchor for first-pass zone assignment
+50Hertz,Rostock,54.0924,12.0991,manual_research_anchor,Initial northeast anchor for first-pass zone assignment
+Amprion,Dortmund,51.5136,7.4653,manual_research_anchor,Initial west-Germany anchor for first-pass zone assignment
+Amprion,Cologne,50.9375,6.9603,manual_research_anchor,Initial west-Germany anchor for first-pass zone assignment
+Amprion,Siegen,50.8748,8.0243,manual_research_anchor,Initial west-central anchor for first-pass zone assignment
+TenneT,Lehrte,52.3713,9.9795,manual_research_anchor,Initial north-central anchor for first-pass zone assignment
+TenneT,Oldenburg,53.1435,8.2146,manual_research_anchor,Initial northwest anchor for first-pass zone assignment
+TenneT,Bayreuth,49.9481,11.5783,manual_research_anchor,Initial north-bavaria anchor for first-pass zone assignment
+TransnetBW,Stuttgart,48.7758,9.1829,manual_research_anchor,Initial southwest anchor for first-pass zone assignment
+TransnetBW,Karlsruhe,49.0069,8.4037,manual_research_anchor,Initial southwest anchor for first-pass zone assignment
+TransnetBW,Freiburg,47.9990,7.8421,manual_research_anchor,Initial upper-rhine anchor for first-pass zone assignment

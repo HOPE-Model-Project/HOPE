@@ -1,0 +1,6 @@
+From_zone,To_zone,from_bus,to_bus,KV,Capacity (MW),Loss (%)
+50Hertz,Amprion,B559,B770,380,3396.206,0.0
+50Hertz,TenneT,B284,B391,380,50987.768,0.0
+Amprion,TenneT,B692,B775,380,28957.12,0.0
+Amprion,TransnetBW,B246,B480,380,16042.602,0.0
+TenneT,TransnetBW,B410,B516,380,13361.389,0.0

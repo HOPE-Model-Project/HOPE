@@ -1,24 +1,34 @@
 from __future__ import annotations
 
 from pathlib import Path
+from functools import lru_cache
+import json
 import re
 
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from matplotlib import pyplot as plt
 from plotly.subplots import make_subplots
 from dash import Dash, Input, Output, State, dcc, html, ctx, no_update
 
 from data_loader import CaseData, load_case, resolve_dashboard_output_dir
 
 
-DEFAULT_CASE = "ModelCases/RTS24_PCM_multizone4_congested_1month_case"
+DEFAULT_CASE = "ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case"
 
 APP_FONT = "'Segoe UI Variable', 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+LOAD_ZONE_GEOJSON_PATHS = (
+    Path(__file__).resolve().parent / "data" / "isone_load_zones.geojson",
+    Path(__file__).resolve().parent / "data" / "germany_tso_zones.geojson",
+)
+GERMANY_TSO_ZONES = frozenset({"50Hertz", "Amprion", "TenneT", "TransnetBW"})
 GRID_LAYOUT_DEFAULT = [
-    {"top": "12px", "left": "0px", "width": "68%", "height": "430px", "zIndex": 3},
-    {"top": "12px", "left": "70%", "width": "30%", "height": "430px", "zIndex": 2},
-    {"top": "458px", "left": "0px", "width": "100%", "height": "320px", "zIndex": 1},
+    {"top": "12px", "left": "0px", "width": "61%", "height": "560px", "zIndex": 3},
+    {"top": "12px", "left": "63%", "width": "37%", "height": "560px", "zIndex": 2},
+    {"top": "598px", "left": "0px", "width": "100%", "height": "340px", "zIndex": 1},
 ]
 
 
@@ -101,6 +111,425 @@ def _line_color(shadow: float) -> str:
     return "#e63946"
 
 
+def _hex_to_rgba(color: str, alpha: float) -> str:
+    color = (color or "").strip().lstrip("#")
+    if len(color) != 6:
+        return f"rgba(148, 163, 184, {alpha:.3f})"
+    r = int(color[0:2], 16)
+    g = int(color[2:4], 16)
+    b = int(color[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha:.3f})"
+
+
+def _load_zone_color(load_zone: str) -> str:
+    palette = {
+        "ME": "#90caf9",
+        "VT": "#80cbc4",
+        "NH": "#a5d6a7",
+        "CT": "#ffab91",
+        "WCMA": "#ce93d8",
+        "RI": "#f48fb1",
+        "SEMA": "#ffe082",
+        "NEMA/Boston": "#ffcc80",
+        "50Hertz": "#8ecae6",
+        "Amprion": "#f4a261",
+        "TenneT": "#98c379",
+        "TransnetBW": "#c084fc",
+    }
+    return palette.get(str(load_zone), "#cbd5e1")
+
+def _load_zone_label_text(load_zone: str) -> str:
+    labels = {
+        "NEMA/Boston": "NEMA<br>Boston",
+    }
+    return labels.get(str(load_zone), str(load_zone))
+
+
+def _ordered_load_zone_names(case: CaseData) -> list[str]:
+    source_col = "LoadZone" if "LoadZone" in case.busdata.columns else "Zone_id"
+    raw_names = [
+        str(value).strip()
+        for value in case.busdata[source_col].dropna().astype(str).tolist()
+        if str(value).strip()
+    ]
+    unique_names = sorted(set(raw_names))
+    if unique_names and set(unique_names).issubset(GERMANY_TSO_ZONES):
+        tso_order = ["50Hertz", "Amprion", "TenneT", "TransnetBW"]
+        return [zone for zone in tso_order if zone in unique_names]
+    return unique_names
+
+
+def _case_study_badges(case: CaseData, hours: int, load_zones: int) -> list[str]:
+    badges: list[str] = []
+    zone_names = set(_ordered_load_zone_names(case))
+    if zone_names and zone_names.issubset(GERMANY_TSO_ZONES):
+        badges.append(f"Germany {load_zones}-TSO study")
+    if hours <= 72:
+        badges.append("Short-horizon demo")
+    elif hours <= 744:
+        badges.append("Monthly debug horizon")
+    elif hours <= 8784:
+        badges.append("Full-year chronology")
+    else:
+        badges.append("Extended chronology")
+    buses = int(case.busdata["Bus_id"].astype(str).nunique())
+    if buses > max(load_zones, 1) * 10:
+        badges.append("Full nodal network")
+    elif load_zones > 0:
+        badges.append("Aggregated zonal view")
+    return badges
+
+
+def _format_capacity_mw(capacity_mw: float) -> str:
+    if capacity_mw >= 1000.0:
+        return f"{capacity_mw / 1000.0:.1f} GW"
+    return f"{capacity_mw:.0f} MW"
+
+
+def _map_zone_legend(case: CaseData, map_overlays: list[str] | None) -> html.Div:
+    overlays = set(map_overlays or [])
+    if "load_zone_boundaries" not in overlays:
+        return html.Div(className="map-zone-legend map-zone-legend-hidden")
+    zone_names = _ordered_load_zone_names(case)
+    if not zone_names:
+        return html.Div(className="map-zone-legend map-zone-legend-hidden")
+    return html.Div(
+        [
+            html.Span("Zone Key", className="map-zone-legend-title"),
+            html.Div(
+                [
+                    html.Span(
+                        [
+                            html.Span(
+                                className="map-zone-legend-swatch",
+                                style={
+                                    "backgroundColor": _hex_to_rgba(_load_zone_color(zone_name), 0.38),
+                                    "border": f"1px solid {_hex_to_rgba(_load_zone_color(zone_name), 0.92)}",
+                                },
+                            ),
+                            html.Span(zone_name, className="map-zone-legend-name"),
+                        ],
+                        className="map-zone-legend-item",
+                    )
+                    for zone_name in zone_names
+                ],
+                className="map-zone-legend-items",
+            ),
+        ],
+        className="map-zone-legend",
+    )
+
+
+
+def _zone_blob_polygon(points: np.ndarray) -> np.ndarray:
+    center = points.mean(axis=0)
+    centered = points - center
+    if len(points) >= 3:
+        cov = np.cov(centered, rowvar=False)
+    else:
+        cov = np.eye(2)
+    if cov.shape != (2, 2) or not np.isfinite(cov).all():
+        cov = np.eye(2)
+
+    eigvals, eigvecs = np.linalg.eigh(cov)
+    order = np.argsort(eigvals)[::-1]
+    eigvals = np.maximum(eigvals[order], 1e-4)
+    eigvecs = eigvecs[:, order]
+    projected = centered @ eigvecs
+
+    lon_span = max(float(points[:, 0].max() - points[:, 0].min()), 0.06)
+    lat_span = max(float(points[:, 1].max() - points[:, 1].min()), 0.05)
+    major_radius = max(float(np.quantile(np.abs(projected[:, 0]), 0.9)) * 1.45, 0.24 * lon_span, 0.08)
+    minor_radius = max(float(np.quantile(np.abs(projected[:, 1]), 0.9)) * 1.55, 0.24 * lat_span, 0.07)
+
+    theta = np.linspace(0.0, 2.0 * np.pi, 49)
+    ellipse = np.column_stack((major_radius * np.cos(theta), minor_radius * np.sin(theta)))
+    polygon = center + ellipse @ eigvecs.T
+    return polygon
+
+
+def _polygon_area(lon_coords: list[float], lat_coords: list[float]) -> float:
+    if len(lon_coords) < 3 or len(lon_coords) != len(lat_coords):
+        return 0.0
+    lon = np.asarray(lon_coords, dtype=float)
+    lat = np.asarray(lat_coords, dtype=float)
+    return 0.5 * abs(float(np.dot(lon, np.roll(lat, -1)) - np.dot(lat, np.roll(lon, -1))))
+
+
+def _polygon_centroid(
+    lon_coords: list[float],
+    lat_coords: list[float],
+    default_lon: float,
+    default_lat: float,
+) -> tuple[float, float]:
+    if len(lon_coords) < 3 or len(lon_coords) != len(lat_coords):
+        return default_lon, default_lat
+    lon = np.asarray(lon_coords, dtype=float)
+    lat = np.asarray(lat_coords, dtype=float)
+    cross = lon * np.roll(lat, -1) - np.roll(lon, -1) * lat
+    area = 0.5 * float(cross.sum())
+    if abs(area) <= 1e-10:
+        return default_lon, default_lat
+    centroid_lon = float(((lon + np.roll(lon, -1)) * cross).sum() / (6.0 * area))
+    centroid_lat = float(((lat + np.roll(lat, -1)) * cross).sum() / (6.0 * area))
+    return centroid_lon, centroid_lat
+
+
+def _extract_contour_polygons(contour_set, area_floor: float) -> list[np.ndarray]:
+    polygons: list[np.ndarray] = []
+    for segment_group in getattr(contour_set, "allsegs", []):
+        for segment in segment_group:
+            vertices = np.asarray(segment, dtype=float)
+            if len(vertices) < 4:
+                continue
+            if not np.allclose(vertices[0], vertices[-1]):
+                vertices = np.vstack([vertices, vertices[0]])
+            lon_coords = vertices[:, 0].tolist()
+            lat_coords = vertices[:, 1].tolist()
+            if _polygon_area(lon_coords, lat_coords) < area_floor:
+                continue
+            polygons.append(vertices)
+    return polygons
+
+
+@lru_cache(maxsize=8)
+def _generated_zone_boundary_polygons(
+    point_rows: tuple[tuple[str, str, float, float], ...],
+) -> tuple[dict, ...]:
+    if not point_rows:
+        return tuple()
+
+    work = pd.DataFrame(point_rows, columns=["LoadZone", "Zone_id", "Longitude", "Latitude"])
+    zone_names = tuple(sorted(work["LoadZone"].astype(str).unique()))
+    if len(zone_names) < 2:
+        return tuple()
+
+    coords = work[["Longitude", "Latitude"]].to_numpy(dtype=float)
+    lon_scale = max(float(np.cos(np.deg2rad(work["Latitude"].mean()))), 0.45)
+
+    diffs = coords[:, None, :] - coords[None, :, :]
+    dist_matrix = np.sqrt((diffs[:, :, 0] * lon_scale) ** 2 + diffs[:, :, 1] ** 2)
+    np.fill_diagonal(dist_matrix, np.inf)
+    nearest_bus_distance = np.min(dist_matrix, axis=1)
+    coverage_radius = float(np.clip(np.quantile(nearest_bus_distance, 0.82) * 3.2, 0.18, 0.62))
+
+    lon_min = float(work["Longitude"].min() - coverage_radius * 1.2)
+    lon_max = float(work["Longitude"].max() + coverage_radius * 1.2)
+    lat_min = float(work["Latitude"].min() - coverage_radius * 1.05)
+    lat_max = float(work["Latitude"].max() + coverage_radius * 1.05)
+    lon_span = max(lon_max - lon_min, 1.0)
+    lat_span = max(lat_max - lat_min, 1.0)
+
+    lat_steps = 260
+    lon_steps = int(np.clip(round(lat_steps * (lon_span * lon_scale) / lat_span), 220, 360))
+    lon_values = np.linspace(lon_min, lon_max, lon_steps)
+    lat_values = np.linspace(lat_min, lat_max, lat_steps)
+    grid_lon, grid_lat = np.meshgrid(lon_values, lat_values)
+
+    zone_index = {zone: idx for idx, zone in enumerate(zone_names)}
+    zone_labels = work["LoadZone"].map(zone_index).to_numpy(dtype=int)
+    grid_diff_lon = (grid_lon[..., None] - coords[:, 0]) * lon_scale
+    grid_diff_lat = grid_lat[..., None] - coords[:, 1]
+    grid_dist = np.sqrt(grid_diff_lon**2 + grid_diff_lat**2)
+    coverage_mask = np.min(grid_dist, axis=2) <= coverage_radius
+
+    nearest_zone_indices = np.full(grid_lon.shape, -1, dtype=int)
+    if coverage_mask.any():
+        winning_bus = np.argmin(grid_dist, axis=2)
+        nearest_zone_indices[coverage_mask] = zone_labels[winning_bus[coverage_mask]]
+
+    area_floor = lon_span * lat_span * 0.004
+    generated: list[dict] = []
+    fig, ax = plt.subplots(figsize=(5, 5))
+    try:
+        for zone_name in zone_names:
+            zone_code = zone_index[zone_name]
+            zone_mask = coverage_mask & (nearest_zone_indices == zone_code)
+            if zone_mask.sum() < 25:
+                continue
+            contour = ax.contour(lon_values, lat_values, zone_mask.astype(float), levels=[0.5])
+            zone_points = work.loc[work["LoadZone"] == zone_name, ["Longitude", "Latitude"]].to_numpy(dtype=float)
+            default_center_lon = float(zone_points[:, 0].mean())
+            default_center_lat = float(zone_points[:, 1].mean())
+            candidate_polygons = _extract_contour_polygons(contour, area_floor=area_floor)
+            if not candidate_polygons:
+                continue
+            polygon_areas = [_polygon_area(polygon[:, 0].tolist(), polygon[:, 1].tolist()) for polygon in candidate_polygons]
+            largest_area = max(polygon_areas)
+            keep_floor = max(area_floor, largest_area * 0.08)
+            polygon_pairs = sorted(zip(candidate_polygons, polygon_areas), key=lambda item: item[1], reverse=True)
+            for polygon, polygon_area in polygon_pairs:
+                if polygon_area < keep_floor:
+                    continue
+                lon_coords = polygon[:, 0].tolist()
+                lat_coords = polygon[:, 1].tolist()
+                center_lon, center_lat = _polygon_centroid(
+                    lon_coords,
+                    lat_coords,
+                    default_lon=default_center_lon,
+                    default_lat=default_center_lat,
+                )
+                generated.append(
+                    {
+                        "name": str(zone_name),
+                        "zone": str(work.loc[work["LoadZone"] == zone_name, "Zone_id"].mode().iat[0]),
+                        "color": _load_zone_color(str(zone_name)),
+                        "lon": lon_coords,
+                        "lat": lat_coords,
+                        "center_lon": center_lon,
+                        "center_lat": center_lat,
+                        "hover_text": f"Load zone {zone_name}",
+                    }
+                )
+        return tuple(generated)
+    finally:
+        plt.close(fig)
+
+
+def _load_zone_geojson_features() -> list[dict]:
+    features: list[dict] = []
+    for geojson_path in LOAD_ZONE_GEOJSON_PATHS:
+        if not geojson_path.exists():
+            continue
+        try:
+            data = json.loads(geojson_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        this_features = data.get("features", [])
+        if isinstance(this_features, list):
+            features.extend(this_features)
+    return features
+
+
+@lru_cache(maxsize=1)
+def _cached_load_zone_geojson_features() -> tuple[dict, ...]:
+    return tuple(_load_zone_geojson_features())
+
+
+def _geojson_feature_polygons(feature: dict) -> list[np.ndarray]:
+    geometry = feature.get("geometry") or {}
+    geometry_type = geometry.get("type")
+    coordinates = geometry.get("coordinates") or []
+    polygon_sets = []
+    if geometry_type == "Polygon":
+        polygon_sets = [coordinates]
+    elif geometry_type == "MultiPolygon":
+        polygon_sets = coordinates
+
+    polygons: list[np.ndarray] = []
+    for polygon in polygon_sets:
+        if not polygon:
+            continue
+        outer_ring = polygon[0]
+        if len(outer_ring) < 3:
+            continue
+        polygons.append(np.array(outer_ring, dtype=float))
+    if not polygons:
+        return []
+    polygon_areas = [
+        _polygon_area(polygon[:, 0].tolist(), polygon[:, 1].tolist())
+        for polygon in polygons
+    ]
+    largest_area = max(polygon_areas)
+    keep_floor = max(0.03, largest_area * 0.012)
+    filtered = [polygon for polygon, area in sorted(zip(polygons, polygon_areas), key=lambda item: item[1], reverse=True) if area >= keep_floor]
+    return filtered
+
+
+def _load_zone_polygons(case: CaseData) -> list[dict]:
+    if "LoadZone" not in case.busdata.columns:
+        return []
+    if not {"Latitude", "Longitude", "Zone_id"}.issubset(case.busdata.columns):
+        return []
+
+    work = case.busdata.copy()
+    work["Latitude"] = pd.to_numeric(work["Latitude"], errors="coerce")
+    work["Longitude"] = pd.to_numeric(work["Longitude"], errors="coerce")
+    work = work.dropna(subset=["Latitude", "Longitude"])
+    if work.empty:
+        return []
+
+    target_centers: dict[str, tuple[float, float]] = {}
+    zone_lookup: dict[str, str] = {}
+    for load_zone, grp in work.groupby(work["LoadZone"].astype(str), sort=True):
+        points = grp[["Longitude", "Latitude"]].to_numpy(dtype=float)
+        if len(points) == 0:
+            continue
+        target_centers[str(load_zone)] = (float(points[:, 0].mean()), float(points[:, 1].mean()))
+        zone_lookup[str(load_zone)] = str(grp["Zone_id"].astype(str).mode().iat[0])
+
+    polygons: list[dict] = []
+    for feature in _cached_load_zone_geojson_features():
+        properties = feature.get("properties") or {}
+        load_zone = str(properties.get("load_zone", "")).strip()
+        if not load_zone or load_zone not in target_centers:
+            continue
+        center_lon, center_lat = target_centers[load_zone]
+        source_name = str(properties.get("source_name", load_zone))
+        for polygon in _geojson_feature_polygons(feature):
+            lon_coords = polygon[:, 0].tolist()
+            lat_coords = polygon[:, 1].tolist()
+            if lon_coords and (lon_coords[0] != lon_coords[-1] or lat_coords[0] != lat_coords[-1]):
+                lon_coords.append(lon_coords[0])
+                lat_coords.append(lat_coords[0])
+            polygons.append(
+                {
+                    "name": load_zone,
+                    "zone": zone_lookup.get(load_zone, load_zone),
+                    "color": _load_zone_color(load_zone),
+                    "lon": lon_coords,
+                    "lat": lat_coords,
+                    "center_lon": center_lon,
+                    "center_lat": center_lat,
+                    "hover_text": f"Load zone {load_zone}: {source_name}",
+                }
+            )
+    if polygons:
+        return polygons
+
+    zone_names = {str(zone) for zone in work["LoadZone"].astype(str).unique()}
+    if zone_names and zone_names.issubset(GERMANY_TSO_ZONES):
+        point_rows = tuple(
+            sorted(
+                (
+                    str(row.LoadZone),
+                    str(row.Zone_id),
+                    round(float(row.Longitude), 6),
+                    round(float(row.Latitude), 6),
+                )
+                for row in work.itertuples(index=False)
+            )
+        )
+        generated = _generated_zone_boundary_polygons(point_rows)
+        if generated:
+            return [dict(polygon) for polygon in generated]
+
+    fallback_polygons: list[dict] = []
+    for load_zone, grp in work.groupby(work["LoadZone"].astype(str), sort=True):
+        points = grp[["Longitude", "Latitude"]].to_numpy(dtype=float)
+        if len(points) < 3:
+            continue
+        polygon = _zone_blob_polygon(points)
+        lon_coords = polygon[:, 0].tolist()
+        lat_coords = polygon[:, 1].tolist()
+        if lon_coords and (lon_coords[0] != lon_coords[-1] or lat_coords[0] != lat_coords[-1]):
+            lon_coords.append(lon_coords[0])
+            lat_coords.append(lat_coords[0])
+        fallback_polygons.append(
+            {
+                "name": str(load_zone),
+                "zone": str(grp["Zone_id"].astype(str).mode().iat[0]),
+                "color": _load_zone_color(str(load_zone)),
+                "lon": lon_coords,
+                "lat": lat_coords,
+                "center_lon": float(points[:, 0].mean()),
+                "center_lat": float(points[:, 1].mean()),
+                "hover_text": f"Load zone {load_zone}",
+            }
+        )
+    return fallback_polygons
+
+
 def _network_figure(
     case: CaseData,
     hour: int,
@@ -110,10 +539,12 @@ def _network_figure(
     map_layer: str,
     theme: str,
     selected_line: int | None,
+    map_overlays: list[str] | None,
 ) -> go.Figure:
     hourly_line = case.line_hourly[case.line_hourly["Hour"] == hour].copy()
     hourly_node = case.nodal_price[case.nodal_price["Hour"] == hour].copy()
     palette = _theme_palette(theme)
+    map_overlays = map_overlays or []
     layer_col = {
         "LMP": "LMP",
         "Energy": "Energy",
@@ -140,18 +571,71 @@ def _network_figure(
         geo_bus["Latitude"] = pd.to_numeric(geo_bus["Latitude"], errors="coerce")
         geo_bus["Longitude"] = pd.to_numeric(geo_bus["Longitude"], errors="coerce")
         geo_bus = geo_bus.dropna(subset=["Latitude", "Longitude"])
-        for zone, grp in geo_bus.groupby(geo_bus["Zone_id"].astype(str)):
+        load_zone_polygons = _load_zone_polygons(case) if "load_zone_boundaries" in map_overlays else []
+        if load_zone_polygons:
+            for polygon in load_zone_polygons:
+                base_color = polygon["color"]
+                fill_color = _hex_to_rgba(base_color, 0.08 if theme == "dark" else 0.045)
+                line_color = _hex_to_rgba("#cbd5e1", 0.62) if theme == "dark" else _hex_to_rgba("#5b6473", 0.82)
+                fig.add_trace(
+                    go.Scattergeo(
+                        lon=polygon["lon"],
+                        lat=polygon["lat"],
+                        mode="lines",
+                        fill="toself",
+                        fillcolor=fill_color,
+                        line=dict(color=line_color, width=1.05),
+                        hoverinfo="text",
+                        text=polygon.get("hover_text", f"Load zone {polygon['name']}"),
+                        showlegend=False,
+                    )
+                )
+            label_polygons: list[dict] = []
+            seen_labels: set[str] = set()
+            for polygon in load_zone_polygons:
+                zone_name = str(polygon["name"])
+                if zone_name in seen_labels:
+                    continue
+                seen_labels.add(zone_name)
+                label_polygons.append(polygon)
+            label_lon = [polygon["center_lon"] for polygon in label_polygons]
+            label_lat = [polygon["center_lat"] for polygon in label_polygons]
+            label_text = [_load_zone_label_text(polygon["name"]) for polygon in label_polygons]
             fig.add_trace(
                 go.Scattergeo(
-                    lon=[float(grp["Longitude"].median())],
-                    lat=[float(grp["Latitude"].median())],
+                    lon=label_lon,
+                    lat=label_lat,
                     mode="text",
-                    text=[str(zone)],
-                    textfont=dict(size=15, color=palette["text"]),
+                    text=label_text,
+                    textfont=dict(size=14, color=palette["card"]),
                     hoverinfo="skip",
                     showlegend=False,
                 )
             )
+            fig.add_trace(
+                go.Scattergeo(
+                    lon=label_lon,
+                    lat=label_lat,
+                    mode="text",
+                    text=label_text,
+                    textfont=dict(size=10, color=palette["text"]),
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+        else:
+            for zone, grp in geo_bus.groupby(geo_bus["Zone_id"].astype(str)):
+                fig.add_trace(
+                    go.Scattergeo(
+                        lon=[float(grp["Longitude"].median())],
+                        lat=[float(grp["Latitude"].median())],
+                        mode="text",
+                        text=[str(zone)],
+                        textfont=dict(size=15, color=palette["text"]),
+                        hoverinfo="skip",
+                        showlegend=False,
+                    )
+                )
     else:
         # Zone panels.
         for z, (x0, y0, x1, y1) in case.zone_rect.items():
@@ -324,7 +808,7 @@ def _network_figure(
                     colorscale="RdYlBu_r",
                     cmin=cmin,
                     cmax=cmax,
-                    colorbar=dict(title=map_layer),
+                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=0.94, outlinewidth=0),
                     line=dict(color=palette["text"], width=0.7),
                 ),
                 hoverinfo="text",
@@ -343,23 +827,28 @@ def _network_figure(
                     mode="text",
                     text=labeled_text,
                     textposition="top center",
-                    textfont=dict(size=11, color=palette["text"]),
+                    textfont=dict(size=10, color=palette["text"]),
                     hoverinfo="skip",
                     showlegend=False,
                 )
             )
         lon_vals = pd.to_numeric(case.busdata["Longitude"], errors="coerce").dropna()
         lat_vals = pd.to_numeric(case.busdata["Latitude"], errors="coerce").dropna()
+        lon_span = max(float(lon_vals.max() - lon_vals.min()), 0.1)
+        lat_span = max(float(lat_vals.max() - lat_vals.min()), 0.1)
+        lon_pad = max(0.42, 0.16 * lon_span)
+        lat_pad = max(0.05, 0.012 * lat_span)
         fig.update_layout(
             autosize=True,
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin=dict(l=2, r=10, t=2, b=2),
             paper_bgcolor=palette["card"],
             font=dict(family=APP_FONT, size=12, color=palette["text"]),
             geo=dict(
                 projection_type="mercator",
                 bgcolor=palette["card"],
+                showframe=False,
                 showland=True,
-                landcolor=palette["plot"],
+                landcolor="#e6ebf2" if theme != "dark" else "#131b2b",
                 showlakes=False,
                 showcountries=False,
                 showcoastlines=True,
@@ -368,8 +857,9 @@ def _network_figure(
                 showsubunits=True,
                 subunitcolor=palette["grid"],
                 subunitwidth=0.7,
-                lonaxis=dict(range=[float(lon_vals.min()) - 0.45, float(lon_vals.max()) + 0.45]),
-                lataxis=dict(range=[float(lat_vals.min()) - 0.35, float(lat_vals.max()) + 0.35]),
+                center=dict(lon=float((lon_vals.min() + lon_vals.max()) / 2.0), lat=float((lat_vals.min() + lat_vals.max()) / 2.0)),
+                lonaxis=dict(range=[float(lon_vals.min()) - lon_pad, float(lon_vals.max()) + lon_pad]),
+                lataxis=dict(range=[float(lat_vals.min()) - lat_pad, float(lat_vals.max()) + lat_pad]),
             ),
         )
     else:
@@ -387,7 +877,7 @@ def _network_figure(
                     colorscale="RdYlBu_r",
                     cmin=cmin,
                     cmax=cmax,
-                    colorbar=dict(title=map_layer),
+                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=0.94, outlinewidth=0),
                     line=dict(color=palette["text"], width=0.8),
                 ),
                 hoverinfo="text",
@@ -398,7 +888,7 @@ def _network_figure(
 
         fig.update_layout(
             autosize=True,
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin=dict(l=4, r=4, t=4, b=4),
             plot_bgcolor=palette["plot"],
             paper_bgcolor=palette["card"],
             font=dict(family=APP_FONT, size=12, color=palette["text"]),
@@ -696,8 +1186,16 @@ def _selected_line_detail(case: CaseData, hour: int, selected_line: int | None, 
 def _case_summary_block(case: CaseData) -> html.Div:
     buses = int(case.busdata["Bus_id"].astype(str).nunique())
     zones = int(case.busdata["Zone_id"].astype(str).nunique())
+    load_zones = len(_ordered_load_zone_names(case))
     lines = int(case.line_hourly["Line"].astype(int).nunique()) if not case.line_hourly.empty else 0
     hours = int(case.nodal_price["Hour"].astype(int).nunique()) if not case.nodal_price.empty else 0
+    generators = int(len(case.gendata)) if not case.gendata.empty else 0
+    installed_capacity = (
+        float(pd.to_numeric(case.gendata["Pmax (MW)"], errors="coerce").fillna(0.0).sum())
+        if not case.gendata.empty and "Pmax (MW)" in case.gendata.columns
+        else 0.0
+    )
+    study_badges = _case_study_badges(case, hours, load_zones)
 
     peak_spread_hour = 1
     peak_spread = 0.0
@@ -728,9 +1226,16 @@ def _case_summary_block(case: CaseData) -> html.Div:
     return html.Div(
         [
             html.Span(f"Case {case.case_path.name}", className="case-summary-pill case-summary-pill-primary"),
+            *[
+                html.Span(badge, className="case-summary-pill case-summary-pill-accent")
+                for badge in study_badges
+            ],
             html.Span(f"Buses {buses}", className="case-summary-pill"),
-            html.Span(f"Zones {zones}", className="case-summary-pill"),
+            html.Span(f"Network Zones {zones}", className="case-summary-pill"),
+            html.Span(f"Load Zones {load_zones}", className="case-summary-pill"),
             html.Span(f"Lines {lines}", className="case-summary-pill"),
+            html.Span(f"Generators {generators}", className="case-summary-pill"),
+            html.Span(f"Installed Cap {_format_capacity_mw(installed_capacity)}", className="case-summary-pill"),
             html.Span(f"Hours {hours}", className="case-summary-pill"),
             html.Span(f"Peak Spread Hr {peak_spread_hour} ({peak_spread:.2f} $/MWh)", className="case-summary-pill"),
             html.Span(f"Peak Rent Hr {peak_rent_hour} ({peak_rent:.2f} $)", className="case-summary-pill"),
@@ -854,6 +1359,29 @@ def _panel_outer_style(index: int) -> dict:
         "height": base["height"],
         "zIndex": base["zIndex"],
     }
+
+
+def _map_overlay_control() -> html.Div:
+    return html.Div(
+        [
+            html.Span("Overlay", className="map-panel-toolbar-label"),
+            dcc.Checklist(
+                id="map-overlay-checklist",
+                options=[
+                    {"label": "Load Zones", "value": "load_zone_boundaries"},
+                ],
+                value=["load_zone_boundaries"],
+                className="toolbar-checklist map-panel-checklist",
+                inputClassName="toolbar-checklist-input",
+                labelClassName="toolbar-checklist-label",
+            ),
+        ],
+        className="map-panel-toolbar",
+    )
+
+
+def _empty_map_zone_legend() -> html.Div:
+    return html.Div(id="map-zone-legend", className="map-zone-legend map-zone-legend-hidden")
 
 app.layout = html.Div(
     [
@@ -1098,6 +1626,7 @@ app.layout = html.Div(
                                     ],
                                     className="toolbar-block toolbar-block-toggle",
                                 ),
+
                             ],
                             className="toolbar-row toolbar-row-controls",
                         ),
@@ -1125,7 +1654,7 @@ app.layout = html.Div(
         html.Div(
             id="panel-canvas",
             className="panel-canvas",
-            style={"position": "relative", "height": "1700px", "minHeight": "1700px", "marginTop": "8px", "paddingBottom": "420px"},
+            style={"position": "relative", "height": "1800px", "minHeight": "1800px", "marginTop": "8px", "paddingBottom": "420px"},
             children=[
                 html.Div(
                     id="panel-network",
@@ -1133,10 +1662,23 @@ app.layout = html.Div(
                     style=_panel_outer_style(0),
                     children=_panel_card(
                         "Nodal Network Map",
-                        dcc.Graph(
-                            id="network-graph",
-                            style={"height": "100%", "width": "100%"},
-                            config={"displayModeBar": False, "responsive": True},
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        _map_overlay_control(),
+                                        _empty_map_zone_legend(),
+                                    ],
+                                    className="map-panel-chrome",
+                                ),
+                                dcc.Graph(
+                                    id="network-graph",
+                                    className="map-panel-graph",
+                                    style={"height": "100%", "width": "100%"},
+                                    config={"displayModeBar": False, "responsive": True},
+                                ),
+                            ],
+                            className="map-panel-body",
                         ),
                     ),
                 ),
@@ -1324,6 +1866,18 @@ def update_case_summary(case_path: str):
 
 
 @app.callback(
+    Output("map-zone-legend", "children"),
+    Output("map-zone-legend", "className"),
+    Input("case-store", "data"),
+    Input("map-overlay-checklist", "value"),
+)
+def update_map_zone_legend(case_path: str, map_overlays: list[str] | None):
+    case = load_case(case_path, refresh=False)
+    legend = _map_zone_legend(case, map_overlays)
+    return legend.children, legend.className
+
+
+@app.callback(
     Output("hour-slider", "value"),
     Input("case-store", "data"),
     Input("hour-prev-day", "n_clicks"),
@@ -1503,11 +2057,12 @@ def export_analysis_snapshot(
     Input("compare-bus-dropdown", "value"),
     Input("map-layer-dropdown", "value"),
     Input("rank-metric-dropdown", "value"),
+    Input("map-overlay-checklist", "value"),
     Input("case-store", "data"),
     Input("theme-store", "data"),
     Input("selected-line-store", "data"),
 )
-def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer: str, rank_metric: str, case_path: str, theme: str, selected_line: int | None):
+def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer: str, rank_metric: str, map_overlays: list[str] | None, case_path: str, theme: str, selected_line: int | None):
     case = load_case(case_path, refresh=False)
     bus_list = sorted(case.nodal_price["Bus"].astype(str).unique().tolist())
     if bus is None:
@@ -1524,7 +2079,7 @@ def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer
         selected_line = int(hourly_line.sort_values(metric_col, ascending=False).iloc[0]["Line"]) if not hourly_line.empty else None
     kpi = _kpi_block(case, int(hour), str(bus), str(compare_bus))
     line_detail = _selected_line_detail(case, int(hour), selected_line, str(rank_metric))
-    network_fig = _network_figure(case, int(hour), str(bus), str(compare_bus), str(ref_bus), str(map_layer), str(theme), selected_line)
+    network_fig = _network_figure(case, int(hour), str(bus), str(compare_bus), str(ref_bus), str(map_layer), str(theme), selected_line, map_overlays)
     ts_fig = _timeseries_figure(case, str(bus), str(compare_bus), str(ref_bus), str(theme))
     line_fig = _line_ranking_figure(case, int(hour), str(rank_metric), str(theme), selected_line)
     return kpi, line_detail, network_fig, ts_fig, line_fig
@@ -1532,3 +2087,15 @@ def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=8050)
+
+
+
+
+
+
+
+
+
+
+
+

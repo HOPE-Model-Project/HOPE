@@ -14,6 +14,7 @@ pages = OrderedDict(
         "USA 64-Zone GTEP Case" => "case_usa64_gtep.md",
         "RTS24 PCM Multizone4 Congested 1-Month Case" => "case_rts24_pcm_multizone4.md",
         "ISO-NE 250-Bus PCM Case" => "case_isone_pcm_250bus.md",
+        "Germany PCM Case" => "case_germany_pcm.md",
     ],
     "Model Mode and Formulation" => [
         "Model Introduction" => "model_introduction.md",

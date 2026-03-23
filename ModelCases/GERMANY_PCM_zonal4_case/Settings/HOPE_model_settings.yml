@@ -1,0 +1,23 @@
+DataCase: Data_GERMANY_PCM_zonal4/  # Input data folder under the case directory
+model_mode: PCM                     # Model type: GTEP or PCM
+aggregated!: 0                      # 1 use aggregated technology data; 0 use full input technologies
+endogenous_rep_day: 0               # 1 let HOPE cluster representative days from full chronology
+external_rep_day: 0                 # 1 use user-provided representative periods + rep_period_weights
+flexible_demand: 0                  # 1 enable demand response formulation; 0 disable
+clean_energy_policy: 0              # start with policies off until geography and fleet are validated
+carbon_policy: 0                    # 0 none; 1 state cap; 2 cap-and-trade
+operation_reserve_mode: 0           # PCM: 0 none; 1 REG+SPIN; 2 REG+SPIN+NSPIN
+network_model: 1                    # Zonal transport model for the 4-zone derivative case
+transmission_loss: 0                # Keep first draft lossless
+reference_bus: 1                    # Placeholder compatibility field
+inv_dcs_bin: 0                      # 1 integer investment decisions; 0 continuous/relaxed
+time_periods:                       # Seasonal windows retained for compatibility
+    1 : (3, 20, 6, 20)
+    2 : (6, 21, 9, 21)
+    3 : (9, 22, 12, 20)
+    4 : (12, 21, 3, 19)
+unit_commitment: 0                  # Start with LP relaxation for first case assembly/debug
+write_shadow_prices: 0              # Zonal starter scaffold; enable later if needed
+summary_table: 1                    # Write Analysis/Summary_*.csv for dashboard/debugging
+solver: gurobi                      # Preferred fast LP/MIP solver when license is available
+debug: 0                            # 0 off; 1 conflict refiner; 2 penalty-based debug
