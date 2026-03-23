@@ -10,3 +10,7 @@
 *.pyc
 **/.DS_Store
 *.DS_Store
+
+# Germany PCM generated large nodal load tables
+/ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.csv
+/ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.*
