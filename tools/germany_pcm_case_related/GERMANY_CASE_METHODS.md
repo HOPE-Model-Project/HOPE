@@ -413,6 +413,18 @@ The nodal generator table is built by grouping the mapped generator fleet by:
 
 Installed capacity is summed within each group. Technical parameters such as cost, emissions factor, forced outage rate, ramp limits, reserve capability, and unit-commitment settings are assigned from a fixed technology parameter dictionary in the nodal-case builder.
 
+This means the current Germany PCM fleet is parameterized primarily at the modeled technology level rather than at the individual plant level. Plants of the same HOPE technology class therefore share the same default:
+
+- variable operating cost
+- emissions factor
+- capacity credit
+- availability and outage assumptions
+- ramp parameters
+- reserve contribution parameters
+- startup and minimum up/down parameters
+
+For example, the current defaults distinguish among technologies such as `SolarPV`, `WindOn`, `WindOff`, `Hydro`, `NuC`, `Coal`, `NGCC`, `NGCT`, `Bio`, and `Oil`, but they do not yet assign plant-specific marginal-cost parameters within the same HOPE technology class.
+
 ### 8.2 Storage table
 
 Storage assets are built from the mapped storage subset of the fleet and grouped by:
@@ -472,6 +484,16 @@ Zonal storage is aggregated similarly by zone and storage technology. Capacity-w
 
 In practical terms, the zonal fleet is not rebuilt from raw source data. It is aggregated directly from the current nodal fleet so that any change in nodal mapping, technology typing, or capacity immediately propagates to the zonal case as well.
 
+An important implication is that the zonal and nodal cases do not contain the same number of generator rows. The nodal case keeps generation at `zone + bus + technology` resolution, while the zonal case aggregates that same fleet to `zone + technology` resolution. Thus, row count changes across cases, but the intended comparison keeps the following economic fleet attributes aligned:
+
+- total installed capacity
+- technology mix
+- zonal distribution of capacity
+- technology-cost assumptions
+- technology-operating assumptions
+
+The fairness criterion for the zonal-versus-nodal comparison is therefore not equal generator count. It is consistency of the underlying aggregated fleet and assumptions, with network resolution treated as the main modeling difference.
+
 ### 10.3 Zonal transmission seams
 
 The zonal transmission network is built from the set of nodal lines whose endpoints lie in different TSO zones. For each ordered zone pair, all cross-zone lines are grouped into one interface. The interface capacity is the sum of the underlying nodal seam capacities. A representative bus pair is retained only for bookkeeping and traceability.
@@ -492,6 +514,26 @@ The resulting zonal interface therefore behaves like a cutset-style reduction of
 ### 10.4 Consistency principle
 
 The zonal derivative is not calibrated independently. It is intended as a consistency benchmark against the nodal case, so differences between zonal and nodal outputs can be interpreted as modeling-resolution effects rather than differences in core input assumptions.
+
+In the present Germany implementation, the main quantities held constant across nodal and zonal cases are:
+
+- study horizon and chronology
+- zonal gross load levels
+- zonal renewable availability profiles
+- generator technology assumptions
+- total capacity by zone and technology
+- storage capacity by zone and storage type
+- policy settings
+
+The main quantities that differ are:
+
+- transmission resolution
+- within-zone congestion representation
+- spatial detail of load allocation
+- spatial detail of generator placement
+- number of generator rows and storage rows after aggregation
+
+Consequently, the zonal-versus-nodal comparison should be interpreted as a comparison of spatial/network resolution with some unavoidable aggregation of within-zone asset detail, not as a comparison between two independently calibrated market datasets.
 
 ## 11. Validation Workflow
 
