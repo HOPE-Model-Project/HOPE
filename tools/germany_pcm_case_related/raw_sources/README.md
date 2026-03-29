@@ -30,7 +30,16 @@ Suggested local structure:
 - `raw_sources/opsd_time_series/`
   - OPSD packaged Germany / control-area time series files if used
 
-## 3. Generator fleet and registry data
+## 3. Spatial demand inputs
+
+Suggested local structure:
+
+- `raw_sources/public_spatial_load/`
+  - public population grid extract
+  - settlement-point / settlement-center extract
+  - industrial-location extract
+
+## 4. Generator fleet and registry data
 
 Suggested local structure:
 
@@ -38,7 +47,7 @@ Suggested local structure:
 - `raw_sources/mastr/`
 - `raw_sources/kraftwerksliste/`
 
-## 4. Reference geography for dashboard overlays
+## 5. Reference geography for dashboard overlays
 
 Suggested local structure:
 

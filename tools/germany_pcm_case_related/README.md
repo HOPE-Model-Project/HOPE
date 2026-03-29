@@ -91,7 +91,19 @@ Validation sources:
 Goal:
 - assign each generator to one nodal bus once, then aggregate from that same mapping for the zonal case
 
-### Step 4. Load and VRE chronology
+### Step 4. Spatial nodal load allocation
+
+Primary spatial-demand references:
+- public population grid data
+- public settlement-point / built-up proxies
+- public industrial-location proxies
+- all mapped onto the HOPE Germany buses
+
+Goal:
+- replace the current heuristic nodal load split with spatially informed bus shares
+- keep those shares fixed while hourly variation still comes from SMARD TSO-area load
+
+### Step 5. Load and VRE chronology
 
 Primary chronology sources:
 - SMARD
@@ -100,7 +112,7 @@ Primary chronology sources:
 Goal:
 - build nodal hourly load and renewable availability so they aggregate exactly to the zonal series
 
-### Step 5. Zonal derivative case
+### Step 6. Zonal derivative case
 
 Goal:
 - aggregate buses, generators, load, and seams from the nodal master case
@@ -109,10 +121,12 @@ Goal:
 ## Workspace layout
 
 - `raw_sources/`: manually downloaded upstream files and versioned small calibration specs
+- `build_germany_spatial_load_shares.py`: map eGon/eTraGo-style demand buses onto the HOPE buses and freeze empirical nodal load shares
 - `references/`: mapping tables, source registers, case notes, and validation summaries
 - `outputs/`: editable templates and intermediate exports
 - `build_germany_pcm_case.py`: nodal master-case build entry point
 - `build_germany_zonal_case.py`: zonal derivative-case build entry point
+- `GERMANY_CASE_METHODS.md`: paper-style methods documentation for the current Germany nodal and zonal case build workflow
 - `SOURCE_MANIFEST.md`: source strategy and intended use
 - `build_germany_network_backbone.py`: normalize raw Germany network inputs into cleaned buses / lines / transformers staging tables
 - `build_germany_bus_zone_map.py`: freeze the Germany bus-to-zone mapping reference from a bus extract and optional polygon / override inputs

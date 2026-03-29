@@ -231,12 +231,14 @@ def _write_outputs(
 
     readme_text = (
         '# Germany PCM zonal 4-zone case\n\n'
-        'This first-pass zonal case is derived mechanically from the Germany nodal master case.\n\n'
+        'This Germany zonal case is derived mechanically from the current Germany nodal master case.\n\n'
         '- Zones: 50Hertz, Amprion, TenneT, TransnetBW\n'
         '- Transmission seams: aggregated from nodal cross-zone cutsets\n'
         '- Generator and storage fleets: aggregated from nodal assets by zone and technology\n'
         '- Regional load chronology: copied directly from the nodal master regional chronology\n'
-        '- Renewable profiles: currently placeholder zeros until Germany actual generation chronology is added\n'
+        '- Regional load chronology therefore inherits the promoted base BTM-PV Germany baseline assumptions\n'
+        '- Renewable profiles: copied directly from the nodal master regional wind and solar profiles\n'
+        '- This zonal case is intended as the consistency benchmark against the current nodal Germany baseline\n'
     )
     (ZONAL_DATA_DIR / 'README.md').write_text(readme_text, encoding='utf-8')
 

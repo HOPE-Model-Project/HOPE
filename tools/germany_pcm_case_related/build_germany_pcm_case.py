@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from build_germany_sectoral_nodal_load import build_sectoral_nodal_load
+
 
 TOOLS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOLS_DIR.parents[1]
@@ -35,6 +37,7 @@ GENERATOR_BUS_MAP = REF_DIR / 'germany_generator_bus_map.csv'
 GENERATOR_FLEET = REF_DIR / 'germany_generator_fleet_clean.csv'
 HOURLY_CHRONOLOGY = REF_DIR / 'germany_hourly_chronology_clean.csv'
 ZONE_HOURLY_REFERENCE = REF_DIR / 'germany_zone_hourly_load_reference.csv'
+SPATIAL_LOAD_SHARES = REF_DIR / 'germany_spatial_load_shares.csv'
 NETWORK_BUSES = REF_DIR / 'germany_network_buses_clean.csv'
 NETWORK_LINES = REF_DIR / 'germany_network_lines_clean.csv'
 NETWORK_TRANSFORMERS = REF_DIR / 'germany_network_transformers_clean.csv'
@@ -223,6 +226,25 @@ def _build_zone_table(bus_zone_map: pd.DataFrame, zonal_hourly: pd.DataFrame, zo
     return pd.DataFrame(rows)
 
 
+def _load_empirical_spatial_shares(bus_zone_map: pd.DataFrame) -> pd.DataFrame | None:
+    if not SPATIAL_LOAD_SHARES.exists():
+        return None
+    shares = _require_csv(SPATIAL_LOAD_SHARES)
+    required_cols = {'Bus_id', 'Zone_id', 'Load_share'}
+    if not required_cols.issubset(shares.columns):
+        raise ValueError(f'{SPATIAL_LOAD_SHARES} must contain {sorted(required_cols)}')
+    shares = shares[['Bus_id', 'Zone_id', 'Load_share']].copy()
+    shares['Bus_id'] = shares['Bus_id'].astype(str)
+    shares['Zone_id'] = shares['Zone_id'].astype(str)
+    shares['Load_share'] = pd.to_numeric(shares['Load_share'], errors='coerce').fillna(0.0).clip(lower=0.0)
+    shares = shares.groupby(['Bus_id', 'Zone_id'], as_index=False)['Load_share'].sum()
+    shares = shares.merge(bus_zone_map[['Bus_id', 'Zone_id']], on=['Bus_id', 'Zone_id'], how='inner')
+    zone_sum = shares.groupby('Zone_id')['Load_share'].transform('sum')
+    shares = shares.loc[zone_sum > 0].copy()
+    shares['Load_share'] = shares['Load_share'] / shares.groupby('Zone_id')['Load_share'].transform('sum')
+    return shares
+
+
 def _build_bus_table(
     buses: pd.DataFrame,
     network_edges: pd.DataFrame,
@@ -239,7 +261,25 @@ def _build_bus_table(
     max_voltage = max(float(pd.to_numeric(work['V_nom_kV'], errors='coerce').max()), 1.0)
     voltage_norm = pd.to_numeric(work['V_nom_kV'], errors='coerce').fillna(max_voltage / 2.0) / max_voltage
     work['LoadProxy'] = 1.0 + 0.15 * work['Degree'] + 0.50 * voltage_norm + 0.0002 * work['GenCapacityMW'].clip(upper=5000.0)
-    work['Load_share'] = work.groupby('Zone_id')['LoadProxy'].transform(lambda s: s / s.sum())
+    work['HeuristicLoadShare'] = work.groupby('Zone_id')['LoadProxy'].transform(lambda s: s / s.sum())
+
+    empirical = _load_empirical_spatial_shares(bus_zone_map)
+    if empirical is not None and not empirical.empty:
+        work = work.merge(
+            empirical.rename(columns={'Load_share': 'EmpiricalLoadShare'}),
+            on=['Bus_id', 'Zone_id'],
+            how='left',
+        )
+        work['EmpiricalLoadShare'] = pd.to_numeric(work['EmpiricalLoadShare'], errors='coerce').fillna(0.0)
+        empirical_zone_total = work.groupby('Zone_id')['EmpiricalLoadShare'].transform('sum')
+        work['Load_share'] = np.where(
+            empirical_zone_total > 0,
+            work['EmpiricalLoadShare'] / empirical_zone_total.where(empirical_zone_total > 0, np.nan),
+            work['HeuristicLoadShare'],
+        )
+    else:
+        work['Load_share'] = work['HeuristicLoadShare']
+
     zone_peak = zonedata.set_index('Zone_id')['Demand (MW)'].to_dict()
     work['Demand (MW)'] = work['Zone_id'].map(zone_peak).fillna(0.0) * work['Load_share']
     work['LoadZone'] = work['Zone_id']
@@ -484,6 +524,11 @@ def build_germany_pcm_case() -> None:
         'single_parameter.csv': single_parameter,
     }
     _write_case_files(tables)
+    if SPATIAL_LOAD_SHARES.exists():
+        try:
+            build_sectoral_nodal_load(CASE_DIR, SPATIAL_LOAD_SHARES)
+        except FileNotFoundError as exc:
+            print(f'Warning: retained zone-flat nodal load because sectoral inputs were missing: {exc}')
 
 
 if __name__ == '__main__':

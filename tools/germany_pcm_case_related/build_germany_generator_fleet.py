@@ -22,6 +22,8 @@ PPM_CANDIDATES = (
 )
 
 BUSES_CLEAN_PATH = REF_DIR / 'germany_network_buses_clean.csv'
+LINES_CLEAN_PATH = REF_DIR / 'germany_network_lines_clean.csv'
+TRANSFORMERS_CLEAN_PATH = REF_DIR / 'germany_network_transformers_clean.csv'
 BUS_ZONE_MAP_PATH = REF_DIR / 'germany_bus_zone_map.csv'
 FLEET_OUT = REF_DIR / 'germany_generator_fleet_clean.csv'
 GENERATOR_BUS_MAP_OUT = REF_DIR / 'germany_generator_bus_map.csv'
@@ -180,19 +182,77 @@ def _haversine_km_array(lat_deg: np.ndarray, lon_deg: np.ndarray, bus_lats_deg: 
     return 2.0 * radius_km * np.arctan2(np.sqrt(a), np.sqrt(np.maximum(1.0 - a, 0.0)))
 
 
-def _assign_generators_to_buses(fleet: pd.DataFrame, buses: pd.DataFrame, bus_zone_map: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    bus_zone_lookup = bus_zone_map.set_index('Bus_id')['Zone_id'].astype(str).to_dict()
+def _append_note(existing: object, note: str) -> str:
+    text = str(existing).strip()
+    if not text:
+        return note
+    if note in {part.strip() for part in text.split(';')}:
+        return text
+    return f'{text}; {note}'
 
+
+def _is_offshore_generator(row: pd.Series) -> bool:
+    combo = f"{row.get('FuelType', '')} {row.get('Technology', '')}".lower()
+    return 'offshore' in combo or 'windoff' in combo
+
+
+def _build_bus_assignment_table(
+    buses: pd.DataFrame,
+    lines: pd.DataFrame,
+    transformers: pd.DataFrame,
+) -> pd.DataFrame:
     clean_buses = buses.copy()
+    clean_buses['Bus_id'] = clean_buses['Bus_id'].astype(str)
     clean_buses['Latitude'] = pd.to_numeric(clean_buses['Latitude'], errors='coerce')
     clean_buses['Longitude'] = pd.to_numeric(clean_buses['Longitude'], errors='coerce')
+    clean_buses['V_nom_kV'] = pd.to_numeric(clean_buses['V_nom_kV'], errors='coerce')
     clean_buses = clean_buses.dropna(subset=['Latitude', 'Longitude']).reset_index(drop=True)
     if clean_buses.empty:
         raise ValueError('No bus coordinates available for generator assignment.')
 
+    edge_frames = []
+    if not lines.empty:
+        edge_frames.append(lines[['FromBus', 'ToBus']].rename(columns={'FromBus': 'Bus0', 'ToBus': 'Bus1'}))
+    if not transformers.empty:
+        edge_frames.append(transformers[['Bus0', 'Bus1']].copy())
+
+    if edge_frames:
+        edges = pd.concat(edge_frames, ignore_index=True)
+        degree_counts = pd.concat([edges['Bus0'], edges['Bus1']], ignore_index=True).astype(str).value_counts()
+        clean_buses['Degree'] = clean_buses['Bus_id'].map(degree_counts).fillna(0).astype(int)
+    else:
+        clean_buses['Degree'] = 0
+
+    clean_buses['EligibleStrongBus'] = (
+        clean_buses['V_nom_kV'].fillna(0.0) >= 220.0
+    ) & (
+        clean_buses['Degree'] >= 2
+    )
+    clean_buses['EligibleFallbackBus'] = (
+        clean_buses['V_nom_kV'].fillna(0.0) >= 155.0
+    ) & (
+        clean_buses['Degree'] >= 2
+    )
+    return clean_buses
+
+
+def _assign_generators_to_buses(
+    fleet: pd.DataFrame,
+    buses: pd.DataFrame,
+    lines: pd.DataFrame,
+    transformers: pd.DataFrame,
+    bus_zone_map: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    bus_zone_lookup = bus_zone_map.set_index('Bus_id')['Zone_id'].astype(str).to_dict()
+    clean_buses = _build_bus_assignment_table(buses, lines, transformers)
+
     bus_ids = clean_buses['Bus_id'].astype(str).to_numpy()
     bus_lats = clean_buses['Latitude'].astype(float).to_numpy()
     bus_lons = clean_buses['Longitude'].astype(float).to_numpy()
+    bus_voltage = clean_buses['V_nom_kV'].fillna(0.0).astype(float).to_numpy()
+    bus_degree = clean_buses['Degree'].fillna(0).astype(int).to_numpy()
+    strong_mask = clean_buses['EligibleStrongBus'].fillna(False).to_numpy(dtype=bool)
+    fallback_mask = clean_buses['EligibleFallbackBus'].fillna(False).to_numpy(dtype=bool)
 
     out = fleet.copy().reset_index(drop=True)
     out['Latitude'] = pd.to_numeric(out['Latitude'], errors='coerce')
@@ -218,11 +278,43 @@ def _assign_generators_to_buses(fleet: pd.DataFrame, buses: pd.DataFrame, bus_zo
         out.loc[idx, 'AssignmentDistance_km'] = nearest_dist
         out.loc[idx, 'AssignmentMethod'] = 'nearest_bus'
 
+        offshore_rows = out.loc[idx].apply(_is_offshore_generator, axis=1)
+        if offshore_rows.any():
+            offshore_pos = np.flatnonzero(offshore_rows.to_numpy(dtype=bool))
+            nearest_voltage = bus_voltage[nearest[offshore_pos]]
+            nearest_degree = bus_degree[nearest[offshore_pos]]
+            weak_nearest = (nearest_voltage < 220.0) | (nearest_degree <= 1)
+
+            if weak_nearest.any():
+                weak_positions = offshore_pos[weak_nearest]
+                weak_idx = idx[weak_positions]
+                weak_lat = out.loc[weak_idx, 'Latitude'].to_numpy(dtype=float)
+                weak_lon = out.loc[weak_idx, 'Longitude'].to_numpy(dtype=float)
+
+                candidate_mask = strong_mask if strong_mask.any() else fallback_mask
+                if candidate_mask.any():
+                    candidate_distances = _haversine_km_array(
+                        weak_lat,
+                        weak_lon,
+                        bus_lats[candidate_mask],
+                        bus_lons[candidate_mask],
+                    )
+                    candidate_nearest = candidate_distances.argmin(axis=1)
+                    reassigned_dist = candidate_distances[np.arange(len(weak_idx)), candidate_nearest]
+                    reassigned_bus_ids = bus_ids[candidate_mask][candidate_nearest]
+
+                    out.loc[weak_idx, 'Bus_id'] = reassigned_bus_ids
+                    out.loc[weak_idx, 'AssignmentDistance_km'] = reassigned_dist
+                    out.loc[weak_idx, 'AssignmentMethod'] = 'offshore_prefer_strong_bus'
+                    out.loc[weak_idx, 'Notes'] = out.loc[weak_idx, 'Notes'].map(
+                        lambda value: _append_note(value, 'avoided_low_voltage_or_radial_bus')
+                    )
+
     out.loc[valid_mask, 'Zone_id'] = out.loc[valid_mask, 'Bus_id'].map(bus_zone_lookup).fillna('')
     long_mask = out['AssignmentDistance_km'].notna() & (out['AssignmentDistance_km'] > 100.0)
-    out.loc[long_mask, 'Notes'] = out.loc[long_mask, 'Notes'].map(lambda value: (value + '; long_bus_assignment_distance').strip('; '))
+    out.loc[long_mask, 'Notes'] = out.loc[long_mask, 'Notes'].map(lambda value: _append_note(value, 'long_bus_assignment_distance'))
     missing_coord_mask = ~valid_mask
-    out.loc[missing_coord_mask, 'Notes'] = out.loc[missing_coord_mask, 'Notes'].map(lambda value: (value + '; missing_generator_coordinates').strip('; '))
+    out.loc[missing_coord_mask, 'Notes'] = out.loc[missing_coord_mask, 'Notes'].map(lambda value: _append_note(value, 'missing_generator_coordinates'))
 
     generator_bus_map = out[['GenId', 'PlantName', 'Bus_id', 'Zone_id', 'AssignmentMethod', 'AssignmentDistance_km', 'SourceDataset', 'Notes']].copy()
     generator_bus_map = generator_bus_map.rename(columns={'AssignmentDistance_km': 'Distance_km'})
@@ -251,10 +343,12 @@ def _append_validation_note(fleet: pd.DataFrame) -> pd.DataFrame:
 def build_germany_generator_fleet() -> tuple[pd.DataFrame, pd.DataFrame]:
     raw = _read_powerplantmatching()
     buses = _read_required_csv(BUSES_CLEAN_PATH, 'clean Germany bus staging table')
+    lines = _read_required_csv(LINES_CLEAN_PATH, 'clean Germany line staging table')
+    transformers = _read_required_csv(TRANSFORMERS_CLEAN_PATH, 'clean Germany transformer staging table')
     bus_zone_map = _read_required_csv(BUS_ZONE_MAP_PATH, 'Germany bus-zone map')
 
     fleet = _normalize_fleet(raw)
-    fleet, generator_bus_map = _assign_generators_to_buses(fleet, buses, bus_zone_map)
+    fleet, generator_bus_map = _assign_generators_to_buses(fleet, buses, lines, transformers, bus_zone_map)
     fleet = _append_validation_note(fleet)
 
     fleet.to_csv(FLEET_OUT, index=False)

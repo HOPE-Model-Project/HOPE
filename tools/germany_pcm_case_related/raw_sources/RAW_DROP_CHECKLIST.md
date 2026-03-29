@@ -14,6 +14,8 @@ If you want the smallest workable first dataset, provide these five files:
 
 Optional but helpful:
 - `tools/germany_pcm_case_related/raw_sources/osm_europe_grid/links.csv`
+- `tools/germany_pcm_case_related/raw_sources/public_spatial_load/population_grid_1km.csv`
+- optional `settlement_centers.csv` and `industrial_sites.csv` under `tools/germany_pcm_case_related/raw_sources/public_spatial_load/`
 - either one combined helper file in `raw_sources/opsd_time_series/germany_tso_hourly_load.csv`
 - or four separate SMARD control-area load files in `raw_sources/smard_2025/`
 - any validation files under `raw_sources/mastr/`
@@ -196,7 +198,41 @@ Other renewables:
 Net imports:
 - `NetImports_MW` or `net_imports_mw` or `net_imports` or `interchange` or `imports_minus_exports`
 
-## 4. Preferred 2025 TSO load helper drop
+## 4. Spatial demand drop for nodal load allocation
+
+Folder:
+- `tools/germany_pcm_case_related/raw_sources/public_spatial_load/`
+
+Preferred files:
+- `population_grid_1km.csv`
+- `settlement_centers.csv`
+- `industrial_sites.csv`
+
+### Minimum population-grid columns
+
+- `Longitude` or `lon` or `x`
+- `Latitude` or `lat` or `y`
+- `Population` or `population` or `weight`
+
+### Minimum settlement-layer columns
+
+- `Longitude` or `lon` or `x`
+- `Latitude` or `lat` or `y`
+- `SettlementWeight` or `weight`
+
+### Minimum industry-layer columns
+
+- `Longitude` or `lon` or `x`
+- `Latitude` or `lat` or `y`
+- `IndustrialWeight` or `weight`
+
+Notes:
+- HOPE uses these files only for static nodal load shares.
+- Hourly time variation still comes from SMARD 2025 TSO-area load.
+- Current default layer weights are `70% population`, `15% settlement`, `15% industry`.
+- Current mapping method is `point -> inferred TSO zone -> nearest HOPE bus in that zone`.
+
+## 5. Preferred 2025 TSO load helper drop
 
 Folder:
 - `tools/germany_pcm_case_related/raw_sources/smard_2025/`

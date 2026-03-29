@@ -1,6 +1,6 @@
 # GERMANY_PCM_zonal4_case
 
-Placeholder HOPE PCM case scaffold for the Germany 4-zone zonal derivative case.
+Germany 4-zone zonal derivative case aligned to the current Germany nodal baseline.
 
 Current intent:
 - zonal transport-style Germany PCM case
@@ -8,10 +8,10 @@ Current intent:
 - derived mechanically from `GERMANY_PCM_nodal_case`
 
 Current status:
-- scaffold only
-- no production input data has been populated yet
+- active derivative case
+- zonal inputs should be refreshed whenever the nodal Germany baseline changes materially
 - see the preprocessing workspace for build notes and source manifests:
   - `tools/germany_pcm_case_related/`
 
-Target direct input folder:
+Direct input folder:
 - `Data_GERMANY_PCM_zonal4/`

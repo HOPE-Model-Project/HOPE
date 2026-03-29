@@ -6,6 +6,12 @@
 /ModelCases/*/output*/**
 /tools/**/raw_sources/*.zip
 /tools/**/raw_sources/**/*.zip
+/tools/**/raw_sources/**
+!/tools/**/raw_sources/
+!/tools/**/raw_sources/README.md
+!/tools/**/raw_sources/RAW_DROP_CHECKLIST.md
+!/tools/**/raw_sources/**/
+!/tools/**/raw_sources/**/README.md
 **/__pycache__/
 *.pyc
 **/.DS_Store
@@ -14,3 +20,24 @@
 # Germany PCM generated large nodal load tables
 /ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.csv
 /ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.*
+/ModelCases/GERMANY_PCM_nodal*/Data_*/load_btmpv_diagnostics.csv
+/ModelCases/GERMANY_PCM_nodal*/Data_*/load_sector_weight_diagnostics.csv
+
+# Generated preprocessing outputs and local analysis artifacts
+/tools/**/outputs/*.csv
+/tools/**/outputs/*.log
+/tools/**/outputs/*.tsv
+/tools/**/outputs/*.xlsx
+/tools/**/outputs/*.json
+
+# Germany generated reference tables that can be rebuilt from scripts
+/tools/germany_pcm_case_related/references/germany_network_buses_clean.csv
+/tools/germany_pcm_case_related/references/germany_network_lines_clean.csv
+/tools/germany_pcm_case_related/references/germany_network_transformers_clean.csv
+/tools/germany_pcm_case_related/references/germany_network_links_clean.csv
+/tools/germany_pcm_case_related/references/germany_generator_fleet_clean.csv
+/tools/germany_pcm_case_related/references/germany_generator_bus_map.csv
+/tools/germany_pcm_case_related/references/germany_hourly_chronology_clean.csv
+/tools/germany_pcm_case_related/references/germany_zone_hourly_load_reference.csv
+/tools/germany_pcm_case_related/references/germany_interzonal_cutset_summary.csv
+/tools/germany_pcm_case_related/references/germany_spatial_load_shares.csv

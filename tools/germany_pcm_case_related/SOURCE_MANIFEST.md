@@ -127,3 +127,18 @@ That means:
 - zonal generation comes from aggregating nodal generators
 - zonal interfaces come from nodal cross-zone cutsets
 - zonal chronology should not be calibrated independently from the nodal case
+
+
+## Spatial nodal demand shares
+
+Recommended source stack:
+- Germany population grid data for the residential core signal
+- public settlement / built-up proxies for urban service concentration
+- public industrial-location data for industrial demand concentration
+- SMARD 2025 TSO-area load for hourly chronology
+
+Target workflow:
+- prepare public spatial proxy CSVs
+- map them onto the HOPE Germany buses
+- freeze `references/germany_spatial_load_shares.csv`
+- let `build_germany_pcm_case.py` use those shares instead of the network heuristic where available
