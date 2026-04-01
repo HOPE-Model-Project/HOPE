@@ -49,6 +49,7 @@ export configure_settings
 export create_GTEP_model
 export create_PCM_model
 export calculate_erec
+export calculate_erec_from_output
 export default_erec_settings
 export initiate_solver
 export debug
@@ -56,6 +57,7 @@ export get_representative_ts
 export get_TPmatched_ts
 export load_data
 export load_erec_settings
+export load_postprocess_snapshot
 export run_debug
 export run_hope
 export run_hope_holistic

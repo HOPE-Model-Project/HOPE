@@ -1,0 +1,9 @@
+enabled: 1
+voll_override: 15000
+resource_types:
+  - generator
+  - storage
+resource_scope: built_only
+write_outputs: 1
+write_cc_to_tables: 0
+output_dir_name: output_erec_from_snapshot

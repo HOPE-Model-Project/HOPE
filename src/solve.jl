@@ -114,8 +114,6 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		Linedata_candidate[!, "Capacity (MW)"] = Float64.(Linedata_candidate[:, "Capacity (MW)"]) .* y_val
 		print("Selected_lines_table",Linedata_candidate[[i for (i, v) in enumerate(y_val) if v > 0],:],"\n\n");
 		print("Selected_units= ",x_val,"\n\n");
-		println(Gendata_candidate[:,"Pmax (MW)"])
-		println(x_val)
 		Gendata_candidate[!, "Pmax (MW)"] = Float64.(Gendata_candidate[:, "Pmax (MW)"]) .* x_val
 		print("Selected_units_table",Gendata_candidate[[i for (i, v) in enumerate(x_val) if v > 0],:],"\n\n");
 		print("Selected_storage= ",z_val,"\n\n");

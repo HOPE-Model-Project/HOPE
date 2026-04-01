@@ -83,7 +83,7 @@ function run_hope(case::AbstractString)
 
 		# Read in data
 		input_data = load_data(config_set, path)
-		my_input = input_data
+		my_input = deepcopy(input_data)
 		
 		# Create model
 		my_model = if config_set["model_mode"] == "GTEP"
@@ -99,11 +99,24 @@ function run_hope(case::AbstractString)
 
 		# Write outputs
 		my_output = write_output(outpath, config_set, input_data, my_solved_model)
+		snapshot_info = nothing
+		save_snapshot_mode = parse_postprocess_snapshot_mode(get(config_set, "save_postprocess_snapshot", 0))
+		if save_snapshot_mode > 0
+			if config_set["model_mode"] == "GTEP"
+				snapshot_info = save_postprocess_snapshot(outpath, path, config_set, my_input, my_solved_model; mode=save_snapshot_mode)
+			else
+				@info "Skipping postprocess snapshot because save_postprocess_snapshot is currently supported only for GTEP cases."
+			end
+		end
 		
 		Results = Dict(
+			"case_path" => path,
+			"output_path" => outpath,
+			"config" => config_set,
 			"solved_model" => my_solved_model,
 			"output" => my_output,
-			"input" => my_input
+			"input" => my_input,
+			"snapshot" => snapshot_info,
 		)
 		
 		return Results

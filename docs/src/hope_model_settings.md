@@ -13,7 +13,9 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 |`DataCase:` | `Data_100RPS/`| Input data folder under the case directory.|
 |`model_mode:`| `GTEP` | HOPE mode: `GTEP` or `PCM`.|
 |`aggregated!:`| `1` | `1` aggregate technology resource input; `0` full technology input.|
-|`representative_day!:`| `1` | `1` representative-day setup; `0` full chronology.|
+|`representative_day!:`| `1` | Legacy representative-day switch. `1` endogenous representative-day clustering; `0` full chronology. Prefer `endogenous_rep_day` and `external_rep_day` for new cases.|
+|`endogenous_rep_day:`| `1` | `1` let HOPE cluster representative days from full chronology; `0` disable endogenous representative-day clustering.|
+|`external_rep_day:`| `0` | `1` use user-provided representative periods and `rep_period_weights`; `0` disable external representative periods.|
 |`time_periods:`| `1 : (3, 20, 6, 20)` | Seasonal windows used by representative-day/time matching workflows.|
 |`flexible_demand:`| `1` | `1` enable DR formulation; `0` disable.|
 |`inv_dcs_bin:`| `0` | `GTEP`: `1` binary investment decisions; `0` relaxed investments.|
@@ -30,12 +32,17 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 |`summary_table:`| `0` | `PCM`: `1` generate `output/Analysis/Summary_*.csv`; `0` disable.|
 |`solver:`| `gurobi` | Solver name (`cbc`, `clp`, `glpk`, `gurobi`, `cplex`, etc.).|
 |`debug:` | `0` | `0` off; `1` conflict refiner; `2` penalty-based debug.|
+|`save_postprocess_snapshot:`| `1` | `0` do not save; `1` save minimal machine-readable snapshot in `output/postprocess_snapshot/` for later postprocessing such as EREC; `2` save full snapshot with additional solved-run details.|
 ---
 
 Notes:
 - Parameters like `VOLL`, `planning_reserve_margin`, reserve requirements, `theta_max`, and other numeric constants are read from `single_parameter` input (not from `HOPE_model_settings.yml`).
-- For PCM, `representative_day!` is currently not the primary production workflow; nodal studies are typically run in full chronology.
+- Use `endogenous_rep_day` and `external_rep_day` for new cases. `representative_day!` is still supported for backward compatibility.
+- Full chronology corresponds to `endogenous_rep_day = 0` and `external_rep_day = 0`.
+- Representative-day mode corresponds to `endogenous_rep_day = 1` or `external_rep_day = 1`. These two settings are mutually exclusive.
+- For PCM, representative-day mode is currently not the primary production workflow; nodal studies are typically run in full chronology.
 - For PCM, summary tables are controlled by `summary_table=1` across network modes; nodal-specific summary tables are generated only when `network_model` is `2` or `3`.
+- `save_postprocess_snapshot` is mainly useful for workflows that want to reuse a solved baseline later, such as `HOPE.calculate_erec_from_output(...)`.
 - To turn on transmission losses:
   1. set `transmission_loss: 1`,
   2. add optional `Loss (%)` columns to the relevant line input tables,

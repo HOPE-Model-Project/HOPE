@@ -480,7 +480,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 				throw(ArgumentError("Inconsistent RPS values for state $(w) in RPSdata From_state rows: $(rps_vals)."))
 			end
 		end
-		PRM=SinglePardata[1,"planning _reserve_margin"]#												#System-level planning reserve margin, unitless
+		if !("planning_reserve_margin" in names(SinglePardata))
+			throw(ArgumentError("Missing planning reserve margin in single_parameter input. Expected column 'planning_reserve_margin'."))
+		end
+		PRM=SinglePardata[1,"planning_reserve_margin"]#												#System-level planning reserve margin, unitless
 		if !("Zonal PRM" in names(Zonedata))
 			PRM_i = Dict(i => PRM for i in I) # fallback: zonal PRM defaults to system PRM
 		else

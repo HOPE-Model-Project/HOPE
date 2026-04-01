@@ -51,6 +51,9 @@ function parse_setting_int(config_set::Dict, key::String, default_value::Int)
     return raw isa Integer ? Int(raw) : parse(Int, string(raw))
 end
 
+to_float_output(x, default::Float64=0.0) = ismissing(x) || x === nothing || string(x) == "" ? default : (x isa Number ? Float64(x) : parse(Float64, string(x)))
+to_string_output(x) = ismissing(x) || x === nothing ? "" : string(x)
+
 """
 Build nodal mapping metadata for PCM output post-processing.
 Returns bus labels, bus->zone index mapping, zone->bus index lists, and bus load-share weights.
@@ -534,10 +537,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "capacity.csv"), C_gen_df, writeheader=true)
         ##Transmission line-----------------------------------------------------------------------------------------------------------
         C_line_df = DataFrame(
-            From_zone = Linedata_candidate[:,"From_zone"],
-            To_zone = Linedata_candidate[:,"To_zone"],    
+            From_zone = String[to_string_output(v) for v in Linedata_candidate[:,"From_zone"]],
+            To_zone = String[to_string_output(v) for v in Linedata_candidate[:,"To_zone"]],
             New_Build = Array{Union{Missing,Bool}}(undef, Num_Cline),
-            Capacity = Linedata_candidate[:,"Capacity (MW)"]
+            Capacity = Float64[to_float_output(v) for v in Linedata_candidate[:,"Capacity (MW)"]]
         )
         New_built_line_idx = map(x -> x, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
         C_line_df[!,:New_Build] .=0
@@ -547,8 +550,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         
         #Power flow OutputDF
         P_flow_df = DataFrame(
-            From_zone = vcat(Linedata[:,"From_zone"],Linedata_candidate[:,"From_zone"]),
-            To_zone = vcat(Linedata[:,"To_zone"],Linedata_candidate[:,"To_zone"]),
+            From_zone = String[to_string_output(v) for v in vcat(Linedata[:,"From_zone"],Linedata_candidate[:,"From_zone"])],
+            To_zone = String[to_string_output(v) for v in vcat(Linedata[:,"To_zone"],Linedata_candidate[:,"To_zone"])],
             EC_Category = [repeat(["Existing"],Num_Eline);repeat(["Candidate"],Num_Cline)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
@@ -631,12 +634,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
         #Storage Capacity OutputDF
         C_es_df = DataFrame(
-            Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
-            Zone = vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"]),
+            Technology = String[to_string_output(v) for v in vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"])],
+            Zone = String[to_string_output(v) for v in vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"])],
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),            
-            EnergyCapacity = vcat(Storagedata[:,"Capacity (MWh)"],Estoragedata_candidate[:,"Capacity (MWh)"]),
-            Capacity = vcat(Storagedata[:,"Max Power (MW)"],Estoragedata_candidate[:,"Max Power (MW)"])
+            EnergyCapacity = Float64[to_float_output(v) for v in vcat(Storagedata[:,"Capacity (MWh)"],Estoragedata_candidate[:,"Capacity (MWh)"])],
+            Capacity = Float64[to_float_output(v) for v in vcat(Storagedata[:,"Max Power (MW)"],Estoragedata_candidate[:,"Max Power (MW)"])]
         )
         C_es_df[!,:New_Build] .= 0
         C_es_df[New_built_idx,:New_Build] .= 1

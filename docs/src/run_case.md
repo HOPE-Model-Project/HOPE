@@ -59,3 +59,41 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output
 
 **(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1, 2, 3, 6.  
 
+## Reuse a Saved Baseline for EREC
+
+For `GTEP` studies, you can ask HOPE to save a machine-readable baseline snapshot together with the normal run outputs. Add this line in `Settings/HOPE_model_settings.yml`:
+
+```yaml
+save_postprocess_snapshot: 1       #Int, 0 do not save; 1 save minimal snapshot for later postprocessing such as EREC; 2 save full snapshot with additional solved-run details
+```
+
+Then run the case normally:
+
+```julia
+using HOPE
+res = HOPE.run_hope("HOPE/ModelCases/my_case/")
+```
+
+HOPE will save the snapshot under:
+
+```text
+HOPE/ModelCases/my_case/output/postprocess_snapshot/
+```
+
+Later, you can calculate `EREC` from the saved output without re-solving the baseline expansion model:
+
+```julia
+using HOPE
+erec = HOPE.calculate_erec_from_output("HOPE/ModelCases/my_case/output")
+```
+
+If you already have the solved results in memory from the current Julia session, you can also reuse them directly:
+
+```julia
+using HOPE
+res = HOPE.run_hope("HOPE/ModelCases/my_case/")
+erec = HOPE.calculate_erec(res)
+```
+
+See [EREC Postprocessing](EREC.md) for the recommended `HOPE_erec_settings.yml` workflow.
+

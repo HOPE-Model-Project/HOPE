@@ -29,6 +29,9 @@ pages = OrderedDict(
     "Model Settings" => [
         "HOPE Settings" => "hope_model_settings.md",
         "Solver Settings" => "solver_settings.md",
+    ],
+    "Postprocessing" => [
+        "EREC" => "EREC.md",
     ]
 )  
 
