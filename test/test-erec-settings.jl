@@ -1,0 +1,27 @@
+@testset "EREC Settings" begin
+    @test isdefined(HOPE, :calculate_erec)
+    @test isdefined(HOPE, :default_erec_settings)
+    @test isdefined(HOPE, :load_erec_settings)
+
+    defaults = HOPE.default_erec_settings()
+    @test defaults["output_dir_name"] == "output_erec"
+    @test defaults["resource_scope"] == "built_only"
+
+    mktempdir() do tmpdir
+        settings_dir = joinpath(tmpdir, "Settings")
+        mkpath(settings_dir)
+        open(joinpath(settings_dir, "HOPE_erec_settings.yml"), "w") do io
+            write(io, """
+enabled: 1
+delta_mw: 2.5
+resource_types:
+  - generator
+write_outputs: 0
+""")
+        end
+        loaded = HOPE.load_erec_settings(tmpdir)
+        @test loaded["delta_mw"] == 2.5
+        @test loaded["write_outputs"] == 0
+        @test loaded["resource_types"] == ["generator"]
+    end
+end

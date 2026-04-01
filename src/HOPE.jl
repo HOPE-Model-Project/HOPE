@@ -38,6 +38,7 @@ include("write_output.jl");			#write output module
 include("solver_config.jl");		#setting solver parameters
 include("solve.jl");                #solve model function
 include("run.jl");                  #run module
+include("erec.jl");                 #EREC postprocessing module
 include("debug.jl");                #debug function
 include("run_holistic.jl");         #Holistic assessment: GTEP-PCM two stage
 
@@ -47,11 +48,14 @@ export aggregate_gendata_pcm
 export configure_settings
 export create_GTEP_model
 export create_PCM_model
+export calculate_erec
+export default_erec_settings
 export initiate_solver
 export debug
 export get_representative_ts
 export get_TPmatched_ts
 export load_data
+export load_erec_settings
 export run_debug
 export run_hope
 export run_hope_holistic

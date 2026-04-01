@@ -160,6 +160,10 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		af_time_cols = vcat([c for c in ["Month", "Day"] if c in names(AFdata)], required_af_time_cols)
 		validate_aligned_time_columns!(Loaddata, AFdata, "gen_availability_timeseries")
 		AF_g_static_prefill = [Float64(coalesce(v, 1.0)) for v in [Gendata[:,"AF"];Gendata_candidate[:,"AF"]]]
+		FOR_g = vcat(
+			("FOR" in names(Gendata)) ? [Float64(coalesce(v, 0.0)) for v in Gendata[:, "FOR"]] : fill(0.0, nrow(Gendata)),
+			("FOR" in names(Gendata_candidate)) ? [Float64(coalesce(v, 0.0)) for v in Gendata_candidate[:, "FOR"]] : fill(0.0, nrow(Gendata_candidate)),
+		)
 		AF_fill_map = Dict(zip(Ordered_gen_nm, AF_g_static_prefill))
 		# Allow sparse AF columns: missing generator columns fallback to static AF (default 1.0).
 		provided_af_cols = Set(String.(intersect(names(AFdata), Ordered_gen_nm)))
@@ -392,7 +396,15 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		L_new=[l for l=Num_Eline+1:Num_Eline+Num_Cline]					#Set of candidate transmission corridors
 		LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]	#Set of sending transmission corridors of zone i, subset of L
 		LR_i=[[findall(Linedata[:,"To_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"To_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]		#Set of receiving transmission corridors of zone i， subset of L
-		IL_l = Dict(zip(L,[[i,j] for i in map(x -> Zone_idx_dict[x],Linedata[:,"From_zone"]) for j in map(x -> Zone_idx_dict[x],Linedata[:,"To_zone"])]))
+		line_from_zone_idx = vcat(
+			[Int(Zone_idx_dict[string(x)]) for x in Linedata[:, "From_zone"]],
+			[Int(Zone_idx_dict[string(x)]) for x in Linedata_candidate[:, "From_zone"]],
+		)
+		line_to_zone_idx = vcat(
+			[Int(Zone_idx_dict[string(x)]) for x in Linedata[:, "To_zone"]],
+			[Int(Zone_idx_dict[string(x)]) for x in Linedata_candidate[:, "To_zone"]],
+		)
+		IL_l = Dict(zip(L, [[line_from_zone_idx[l], line_to_zone_idx[l]] for l in eachindex(L)]))
 		I_w=Dict(zip(W, [findall(Zonedata[:,"State"].== w) for w in W]))	#Set of zones in state w, subset of I
 		WER_w = Dict{Any,Vector{Any}}() #Set of states that state w can export renewable credits to (excludes w itself), subset of W
 		WIR_w = Dict{Any,Vector{Any}}() #Set of states that state w can import renewable credits from (excludes w itself), subset of W
@@ -517,7 +529,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			AF_gh = Dict{Tuple{Int,Int},Float64}()
 			for t in T, g in G, h in H_t[t]
 				v = AF_rep[t][h-24*(t-1), Ordered_gen_nm[g]]
-				AF_gh[(g,h)] = ismissing(v) ? AF_g_static[g] : Float64(v)
+				base_af = ismissing(v) ? AF_g_static[g] : Float64(v)
+				AF_gh[(g,h)] = clamp(base_af * (1.0 - clamp(FOR_g[g], 0.0, 1.0)), 0.0, 1.0)
 			end
 		else
 			N = Dict{Int,Float64}(t => 1.0 for t in T)
@@ -533,7 +546,8 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			AF_gh = Dict{Tuple{Int,Int},Float64}()
 			for t in T, g in G, h in H_t[t]
 				v = AFdata[h, Ordered_gen_nm[g]]
-				AF_gh[(g,h)] = ismissing(v) ? AF_g_static[g] : Float64(v)
+				base_af = ismissing(v) ? AF_g_static[g] : Float64(v)
+				AF_gh[(g,h)] = clamp(base_af * (1.0 - clamp(FOR_g[g], 0.0, 1.0)), 0.0, 1.0)
 			end
 		end
 		if flexible_demand == 1

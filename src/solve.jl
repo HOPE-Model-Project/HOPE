@@ -107,18 +107,21 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
 		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
 		
-		print("Selected_lines= ",value.(model[:y]),"\n\n");
-		Linedata_candidate[:,"Capacity (MW)"] .= [v for (i,v) in enumerate(Linedata_candidate[:,"Capacity (MW)"] .*value.(model[:y]))]
-		print("Selected_lines_table",Linedata_candidate[[i for (i, v) in enumerate(value.(model[:y])) if v > 0],:],"\n\n");
-		print("Selected_units= ",value.(model[:x]),"\n\n");
+		y_val = [Float64(value(model[:y][l])) for l in axes(model[:y], 1)]
+		x_val = [Float64(value(model[:x][g])) for g in axes(model[:x], 1)]
+		z_val = [Float64(value(model[:z][s])) for s in axes(model[:z], 1)]
+		print("Selected_lines= ",y_val,"\n\n");
+		Linedata_candidate[!, "Capacity (MW)"] = Float64.(Linedata_candidate[:, "Capacity (MW)"]) .* y_val
+		print("Selected_lines_table",Linedata_candidate[[i for (i, v) in enumerate(y_val) if v > 0],:],"\n\n");
+		print("Selected_units= ",x_val,"\n\n");
 		println(Gendata_candidate[:,"Pmax (MW)"])
-		println(value.(model[:x]))
-		Gendata_candidate[:,"Pmax (MW)"] .= [v for (i,v) in enumerate(Gendata_candidate[:,"Pmax (MW)"] .*value.(model[:x]))]
-		print("Selected_units_table",Gendata_candidate[[i for (i, v) in enumerate(value.(model[:x])) if v > 0],:],"\n\n");
-		print("Selected_storage= ",value.(model[:z]),"\n\n");
-		Estoragedata_candidate[:,"Capacity (MWh)"] .= [v for (i,v) in enumerate(Estoragedata_candidate[:,"Capacity (MWh)"] .*value.(model[:z]))]
-		Estoragedata_candidate[:,"Max Power (MW)"] .= [v for (i,v) in enumerate(Estoragedata_candidate[:,"Max Power (MW)"] .*value.(model[:z]))]
-		print("Selected_storage_table",Estoragedata_candidate[[i for (i, v) in enumerate(value.(model[:z])) if v > 0],:],"\n\n")
+		println(x_val)
+		Gendata_candidate[!, "Pmax (MW)"] = Float64.(Gendata_candidate[:, "Pmax (MW)"]) .* x_val
+		print("Selected_units_table",Gendata_candidate[[i for (i, v) in enumerate(x_val) if v > 0],:],"\n\n");
+		print("Selected_storage= ",z_val,"\n\n");
+		Estoragedata_candidate[!, "Capacity (MWh)"] = Float64.(Estoragedata_candidate[:, "Capacity (MWh)"]) .* z_val
+		Estoragedata_candidate[!, "Max Power (MW)"] = Float64.(Estoragedata_candidate[:, "Max Power (MW)"]) .* z_val
+		print("Selected_storage_table",Estoragedata_candidate[[i for (i, v) in enumerate(z_val) if v > 0],:],"\n\n")
 		#-----------------------------------------------------------
 		print("Solving time: ", solver_time)
 	elseif model_mode == "PCM"

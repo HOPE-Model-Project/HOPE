@@ -1,6 +1,8 @@
 function initiate_solver(case::AbstractString, solver::AbstractString)
     solver_settings_path = joinpath(case, "Settings", solver * "_settings.yml")
-    solver_settings = YAML.load(open(solver_settings_path))
+    solver_settings = open(solver_settings_path) do io
+        YAML.load(io)
+    end
     if solver == "cbc"
         # Optional solver parameters ############################################
         Myseconds = 1e-6

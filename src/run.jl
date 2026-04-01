@@ -74,7 +74,9 @@ function run_hope(case::AbstractString)
 	
 	try
 		# Set model configuration 
-		config_set = YAML.load(open(settings_file))
+		config_set = open(settings_file) do io
+			YAML.load(io)
+		end
 
 		# Set solver configuration
 		optimizer = initiate_solver(path, String(config_set["solver"]))
@@ -127,7 +129,9 @@ function write_hope(case::AbstractString, solved_case::Model)
 	
 	try
 		# Set model configuration 
-		config_set = YAML.load(open(settings_file))
+		config_set = open(settings_file) do io
+			YAML.load(io)
+		end
 		# Read in data
 		input_data = load_data(config_set, path)
 		write_output(outpath, config_set, input_data, solved_case)

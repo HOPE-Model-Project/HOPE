@@ -1,7 +1,7 @@
 #Function use for aggregrating generation data:
 to_float_agg(x, d=0.0) = ismissing(x) || x === nothing || string(x) == "" ? d : (x isa Number ? Float64(x) : parse(Float64, string(x)))
 
-function agg_weights_from_pmax(gdf::SubDataFrame)
+function agg_weights_from_pmax(gdf::AbstractDataFrame)
     w = [max(to_float_agg(v, 0.0), 0.0) for v in gdf[!, Symbol("Pmax (MW)")]]
     sw = sum(w)
     if sw <= 0
@@ -10,7 +10,7 @@ function agg_weights_from_pmax(gdf::SubDataFrame)
     return w
 end
 
-function wmean_col(gdf::SubDataFrame, col::Symbol, w::Vector{Float64}; default::Float64=0.0)
+function wmean_col(gdf::AbstractDataFrame, col::Symbol, w::Vector{Float64}; default::Float64=0.0)
     vals = [to_float_agg(v, default) for v in gdf[!, col]]
     sw = sum(w)
     if sw <= 0
@@ -19,13 +19,28 @@ function wmean_col(gdf::SubDataFrame, col::Symbol, w::Vector{Float64}; default::
     return sum(vals .* w) / sw
 end
 
-flag_any(gdf::SubDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
+flag_any(gdf::AbstractDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
+
+function grouped_row_indices_by_zone_type(df::DataFrame)
+    groups = Dict{Tuple{String,String}, Vector{Int}}()
+    order = Tuple{String,String}[]
+    for (i, row) in enumerate(eachrow(df))
+        key = (string(row["Zone"]), string(row["Type"]))
+        if !haskey(groups, key)
+            groups[key] = Int[]
+            push!(order, key)
+        end
+        push!(groups[key], i)
+    end
+    return order, groups
+end
 
 function aggregate_gendata_gtep(df::DataFrame)
     work = copy(df)
     if !("AF" in names(work))
         work[!, :AF] = fill(1.0, nrow(work))
     end
+    has_for = "FOR" in names(work)
     has_rps = "Flag_RPS" in names(work)
     out = DataFrame(
         :Zone => Any[],
@@ -36,6 +51,7 @@ function aggregate_gendata_gtep(df::DataFrame)
         :EF => Float64[],
         :CC => Float64[],
         :AF => Float64[],
+        :FOR => Float64[],
         :Flag_thermal => Int[],
         :Flag_VRE => Int[],
         :Flag_RET => Int[],
@@ -45,7 +61,9 @@ function aggregate_gendata_gtep(df::DataFrame)
         out[!, :Flag_RPS] = Int[]
     end
 
-    for gdf in groupby(work, [:Zone, :Type])
+    order, groups = grouped_row_indices_by_zone_type(work)
+    for key in order
+        gdf = work[groups[key], :]
         w = agg_weights_from_pmax(gdf)
         if has_rps
             row = (
@@ -57,6 +75,7 @@ function aggregate_gendata_gtep(df::DataFrame)
                 wmean_col(gdf, :EF, w; default=0.0),
                 wmean_col(gdf, :CC, w; default=0.0),
                 wmean_col(gdf, :AF, w; default=1.0),
+                has_for ? wmean_col(gdf, :FOR, w; default=0.0) : 0.0,
                 flag_any(gdf, :Flag_thermal),
                 flag_any(gdf, :Flag_VRE),
                 flag_any(gdf, :Flag_RET),
@@ -74,6 +93,7 @@ function aggregate_gendata_gtep(df::DataFrame)
                 wmean_col(gdf, :EF, w; default=0.0),
                 wmean_col(gdf, :CC, w; default=0.0),
                 wmean_col(gdf, :AF, w; default=1.0),
+                has_for ? wmean_col(gdf, :FOR, w; default=0.0) : 0.0,
                 flag_any(gdf, :Flag_thermal),
                 flag_any(gdf, :Flag_VRE),
                 flag_any(gdf, :Flag_RET),
@@ -82,6 +102,47 @@ function aggregate_gendata_gtep(df::DataFrame)
             push!(out, row)
         end
     end
+    return out
+end
+
+function aggregate_afdata_gtep(raw_gendata::DataFrame, aggregated_gendata::DataFrame, gendata_candidate::DataFrame, raw_afdata::DataFrame)
+    time_cols = [col for col in ["Time Period", "Month", "Day", "Hours"] if col in names(raw_afdata)]
+    out = copy(raw_afdata[:, time_cols])
+    order, groups = grouped_row_indices_by_zone_type(raw_gendata)
+
+    for (new_idx, key) in enumerate(order)
+        rows = groups[key]
+        source_cols = [col for col in ["G$(i)" for i in rows] if col in names(raw_afdata)]
+        if isempty(source_cols)
+            continue
+        end
+        weights = [max(to_float_agg(raw_gendata[i, Symbol("Pmax (MW)")], 0.0), 0.0) for i in rows]
+        if length(source_cols) == 1
+            out[!, "G$(new_idx)"] = copy(raw_afdata[!, source_cols[1]])
+        else
+            sw = sum(weights)
+            if sw <= 0
+                weights = fill(1.0 / length(source_cols), length(source_cols))
+            else
+                weights = weights ./ sw
+            end
+            out[!, "G$(new_idx)"] = [
+                sum(weights[k] * to_float_agg(raw_afdata[h, source_cols[k]], 1.0) for k in eachindex(source_cols))
+                for h in 1:nrow(raw_afdata)
+            ]
+        end
+    end
+
+    num_raw_exist = nrow(raw_gendata)
+    num_agg_exist = nrow(aggregated_gendata)
+    for j in 1:nrow(gendata_candidate)
+        source_col = "G$(num_raw_exist + j)"
+        target_col = "G$(num_agg_exist + j)"
+        if source_col in names(raw_afdata)
+            out[!, target_col] = copy(raw_afdata[!, source_col])
+        end
+    end
+
     return out
 end
 
@@ -185,10 +246,11 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Linedata"]=DataFrame(XLSX.readtable(xlsx_path,"linedata"))
             #technology
             println("Reading technology")
+            gendata_raw = DataFrame(XLSX.readtable(xlsx_path,"gendata"))
             if config_set["aggregated!"]==1
-                input_data["Gendata"] = aggregate_gendata_gtep(DataFrame(XLSX.readtable(xlsx_path,"gendata")))
+                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
             else
-                input_data["Gendata"]=DataFrame(XLSX.readtable(xlsx_path,"gendata"))
+                input_data["Gendata"]=gendata_raw
             end 
             
             input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path,"storagedata"))
@@ -232,6 +294,9 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
                 normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
+                if config_set["aggregated!"] == 1
+                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], input_data["AFdata"])
+                end
             else
                 throw(ArgumentError("Missing required generator availability timeseries input. Provide sheet 'gen_availability_timeseries' in GTEP_input_total.xlsx."))
             end
@@ -251,10 +316,11 @@ function load_data(config_set::Dict,path::AbstractString)
             input_data["Linedata"]=CSV.read(joinpath(folderpath,"linedata.csv"),DataFrame)
             #technology
             println("Reading technology")
+            gendata_raw = CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
             if config_set["aggregated!"]==1
-                input_data["Gendata"] = aggregate_gendata_gtep(CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame))
+                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
             else
-                input_data["Gendata"]=CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
+                input_data["Gendata"]=gendata_raw
             end 
             
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
@@ -289,6 +355,9 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AFdata"] = CSV.read(af_csv, DataFrame)
                 normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
+                if config_set["aggregated!"] == 1
+                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], input_data["AFdata"])
+                end
             else
                 throw(ArgumentError("Missing required generator availability timeseries input. Provide file 'gen_availability_timeseries.csv'."))
             end
