@@ -9,7 +9,8 @@ time_periods:
   4: [12, 21, 3, 19]
 
 # Clustering method for representative-day selection.
-# Current supported value for Features 1-6: kmedoids
+# kmedoids = actual observed representative day
+# kmeans = synthetic centroid representative period
 clustering_method: kmedoids
 
 # How HOPE builds the daily feature vector before clustering.
@@ -26,7 +27,7 @@ planning_feature_set:
   - system_net_load
   - system_ramp
 
-# Number of medoid representative days selected in each seasonal window.
+# Number of representative periods selected in each seasonal window.
 representative_days_per_period: 2
 
 # Feature 3: add explicit extreme days after medoid selection.

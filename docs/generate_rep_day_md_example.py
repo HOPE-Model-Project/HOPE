@@ -148,8 +148,8 @@ def plot_feature1(df: pd.DataFrame) -> None:
         constrained_layout=True,
     )
     fig.suptitle(
-        "Feature 1: Joint Medoid Representative-Day Selection in MD_GTEP_clean_case\n"
-        "One actual observed day is selected per seasonal window using joint load + AF features",
+        "Feature 1: Joint Representative-Day Selection in MD_GTEP_clean_case\n"
+        "kmedoids example: one actual observed day is selected per seasonal window using joint load + AF features",
         fontsize=18,
         fontweight="bold",
     )

@@ -23,7 +23,7 @@ This keeps `HOPE_model_settings.yml` high-level while leaving the chronology-red
 
 The user-facing representative-day feature set is:
 
-- `Feature 1: Joint Medoid Representative-Day Selection`
+- `Feature 1: Joint Representative-Day Selection`
 - `Feature 2: Multiple Representative Days per Time Period`
 - `Feature 3: Extreme-Day Augmentation`
 - `Feature 4: Planning-Focused Feature Engineering`
@@ -46,7 +46,8 @@ time_periods:
   4: [12, 21, 3, 19]
 
 # Clustering method for representative-day selection.
-# Current supported value for Features 1-6: kmedoids
+# kmedoids = actual observed representative day
+# kmeans = synthetic centroid representative period
 clustering_method: kmedoids
 
 # How HOPE builds the daily feature vector before clustering.
@@ -63,7 +64,7 @@ planning_feature_set:
   - system_net_load
   - system_ramp
 
-# Number of medoid representative days selected in each seasonal window.
+# Number of representative periods selected in each seasonal window.
 representative_days_per_period: 2
 
 # Feature 3: add explicit extreme days after medoid selection.
@@ -173,11 +174,11 @@ When representative-day mode is used, HOPE also writes audit tables into the cas
 - `representative_period_transition_weights.csv` and `representative_period_run_stats.csv` when storage linkage is enabled
 - `representative_period_weight_check.csv` to confirm that representative-period weights add back up to the original number of real days in each seasonal window
 
-## Feature 1: Joint Medoid Representative-Day Selection
+## Feature 1: Joint Representative-Day Selection
 
 ### Focus
 
-Feature 1 fixes the biggest weakness of the old endogenous representative-day method: it no longer constructs one synthetic day independently for each column.
+Feature 1 fixes the biggest weakness of the old endogenous representative-day method: HOPE now clusters days in one shared feature space instead of building one synthetic day independently for each column.
 
 ### Mechanism
 
@@ -185,17 +186,24 @@ Feature 1:
 
 - builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles
 - clusters real days within each seasonal window
-- selects one actual observed medoid day per time period
+- builds one representative period per time period using either:
+  - `clustering_method: kmedoids` for one actual observed medoid day
+  - `clustering_method: kmeans` for one synthetic centroid period
 
-That means load, wind, solar, and other included inputs now come from the same real day.
+That means load, wind, solar, and other included inputs now come from the same shared clustering logic, rather than being constructed independently by column.
 
 ### Interpretation
 
 Feature 1 should be interpreted as:
 
-- one real representative day per seasonal window
+- one representative period per seasonal window
 - one weight per seasonal window
-- better preservation of cross-series consistency than the old centroid method
+- better preservation of cross-series consistency than the old independent-column centroid method
+
+The main user choice is:
+
+- `kmedoids`: one actual observed day, easier to interpret and audit
+- `kmeans`: one synthetic centroid period, smoother but less directly traceable to one real calendar day
 
 It is still a fairly aggressive reduction, because each season is compressed into only one day.
 
@@ -204,14 +212,19 @@ It is still a fairly aggressive reduction, because each season is compressed int
 Use Feature 1 when:
 
 - you want a simple and robust endogenous representative-day workflow
-- you want actual observed days instead of synthetic days
+- you want one representative period per season before turning on Features 2-6
 - solve speed matters more than fine chronology detail
 
 This is the best starting point for most endogenous rep-day studies.
 
+Recommended choice:
+
+- use `clustering_method: kmedoids` by default
+- use `clustering_method: kmeans` when you intentionally want smoother synthetic representative periods and you are comfortable giving up the direct link to one actual observed day
+
 ### Example
 
-Using the existing case `MD_GTEP_clean_case`, with:
+Using the existing case `MD_GTEP_clean_case`, with the `kmedoids` option:
 
 ```yaml
 time_periods:
@@ -219,6 +232,7 @@ time_periods:
   2: [6, 21, 9, 21]
   3: [9, 22, 12, 20]
   4: [12, 21, 3, 19]
+clustering_method: kmedoids
 feature_mode: joint_daily
 representative_days_per_period: 1
 add_extreme_days: 0
@@ -242,7 +256,7 @@ Mapping back to full chronology:
 Meaning:
 
 - $\mathcal{D}_t$: all real days in seasonal window $t$
-- $d_t^*$: the one selected medoid day
+- $d_t^*$: the one selected representative day in the `kmedoids` example
 - $w_t$: the number of original real days represented by that selected day
 
 ![Feature 1 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
@@ -732,14 +746,6 @@ How to read the figure:
 ## Legacy Compatibility
 
 For older cases, HOPE still falls back to `time_periods` from `HOPE_model_settings.yml` if `HOPE_rep_day_settings.yml` is missing.
-
-HOPE also keeps a legacy comparison mode:
-
-```yaml
-feature_mode: legacy_column_centroid
-```
-
-That reproduces the old behavior of building one synthetic centroid day per time period, independently by column.
 
 ## References
 

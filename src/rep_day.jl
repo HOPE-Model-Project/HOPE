@@ -505,10 +505,23 @@ function build_planning_daily_feature_matrix(
     return feature_matrix
 end
 
-function legacy_column_centroid_ts(df::DataFrame, time_periods, ordered_cols)
+function normalize_time_period_iterable(time_periods)
+    if time_periods isa AbstractVector{<:Pair}
+        return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in time_periods]
+    end
+    return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in pairs(time_periods)]
+end
+
+"""
+    get_representative_ts(df, time_periods, ordered_cols, k=1)
+
+Deprecated helper retained for backward compatibility. It builds one synthetic
+centroid day per time period, independently by column.
+"""
+function get_representative_ts(df, time_periods, ordered_cols, k=1)
     rep_dat_dict = Dict{Int,DataFrame}()
     ndays_dict = Dict{Int,Int}()
-    for (tp, dates) in time_periods
+    for (tp, dates) in normalize_time_period_iterable(time_periods)
         blocks = collect_day_blocks(df, dates)
         n_days = length(blocks)
         representative_day_df = DataFrame()
@@ -524,23 +537,6 @@ function legacy_column_centroid_ts(df::DataFrame, time_periods, ordered_cols)
         ndays_dict[tp] = n_days
     end
     return rep_dat_dict, ndays_dict
-end
-
-function normalize_time_period_iterable(time_periods)
-    if time_periods isa AbstractVector{<:Pair}
-        return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in time_periods]
-    end
-    return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in pairs(time_periods)]
-end
-
-"""
-    get_representative_ts(df, time_periods, ordered_cols, k=1)
-
-Legacy helper retained for backward compatibility. It builds one synthetic
-centroid day per time period, independently by column.
-"""
-function get_representative_ts(df, time_periods, ordered_cols, k=1)
-    return legacy_column_centroid_ts(df, normalize_time_period_iterable(time_periods), string.(ordered_cols))
 end
 
 function extract_rep_block(df::DataFrame, rows::Vector{Int}, ordered_cols; include_ni::Bool=false, add_hour::Bool=false)
@@ -593,6 +589,66 @@ function select_medoid_indices(feature_matrix::Matrix{Float64}, k::Int)
     return sorted_medoids, sorted_assignments, sorted_counts
 end
 
+function squared_distance_to_center(feature_matrix::Matrix{Float64}, day_idx::Int, center::AbstractVector{<:Real})
+    xi = view(feature_matrix, day_idx, :)
+    return sum((xi[k] - center[k])^2 for k in eachindex(xi))
+end
+
+function select_kmeans_indices(feature_matrix::Matrix{Float64}, k::Int)
+    n_days = size(feature_matrix, 1)
+    if k >= n_days
+        proxy_indices = collect(1:n_days)
+        assignments = collect(1:n_days)
+        counts = ones(Int, n_days)
+        centers = copy(feature_matrix)
+        return proxy_indices, assignments, counts, centers
+    elseif k == 1
+        center = vec(mean(feature_matrix, dims=1))
+        assignments = ones(Int, n_days)
+        counts = [n_days]
+        proxy_idx = argmin([squared_distance_to_center(feature_matrix, day_idx, center) for day_idx in 1:n_days])
+        centers = reshape(center, 1, :)
+        return [proxy_idx], assignments, counts, centers
+    end
+
+    result = kmeans(transpose(feature_matrix), k)
+    assignments = collect(result.assignments)
+    centers = transpose(result.centers)
+    proxy_indices = Int[]
+    counts = Int[]
+    for cluster_idx in 1:k
+        members = findall(==(cluster_idx), assignments)
+        push!(counts, length(members))
+        if isempty(members)
+            push!(proxy_indices, 1)
+        else
+            center = view(centers, cluster_idx, :)
+            nearest_local = argmin([squared_distance_to_center(feature_matrix, day_idx, center) for day_idx in members])
+            push!(proxy_indices, members[nearest_local])
+        end
+    end
+
+    sort_order = sortperm(proxy_indices)
+    sorted_proxy_indices = proxy_indices[sort_order]
+    cluster_map = Dict(old_idx => new_idx for (new_idx, old_idx) in enumerate(sort_order))
+    sorted_assignments = [cluster_map[a] for a in assignments]
+    sorted_counts = counts[sort_order]
+    sorted_centers = centers[sort_order, :]
+    return sorted_proxy_indices, sorted_assignments, sorted_counts, sorted_centers
+end
+
+function select_cluster_representatives(feature_matrix::Matrix{Float64}, k::Int, clustering_method::AbstractString)
+    method = lowercase(String(clustering_method))
+    if method == "kmedoids"
+        rep_indices, assignments, counts = select_medoid_indices(feature_matrix, k)
+        centers = feature_matrix[rep_indices, :]
+        return rep_indices, assignments, counts, centers
+    elseif method == "kmeans"
+        return select_kmeans_indices(feature_matrix, k)
+    end
+    throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method). Supported values: kmedoids, kmeans."))
+end
+
 function combine_rep_day_generator_data(generator_data::Union{Nothing,DataFrame}, candidate_generator_data::Union{Nothing,DataFrame})
     generator_data === nothing && candidate_generator_data === nothing && return nothing
     existing = generator_data === nothing ? DataFrame() : copy(generator_data)
@@ -614,6 +670,19 @@ function generator_metric_weights(generator_df::Union{Nothing,DataFrame}, ordere
         end
     end
     return cols, weights
+end
+
+function build_centroid_rep_block(df::DataFrame, day_blocks, block_indices::Vector{Int}, ordered_cols; include_ni::Bool=false, add_hour::Bool=false)
+    selected_cols = select_rep_columns(df, ordered_cols; include_ni=include_ni)
+    rep_df = DataFrame()
+    for col in selected_cols
+        col_stack = hcat([parse.(Float64, string.(df[day_blocks[block_idx].rows, col])) for block_idx in block_indices]...)
+        rep_df[!, col] = vec(mean(col_stack, dims=2))
+    end
+    if add_hour
+        rep_df[!, "Hour"] = collect(1:24)
+    end
+    return rep_df
 end
 
 function filter_existing_af_columns(cols::Vector{String}, weights::Vector{Float64}, afdata::DataFrame)
@@ -730,13 +799,18 @@ function select_iterative_refinement_days(
     assignments::Vector{Int},
     cluster_counts::Vector{Float64},
     selected_indices::Vector{Int},
-    n_refinement::Int,
+    n_refinement::Int;
+    representative_centers::Union{Nothing,Matrix{Float64}}=nothing,
 )
     n_refinement <= 0 && return Tuple{Int,Float64}[]
 
     refinement = Tuple{Int,Float64}[]
-    active_selected = copy(selected_indices)
-    selected_set = Set(active_selected)
+    selected_set = Set(selected_indices)
+    active_centers = if representative_centers === nothing
+        isempty(selected_indices) ? Matrix{Float64}(undef, 0, size(feature_matrix, 2)) : copy(feature_matrix[selected_indices, :])
+    else
+        copy(representative_centers)
+    end
 
     for _ in 1:n_refinement
         best_idx = 0
@@ -749,7 +823,7 @@ function select_iterative_refinement_days(
             if cluster_counts[cluster_idx] <= 1.0
                 continue
             end
-            score = minimum(squared_distance(feature_matrix, day_idx, sel_idx) for sel_idx in active_selected)
+            score = minimum(squared_distance_to_center(feature_matrix, day_idx, view(active_centers, center_idx, :)) for center_idx in axes(active_centers, 1))
             if score > best_score
                 best_idx = day_idx
                 best_score = score
@@ -758,8 +832,8 @@ function select_iterative_refinement_days(
         best_idx == 0 && break
         cluster_counts[assignments[best_idx]] -= 1.0
         push!(refinement, (best_idx, best_score))
-        push!(active_selected, best_idx)
         push!(selected_set, best_idx)
+        active_centers = vcat(active_centers, reshape(copy(feature_matrix[best_idx, :]), 1, :))
     end
 
     return refinement
@@ -836,9 +910,13 @@ end
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
 Construct endogenous representative-day inputs using the advanced settings in
-`HOPE_rep_day_settings.yml`. Features 1-5 select one or more actual
-representative days per time period from a joint daily feature matrix and may
-optionally augment them with extreme and iterative refinement days.
+`HOPE_rep_day_settings.yml`. Representative periods are built from a shared
+joint/planning feature pipeline using either:
+
+- `clustering_method = kmedoids` for actual observed representative days, or
+- `clustering_method = kmeans` for synthetic centroid representative periods.
+
+Extreme and iterative refinement days remain actual observed days.
 """
 function build_endogenous_rep_periods(
     loaddata::DataFrame,
@@ -885,9 +963,10 @@ function build_endogenous_rep_periods(
     )
     rep_period_ids_by_time_period = Dict{Int,Vector{Int}}()
     rep_period_id = 1
-    method_label = feature_mode == "planning_features" ? "planning_features_kmedoids" : "joint_daily_kmedoids"
-    extreme_method_label = feature_mode == "planning_features" ? "planning_features_kmedoids_extreme" : "joint_daily_kmedoids_extreme"
-    refinement_method_label = feature_mode == "planning_features" ? "planning_features_kmedoids_iterative" : "joint_daily_kmedoids_iterative"
+    base_method_label = string(feature_mode, "_", clustering_method)
+    method_label = base_method_label
+    extreme_method_label = string(base_method_label, "_extreme")
+    refinement_method_label = string(base_method_label, "_iterative")
     iterative_refinement = parse_rep_day_binary(rep_day_settings_value(config_set, "iterative_refinement", 0), "rep_day_settings.iterative_refinement")
     iterative_refinement_days = parse_rep_day_nonnegative_int(
         rep_day_settings_value(config_set, "iterative_refinement_days_per_period", 1),
@@ -902,33 +981,8 @@ function build_endogenous_rep_periods(
             @warn "rep_day_settings.representative_days_per_period=$(rep_days_per_period) exceeds the number of available days ($(length(blocks))) in time_period=$(tp). Using $(k_eff) representative days for this period."
         end
 
-        if feature_mode == "legacy_column_centroid"
-            if k_eff != 1
-                throw(ArgumentError("feature_mode=legacy_column_centroid currently supports only representative_days_per_period = 1."))
-            end
-            if parse_rep_day_binary(rep_day_settings_value(config_set, "add_extreme_days", 0), "rep_day_settings.add_extreme_days") == 1
-                throw(ArgumentError("Feature 3 extreme-day augmentation is currently supported only with feature_mode = joint_daily."))
-            end
-            legacy_load, legacy_n = legacy_column_centroid_ts(loaddata, [tp => dates], ordered_zone)
-            legacy_af, _ = legacy_column_centroid_ts(afdata, [tp => dates], ordered_gen)
-            load_rep[rep_period_id] = legacy_load[tp]
-            af_rep[rep_period_id] = legacy_af[tp]
-            if drtsdata !== nothing
-                legacy_dr, _ = legacy_column_centroid_ts(drtsdata, [tp => dates], ordered_zone)
-                dr_rep[rep_period_id] = legacy_dr[tp]
-            end
-            ndays[rep_period_id] = Float64(legacy_n[tp])
-            rep_period_ids_by_time_period[tp] = [rep_period_id]
-            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid", "cluster_medoid", "", 0.0))
-            rep_period_id += 1
-            continue
-        end
-
         if !(feature_mode in ("joint_daily", "planning_features"))
-            throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, planning_features, legacy_column_centroid."))
-        end
-        if clustering_method != "kmedoids"
-            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Features 1-4. Supported value: kmedoids."))
+            throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, planning_features."))
         end
 
         all_generator_data = combine_rep_day_generator_data(generator_data, candidate_generator_data)
@@ -945,7 +999,7 @@ function build_endogenous_rep_periods(
                 all_generator_data,
             )
         end
-        medoid_indices, assignments, counts = select_medoid_indices(feature_matrix, k_eff)
+        rep_indices, assignments, counts, centers = select_cluster_representatives(feature_matrix, k_eff, clustering_method)
         cluster_counts = Float64.(counts)
         extreme_indices, extreme_metrics = select_extreme_day_indices(
             loaddata,
@@ -956,10 +1010,10 @@ function build_endogenous_rep_periods(
             config_set;
             generator_data=all_generator_data,
         )
-        selected_medoid_set = Set(medoid_indices)
+        selected_rep_set = clustering_method == "kmedoids" ? Set(rep_indices) : Set{Int}()
         augmented_extremes = Tuple{Int,String}[]
         for (extreme_idx, metric) in zip(extreme_indices, extreme_metrics)
-            if extreme_idx in selected_medoid_set
+            if extreme_idx in selected_rep_set
                 continue
             end
             cluster_idx = assignments[extreme_idx]
@@ -969,22 +1023,43 @@ function build_endogenous_rep_periods(
             cluster_counts[cluster_idx] -= 1.0
             push!(augmented_extremes, (extreme_idx, metric))
         end
-        selected_indices = vcat(medoid_indices, first.(augmented_extremes))
-        refinement_days = iterative_refinement == 1 ? select_iterative_refinement_days(feature_matrix, assignments, cluster_counts, selected_indices, iterative_refinement_days) : Tuple{Int,Float64}[]
+        selected_indices = vcat(clustering_method == "kmedoids" ? rep_indices : Int[], first.(augmented_extremes))
+        refinement_days = iterative_refinement == 1 ? select_iterative_refinement_days(
+            feature_matrix,
+            assignments,
+            cluster_counts,
+            selected_indices,
+            iterative_refinement_days;
+            representative_centers=clustering_method == "kmeans" ? centers : nothing,
+        ) : Tuple{Int,Float64}[]
         rep_ids = Int[]
-        medoid_rep_id_map = Dict{Int,Int}()
+        cluster_rep_id_map = Dict{Int,Int}()
         extreme_rep_id_map = Dict{Int,Int}()
         refinement_rep_id_map = Dict{Int,Int}()
-        for (local_idx, block_idx) in enumerate(medoid_indices)
+        excluded_indices = Set(vcat(first.(augmented_extremes), first.(refinement_days)))
+        for (local_idx, block_idx) in enumerate(rep_indices)
             selected_block = blocks[block_idx]
-            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
-            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
-            if drtsdata !== nothing
-                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+            cluster_members = [member_idx for member_idx in eachindex(assignments) if assignments[member_idx] == local_idx && !(member_idx in excluded_indices)]
+            if isempty(cluster_members)
+                cluster_members = [block_idx]
+            end
+            if clustering_method == "kmeans"
+                load_rep[rep_period_id] = build_centroid_rep_block(loaddata, blocks, cluster_members, ordered_zone; include_ni=true, add_hour=true)
+                af_rep[rep_period_id] = build_centroid_rep_block(afdata, blocks, cluster_members, ordered_gen; include_ni=false, add_hour=false)
+                if drtsdata !== nothing
+                    dr_rep[rep_period_id] = build_centroid_rep_block(drtsdata, blocks, cluster_members, ordered_zone; include_ni=false, add_hour=false)
+                end
+            else
+                load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
+                af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+                if drtsdata !== nothing
+                    dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+                end
             end
             ndays[rep_period_id] = cluster_counts[local_idx]
-            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, "cluster_medoid", "", 0.0))
-            medoid_rep_id_map[block_idx] = rep_period_id
+            selection_type = clustering_method == "kmeans" ? "cluster_centroid" : "cluster_medoid"
+            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, selection_type, "", 0.0))
+            cluster_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
@@ -1024,9 +1099,9 @@ function build_endogenous_rep_periods(
                 assigned_rep = refinement_rep_id_map[block_idx]
                 assignment_type = "refinement_day"
             else
-                assigned_rep = medoid_rep_id_map[medoid_indices[assignments[block_idx]]]
-                if haskey(medoid_rep_id_map, block_idx)
-                    assignment_type = "cluster_medoid"
+                assigned_rep = cluster_rep_id_map[rep_indices[assignments[block_idx]]]
+                if haskey(cluster_rep_id_map, block_idx)
+                    assignment_type = clustering_method == "kmeans" ? "cluster_centroid_proxy" : "cluster_medoid"
                 end
             end
             push!(day_assignments, (
