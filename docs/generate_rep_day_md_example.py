@@ -12,6 +12,7 @@ OUT_FEATURE1 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_example.png"
 OUT_FEATURE2 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature2.png"
 OUT_FEATURE3 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature3.png"
 OUT_FEATURE4 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature4.png"
+OUT_FEATURE5 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature5.png"
 GENDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata.csv"
 GENDATA_CAND = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata_candidate.csv"
 AFDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gen_availability_timeseries.csv"
@@ -42,6 +43,13 @@ TIME_PERIODS_FEATURE4 = {
     2: (6, 21, 9, 21, "Jun 21 to Sep 21", (7, 8), 93),
     3: (9, 22, 12, 20, "Sep 22 to Dec 20", (12, 7), 90),
     4: (12, 21, 3, 19, "Dec 21 to Mar 19", (1, 13), 89),
+}
+
+TIME_PERIODS_FEATURE5 = {
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1), "refinement": ((5, 29), 1)}),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((7, 8), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1), "refinement": ((7, 9), 1)}),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((12, 7), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1), "refinement": ((12, 17), 1)}),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((1, 13), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1), "refinement": ((12, 23), 1)}),
 }
 
 
@@ -428,16 +436,86 @@ def plot_feature4(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def plot_feature5(df: pd.DataFrame) -> None:
+    daily_metrics = prepare_feature4_daily_metrics()
+    colors = {
+        "medoid": "#2a5b84",
+        "peak_load": "#c84b31",
+        "peak_net_load": "#3f8f5a",
+        "max_ramp": "#d98f2b",
+        "refinement": "#7b5ea7",
+    }
+    labels = {
+        "medoid": "Medoid",
+        "peak_load": "Peak load",
+        "peak_net_load": "Peak net load",
+        "max_ramp": "Max ramp",
+        "refinement": "Refinement",
+    }
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10.5, 6.9), constrained_layout=True)
+    fig.suptitle(
+        "Feature 5: Iterative Representative-Day Refinement in MD_GTEP_clean_case\n"
+        "One extra day is added where the current representative set still leaves the largest mismatch",
+        fontsize=14.5,
+        fontweight="bold",
+    )
+
+    for ax, period in zip(axes.flatten(), [1, 2, 3, 4]):
+        spec = TIME_PERIODS_FEATURE5[period]
+        season = daily_metrics[daily_metrics.apply(lambda r: in_window(int(r["Month"]), int(r["Day"]), spec), axis=1)].copy()
+        season["season_day_idx"] = range(1, len(season) + 1)
+        ax.plot(season["season_day_idx"], season["peak_system_net_load"], color="#c8d0d8", lw=1.6)
+        ax.set_title(f"Period {period}: {spec[4]}", fontsize=11, loc="left")
+        ax.grid(alpha=0.18)
+
+        text_lines = []
+        for key in ["medoid", "peak_load", "peak_net_load", "max_ramp", "refinement"]:
+            (month, day), weight = spec[5][key]
+            selected = season[(season["Month"] == month) & (season["Day"] == day)].iloc[0]
+            ax.scatter(
+                [selected["season_day_idx"]],
+                [selected["peak_system_net_load"]],
+                s=62 if key in {"medoid", "refinement"} else 46,
+                color=colors[key],
+                zorder=4,
+                label=labels[key],
+            )
+            ax.axvline(selected["season_day_idx"], color=colors[key], lw=1.0, ls="--", alpha=0.72)
+            weight_label = f"w={weight}"
+            text_lines.append(f"{labels[key]}: {month}/{day} ({weight_label})")
+
+        ax.text(
+            0.98,
+            0.97,
+            "\n".join(text_lines),
+            ha="right",
+            va="top",
+            transform=ax.transAxes,
+            fontsize=8.0,
+            bbox=dict(boxstyle="round,pad=0.22", fc="#ffffff", ec="#d8dfe5"),
+        )
+        ax.set_ylabel("Daily peak system net load", fontsize=9)
+        ax.set_xlabel("Day index in seasonal window", fontsize=9)
+        handles, handle_labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(handle_labels, handles))
+        ax.legend(by_label.values(), by_label.keys(), loc="lower left", fontsize=7.2, frameon=True, ncol=2)
+
+    fig.savefig(OUT_FEATURE5, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     df = prepare_load_df()
     plot_feature1(df)
     plot_feature2(df)
     plot_feature3(df)
     plot_feature4(df)
+    plot_feature5(df)
     print(OUT_FEATURE1)
     print(OUT_FEATURE2)
     print(OUT_FEATURE3)
     print(OUT_FEATURE4)
+    print(OUT_FEATURE5)
 
 
 if __name__ == "__main__":

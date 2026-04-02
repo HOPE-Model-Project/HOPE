@@ -15,6 +15,8 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
         "representative_days_per_period" => 1,
         "add_extreme_days" => 0,
         "extreme_day_metrics" => ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
+        "iterative_refinement" => 0,
+        "iterative_refinement_days_per_period" => 1,
         "include_load" => 1,
         "include_af" => 1,
         "include_dr" => 1,
@@ -57,6 +59,14 @@ function parse_rep_day_positive_int(x, keyname::AbstractString)
     v = to_int_rep_day(x)
     if v < 1
         throw(ArgumentError("Invalid $(keyname)=$(v). Expected an integer >= 1."))
+    end
+    return v
+end
+
+function parse_rep_day_nonnegative_int(x, keyname::AbstractString)
+    v = to_int_rep_day(x)
+    if v < 0
+        throw(ArgumentError("Invalid $(keyname)=$(v). Expected an integer >= 0."))
     end
     return v
 end
@@ -601,12 +611,59 @@ function select_extreme_day_indices(
     return selected_indices, selected_metrics
 end
 
+function squared_distance(feature_matrix::Matrix{Float64}, i::Int, j::Int)
+    xi = view(feature_matrix, i, :)
+    xj = view(feature_matrix, j, :)
+    return sum((xi[k] - xj[k])^2 for k in eachindex(xi))
+end
+
+function select_iterative_refinement_days(
+    feature_matrix::Matrix{Float64},
+    assignments::Vector{Int},
+    cluster_counts::Vector{Float64},
+    selected_indices::Vector{Int},
+    n_refinement::Int,
+)
+    n_refinement <= 0 && return Tuple{Int,Float64}[]
+
+    refinement = Tuple{Int,Float64}[]
+    active_selected = copy(selected_indices)
+    selected_set = Set(active_selected)
+
+    for _ in 1:n_refinement
+        best_idx = 0
+        best_score = -Inf
+        for day_idx in axes(feature_matrix, 1)
+            if day_idx in selected_set
+                continue
+            end
+            cluster_idx = assignments[day_idx]
+            if cluster_counts[cluster_idx] <= 1.0
+                continue
+            end
+            score = minimum(squared_distance(feature_matrix, day_idx, sel_idx) for sel_idx in active_selected)
+            if score > best_score
+                best_idx = day_idx
+                best_score = score
+            end
+        end
+        best_idx == 0 && break
+        cluster_counts[assignments[best_idx]] -= 1.0
+        push!(refinement, (best_idx, best_score))
+        push!(active_selected, best_idx)
+        push!(selected_set, best_idx)
+    end
+
+    return refinement
+end
+
 """
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
 Construct endogenous representative-day inputs using the advanced settings in
-`HOPE_rep_day_settings.yml`. Features 1 and 2 select one or more actual
-representative days per time period from a joint daily feature matrix.
+`HOPE_rep_day_settings.yml`. Features 1-5 select one or more actual
+representative days per time period from a joint daily feature matrix and may
+optionally augment them with extreme and iterative refinement days.
 """
 function build_endogenous_rep_periods(
     loaddata::DataFrame,
@@ -640,11 +697,18 @@ function build_endogenous_rep_periods(
         Method = String[],
         SelectionType = String[],
         ExtremeMetric = String[],
+        RefinementScore = Float64[],
     )
     rep_period_ids_by_time_period = Dict{Int,Vector{Int}}()
     rep_period_id = 1
     method_label = feature_mode == "planning_features" ? "planning_features_kmedoids" : "joint_daily_kmedoids"
     extreme_method_label = feature_mode == "planning_features" ? "planning_features_kmedoids_extreme" : "joint_daily_kmedoids_extreme"
+    refinement_method_label = feature_mode == "planning_features" ? "planning_features_kmedoids_iterative" : "joint_daily_kmedoids_iterative"
+    iterative_refinement = parse_rep_day_binary(rep_day_settings_value(config_set, "iterative_refinement", 0), "rep_day_settings.iterative_refinement")
+    iterative_refinement_days = parse_rep_day_nonnegative_int(
+        rep_day_settings_value(config_set, "iterative_refinement_days_per_period", 1),
+        "rep_day_settings.iterative_refinement_days_per_period",
+    )
 
     for (tp, dates) in rep_time_periods
         blocks = collect_day_blocks(loaddata, dates)
@@ -670,7 +734,7 @@ function build_endogenous_rep_periods(
             end
             ndays[rep_period_id] = Float64(legacy_n[tp])
             rep_period_ids_by_time_period[tp] = [rep_period_id]
-            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid", "cluster_medoid", ""))
+            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid", "cluster_medoid", "", 0.0))
             rep_period_id += 1
             continue
         end
@@ -720,6 +784,8 @@ function build_endogenous_rep_periods(
             cluster_counts[cluster_idx] -= 1.0
             push!(augmented_extremes, (extreme_idx, metric))
         end
+        selected_indices = vcat(medoid_indices, first.(augmented_extremes))
+        refinement_days = iterative_refinement == 1 ? select_iterative_refinement_days(feature_matrix, assignments, cluster_counts, selected_indices, iterative_refinement_days) : Tuple{Int,Float64}[]
         rep_ids = Int[]
         for (local_idx, block_idx) in enumerate(medoid_indices)
             selected_block = blocks[block_idx]
@@ -729,7 +795,7 @@ function build_endogenous_rep_periods(
                 dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
             end
             ndays[rep_period_id] = cluster_counts[local_idx]
-            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, "cluster_medoid", ""))
+            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, "cluster_medoid", "", 0.0))
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
@@ -741,7 +807,19 @@ function build_endogenous_rep_periods(
                 dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
             end
             ndays[rep_period_id] = 1.0
-            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], extreme_method_label, "extreme_day", metric))
+            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], extreme_method_label, "extreme_day", metric, 0.0))
+            push!(rep_ids, rep_period_id)
+            rep_period_id += 1
+        end
+        for (offset_idx, (block_idx, score)) in enumerate(refinement_days)
+            selected_block = blocks[block_idx]
+            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
+            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+            if drtsdata !== nothing
+                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+            end
+            ndays[rep_period_id] = 1.0
+            push!(metadata, (rep_period_id, tp, k_eff + length(augmented_extremes) + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], refinement_method_label, "refinement_day", "", score))
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end

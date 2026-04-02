@@ -11,7 +11,7 @@ endogenous_rep_day: 1
 external_rep_day: 0
 ```
 
-When `endogenous_rep_day = 1`, HOPE now reads advanced endogenous representative-day controls from:
+When `endogenous_rep_day = 1`, HOPE reads the advanced endogenous representative-day controls from:
 
 ```text
 Settings/HOPE_rep_day_settings.yml
@@ -21,7 +21,7 @@ This keeps `HOPE_model_settings.yml` high-level while leaving the chronology-red
 
 ## Representative-Day Feature Roadmap
 
-The planned user-facing representative-day feature set is:
+The user-facing representative-day feature set is:
 
 - `Feature 1: Joint Medoid Representative-Day Selection`
 - `Feature 2: Multiple Representative Days per Time Period`
@@ -30,47 +30,9 @@ The planned user-facing representative-day feature set is:
 - `Feature 5: Iterative Representative-Day Refinement`
 - `Feature 6: Linked Representative Days for Storage`
 
-## Feature 1: Joint Medoid Representative-Day Selection
+## Common Settings
 
-Feature 1 improves the old endogenous representative-day process in two ways:
-
-- HOPE builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles.
-- HOPE selects one actual observed representative day per time period using a 1-medoid rule, instead of building a synthetic day column by column.
-
-This means load and VRE are now taken from the same real day, which preserves cross-series consistency better than the legacy centroid construction.
-
-## Feature 2: Multiple Representative Days per Time Period
-
-Feature 2 extends Feature 1 by allowing HOPE to select more than one actual representative day inside each seasonal window.
-
-- HOPE still builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles.
-- Instead of selecting just one medoid day for each time period, HOPE now selects `k` medoid days.
-- Each selected day receives its own weight equal to the number of real days assigned to that medoid cluster.
-
-This reduces the amount of smoothing inside each season and lets HOPE keep multiple characteristic daily patterns, such as a milder day and a more stressed day within the same seasonal window.
-
-## Feature 3: Extreme-Day Augmentation
-
-Feature 3 adds explicitly selected extreme days on top of the clustered medoid days.
-
-- HOPE first selects the medoid-based representative days from Features 1-2.
-- HOPE then scans each seasonal window for user-requested extreme days such as peak load, peak net load, minimum wind, minimum solar, and maximum ramp.
-- Each added extreme day is treated as an actual observed day with weight `1`.
-- To keep the total number of represented days unchanged, HOPE subtracts that weight from the cluster-medoid weight that originally covered the extreme day.
-
-This is especially useful for adequacy and stress-event studies, where pure clustering can miss rare but important days.
-
-## Feature 4: Planning-Focused Feature Engineering
-
-Feature 4 changes the feature vector itself.
-
-- Instead of clustering on the raw hourly input columns directly, HOPE can now build a compact planning-oriented feature vector.
-- These engineered features focus on signals that matter more for planning decisions, such as zonal load, zonal net load, zonal wind/solar shape, system net load, and ramps.
-- This reduces the chance that clustering is driven by low-value variation in raw generator-level columns.
-
-In practice, Feature 4 is useful when users want representative days that better reflect adequacy, net-load stress, and storage-relevant chronology, rather than just raw column similarity.
-
-## Recommended `HOPE_rep_day_settings.yml`
+A typical `HOPE_rep_day_settings.yml` starts from:
 
 ```yaml
 time_periods:
@@ -96,6 +58,8 @@ extreme_day_metrics:
   - min_wind
   - min_solar
   - max_ramp
+iterative_refinement: 0
+iterative_refinement_days_per_period: 1
 include_load: 1
 include_af: 1
 include_dr: 1
@@ -105,13 +69,15 @@ normalize_features: 1
 Meaning:
 
 - `time_periods`: seasonal windows used for endogenous representative-day construction
-- `clustering_method: kmedoids`: Feature 1 selects one actual medoid day per time period
-- `feature_mode: joint_daily`: cluster one combined daily feature vector, not each column independently
-- `planning_feature_set`: used when `feature_mode: planning_features`; defines which engineered planning signals enter the clustering vector
-- `representative_days_per_period`: number of representative days to select inside each seasonal window
-- `add_extreme_days: 1`: turn on Feature 3 extreme-day augmentation
-- `extreme_day_metrics`: choose which extreme-day rules to add; supported values are `peak_load`, `peak_net_load`, `min_wind`, `min_solar`, and `max_ramp`
-- `include_load`, `include_af`, `include_dr`: control which data streams enter the feature vector
+- `clustering_method: kmedoids`: select actual observed days instead of synthetic centroids
+- `feature_mode`: choose how HOPE constructs the daily feature vector before clustering
+- `planning_feature_set`: used when `feature_mode: planning_features`
+- `representative_days_per_period`: number of medoid days per seasonal window
+- `add_extreme_days`: turn Feature 3 on or off
+- `extreme_day_metrics`: choose which stress events HOPE adds explicitly
+- `iterative_refinement`: turn Feature 5 on or off
+- `iterative_refinement_days_per_period`: number of extra refinement days HOPE adds after the medoid/extreme selection
+- `include_load`, `include_af`, `include_dr`: used by `feature_mode: joint_daily`
 - `normalize_features: 1`: standardize feature dimensions before distance calculations
 
 ## Understanding `time_periods`
@@ -122,19 +88,30 @@ Each `time_periods` entry uses the format:
 period_id: [start_month, start_day, end_month, end_day]
 ```
 
-So the example above means:
+So this example:
 
-- `1: [1, 1, 3, 31]` means January 1 to March 31
-- `2: [4, 1, 6, 30]` means April 1 to June 30
-- `3: [7, 1, 9, 30]` means July 1 to September 30
-- `4: [10, 1, 12, 31]` means October 1 to December 31
+```yaml
+time_periods:
+  1: [1, 1, 3, 31]
+  2: [4, 1, 6, 30]
+  3: [7, 1, 9, 30]
+  4: [10, 1, 12, 31]
+```
+
+means:
+
+- `1`: January 1 to March 31
+- `2`: April 1 to June 30
+- `3`: July 1 to September 30
+- `4`: October 1 to December 31
 
 In endogenous representative-day mode, HOPE uses these windows like this:
 
 1. collect all full-chronology days that fall inside each window
 2. build one daily feature vector for each real day in that window
-3. choose the representative day from only that window
-4. assign the selected representative day a weight equal to the number of real days in that window
+3. cluster only within that window
+4. pick one or more representative days from that same window
+5. assign weights so the representative periods map back to the original number of real days
 
 So `time_periods` does not define optimization hours directly. It defines the seasonal buckets inside which HOPE searches for representative days.
 
@@ -147,9 +124,45 @@ time_periods:
 
 means November 1 through February 28.
 
-## Concrete Example
+## Feature 1: Joint Medoid Representative-Day Selection
 
-Using the existing case `MD_GTEP_clean_case`, with its seasonal windows:
+### Focus
+
+Feature 1 fixes the biggest weakness of the old endogenous representative-day method: it no longer constructs one synthetic day independently for each column.
+
+### Mechanism
+
+Feature 1:
+
+- builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles
+- clusters real days within each seasonal window
+- selects one actual observed medoid day per time period
+
+That means load, wind, solar, and other included inputs now come from the same real day.
+
+### Interpretation
+
+Feature 1 should be interpreted as:
+
+- one real representative day per seasonal window
+- one weight per seasonal window
+- better preservation of cross-series consistency than the old centroid method
+
+It is still a fairly aggressive reduction, because each season is compressed into only one day.
+
+### Recommendation
+
+Use Feature 1 when:
+
+- you want a simple and robust endogenous representative-day workflow
+- you want actual observed days instead of synthetic days
+- solve speed matters more than fine chronology detail
+
+This is the best starting point for most endogenous rep-day studies.
+
+### Example
+
+Using the existing case `MD_GTEP_clean_case`, with:
 
 ```yaml
 time_periods:
@@ -157,9 +170,12 @@ time_periods:
   2: [6, 21, 9, 21]
   3: [9, 22, 12, 20]
   4: [12, 21, 3, 19]
+feature_mode: joint_daily
+representative_days_per_period: 1
+add_extreme_days: 0
 ```
 
-HOPE Feature 1 selected these actual representative days:
+HOPE selects:
 
 | Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
 | :-- | :-- | :-- | :-- |
@@ -168,35 +184,58 @@ HOPE Feature 1 selected these actual representative days:
 | `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
 | `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
 
-![Representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
-
-So for this case, HOPE reduces the full year to 4 representative days, but each representative day is an actual observed day from the corresponding seasonal window. For example:
-
-- all days from March 20 to June 20 are compared in the joint feature space
-- HOPE selects May 19 as the medoid day for that window
-- that selected day gets weight `93`, meaning it represents 93 real days in the model objective and annual accounting
+![Feature 1 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
 
 How to read the figure:
 
 - left column: daily total load across each seasonal window, with the selected representative day highlighted
-- right column: all 24-hour total load profiles in that season shown in gray, the selected representative day in red, and the seasonal mean profile in dashed blue
+- right column: all 24-hour total load profiles in that season shown in gray, the selected representative day in red, and the seasonal mean in dashed blue
 
-This helps users see both:
+## Feature 2: Multiple Representative Days per Time Period
 
-- where the selected day sits within the season, and
-- what the selected 24-hour profile looks like compared with the rest of the season
+### Focus
 
-## Feature 2 Example
+Feature 2 reduces over-smoothing within each season by allowing more than one medoid day.
 
-If the same `MD_GTEP_clean_case` uses:
+### Mechanism
+
+Feature 2 keeps the same clustering logic as Feature 1, but instead of selecting one medoid day per seasonal window, it selects `k` medoid days:
+
+- each selected day is still an actual observed day
+- each selected day gets its own weight
+- the total weight across the selected days still equals the number of real days in that seasonal window
+
+### Interpretation
+
+Feature 2 should be interpreted as:
+
+- one season can now contain several representative daily patterns
+- weights are cluster sizes, so they do not have to be equal
+- more representative days means less smoothing but longer solve time
+
+This is usually the first upgrade to make if one representative day per season feels too coarse.
+
+### Recommendation
+
+Use Feature 2 when:
+
+- one day per season is too restrictive
+- storage, adequacy, or VRE variability matter more strongly
+- you want a moderate accuracy improvement without changing the basic workflow
+
+Typical values are `2` to `4` representative days per seasonal window.
+
+### Example
+
+Using the same `MD_GTEP_clean_case`, with:
 
 ```yaml
+feature_mode: joint_daily
 representative_days_per_period: 2
+add_extreme_days: 0
 ```
 
-then HOPE selects two actual representative days inside each seasonal window instead of one.
-
-For this case, the selected days and weights are:
+HOPE selects:
 
 | Time Period | Seasonal Window | Representative Day 1 | Weight 1 | Representative Day 2 | Weight 2 |
 | :-- | :-- | :-- | :-- | :-- | :-- |
@@ -207,31 +246,60 @@ For this case, the selected days and weights are:
 
 ![Feature 2 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature2.png)
 
-So the four seasonal windows now become eight representative periods in the model:
-
-- time period `1` maps to representative periods `1` and `2`
-- time period `2` maps to representative periods `3` and `4`
-- time period `3` maps to representative periods `5` and `6`
-- time period `4` maps to representative periods `7` and `8`
-
-The cluster weights no longer have to be equal. For example, in time period `4`, January 28 represents `64` real days while March 18 represents only `25` real days. This is exactly what Feature 2 is designed to capture: more than one characteristic day shape inside the same season.
-
-How to read the Feature 2 figure:
+How to read the figure:
 
 - left column: daily total load across each seasonal window, with both selected representative days highlighted
 - right column: all 24-hour total load profiles in that season shown in gray, with the two selected representative days highlighted separately
 
-For users, the main practical interpretation is:
+## Feature 3: Extreme-Day Augmentation
 
-- `representative_days_per_period: 1` gives one representative day per seasonal window
-- `representative_days_per_period: 2` gives two representative days per seasonal window, each with its own weight
-- increasing this setting trades more chronology detail for longer solve times
+### Focus
 
-## Feature 3 Example
+Feature 3 protects the model against missing rare but important stress events.
 
-If the same `MD_GTEP_clean_case` uses:
+### Mechanism
+
+Feature 3 works on top of Features 1-2:
+
+1. HOPE selects the medoid-based representative days
+2. HOPE scans the same seasonal window for extreme days requested by the user
+3. HOPE adds those extreme days explicitly with weight `1`
+4. HOPE reduces the medoid weight so the total represented days stay unchanged
+
+Supported metrics are:
+
+- `peak_load`
+- `peak_net_load`
+- `min_wind`
+- `min_solar`
+- `max_ramp`
+
+### Interpretation
+
+Feature 3 should be interpreted as:
+
+- medoids still represent the bulk of the season
+- extreme days are carved out explicitly
+- if two metrics hit the same day, HOPE adds that day only once
+
+This is especially important for reliability, capacity adequacy, and stress-event studies.
+
+### Recommendation
+
+Use Feature 3 when:
+
+- you care about missed scarcity events
+- you are studying adequacy, load shedding, reserve stress, or capacity credit
+- VRE droughts or ramp events matter materially
+
+This is a high-value feature for planning models that are sensitive to tail events.
+
+### Example
+
+Using the same `MD_GTEP_clean_case`, with:
 
 ```yaml
+feature_mode: joint_daily
 representative_days_per_period: 1
 add_extreme_days: 1
 extreme_day_metrics:
@@ -240,9 +308,7 @@ extreme_day_metrics:
   - max_ramp
 ```
 
-then HOPE keeps one medoid day per seasonal window and adds three explicit extreme days.
-
-For this case, the selected days are:
+HOPE selects:
 
 | Time Period | Seasonal Window | Medoid Day | Medoid Weight | Peak Load Day | Peak Net Load Day | Max Ramp Day |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
@@ -253,28 +319,66 @@ For this case, the selected days are:
 
 ![Feature 3 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature3.png)
 
-So the four seasonal windows now become sixteen representative periods in the model:
-
-- one medoid day per time period
-- plus one day each for `peak_load`, `peak_net_load`, and `max_ramp`
-
-The medoid weights shrink because those extreme days are carved out explicitly. For example, in time period `1`, the medoid weight is `90` instead of `93`, because three extreme days are represented separately with weight `1` each.
-
-How to read the Feature 3 figure:
+How to read the figure:
 
 - each panel is one seasonal window
 - the blue marker is the medoid representative day
 - the colored markers are the added extreme days
 - each added extreme day gets weight `1`
 
-Two practical notes for users:
+## Feature 4: Planning-Focused Feature Engineering
 
-- if two extreme metrics point to the same real day, HOPE adds that day only once
-- if a metric such as `min_wind` or `min_solar` does not create a new distinct day, it will not increase the number of representative periods
+### Focus
 
-## Feature 4 Example
+Feature 4 changes what HOPE clusters on.
 
-If the same `MD_GTEP_clean_case` uses:
+Instead of clustering directly on the raw hourly input columns, HOPE can cluster on a compact set of planning-oriented signals.
+
+### Mechanism
+
+With:
+
+```yaml
+feature_mode: planning_features
+```
+
+HOPE builds a daily feature vector from engineered quantities such as:
+
+- `zonal_load`
+- `zonal_net_load`
+- `zonal_wind_cf`
+- `zonal_solar_cf`
+- `system_load`
+- `system_net_load`
+- `zonal_ramp`
+- `system_ramp`
+- `ni`
+
+This shifts the clustering emphasis from raw column similarity toward the signals that matter more for planning decisions.
+
+### Interpretation
+
+Feature 4 should be interpreted as:
+
+- a different distance metric for deciding which days are “similar”
+- more emphasis on adequacy, VRE shape, net load, and ramp behavior
+- less sensitivity to low-value noise in raw generator-level hourly columns
+
+The selected representative days can change even when the time periods and number of medoids stay the same.
+
+### Recommendation
+
+Use Feature 4 when:
+
+- you want representative days that reflect planning stress rather than raw data similarity
+- storage, net-load shape, and VRE interactions matter
+- you have many generator-level columns and do not want them to dominate clustering
+
+This is a strong next step once the basic medoid workflow is already in place.
+
+### Example
+
+Using `MD_GTEP_clean_case`, with:
 
 ```yaml
 feature_mode: planning_features
@@ -289,9 +393,7 @@ representative_days_per_period: 1
 add_extreme_days: 0
 ```
 
-then HOPE clusters on a compact set of planning signals instead of the full raw hourly load and AF columns.
-
-For this case, the selected representative days are:
+HOPE selects:
 
 | Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
 | :-- | :-- | :-- | :-- |
@@ -302,25 +404,110 @@ For this case, the selected representative days are:
 
 ![Feature 4 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature4.png)
 
-Compared with Feature 1, the main visible change in this example is time period `2`, where the selected representative day shifts from `Aug 31` to `Jul 8`. That happens because Feature 4 is not trying to match every raw hourly column equally. Instead, it prioritizes the planning-oriented signals in `planning_feature_set`, such as system net load and ramp behavior.
+Compared with Feature 1, the visible change in this example is time period `2`, where the selected representative day shifts from `Aug 31` to `Jul 8`. That happens because Feature 4 is no longer trying to match every raw hourly column equally. Instead, it prioritizes the planning-oriented signals in `planning_feature_set`, such as system net load and ramp behavior.
 
-How to read the Feature 4 figure:
+How to read the figure:
 
 - gray line: daily peak system load
 - blue line: daily peak system net load
 - orange line: daily maximum system ramp
 - red dashed marker: the selected representative day for that seasonal window
 
-For users, the practical interpretation is:
+## Feature 5: Iterative Representative-Day Refinement
 
-- `feature_mode: joint_daily` is closer to “cluster the original hourly data directly”
-- `feature_mode: planning_features` is closer to “cluster the planning signals that drive adequacy, VRE, and storage decisions”
+### Focus
+
+Feature 5 adds one more layer of protection against poorly represented days.
+
+After HOPE has already selected the medoid days and any requested extreme days, it looks for the real day that is still least well represented in the current feature space and adds it explicitly.
+
+### Mechanism
+
+Feature 5 works on top of Features 1-4:
+
+1. HOPE selects the medoid-based representative days
+2. HOPE optionally adds explicit extreme days
+3. HOPE measures the remaining feature-space mismatch between each real day and its nearest selected representative day
+4. HOPE adds the worst-represented real day as a `refinement_day`
+5. HOPE reduces the original medoid weight so the total represented days stay unchanged
+
+In the current implementation, the refinement score is based on the same normalized representative-day feature space used for clustering. So Feature 5 is still a pre-solve refinement step, but it is targeted at the part of the season that the existing representative set still misses most strongly.
+
+### Interpretation
+
+Feature 5 should be interpreted as:
+
+- a targeted cleanup pass after the main representative-day selection
+- a way to reduce residual representation error without jumping to many more medoid days
+- a useful bridge between simple clustering and more expensive fully iterative solve-and-validate workflows
+
+The refinement day is not necessarily the highest-load day or the lowest-wind day. It is the day that is most poorly represented after considering the medoid days and any already-added extreme days.
+
+### Recommendation
+
+Use Feature 5 when:
+
+- you already use Features 3 or 4 and still want one more targeted day per season
+- you want better chronology coverage without a large increase in representative-day count
+- you want a higher-fidelity endogenous rep-day set for adequacy, VRE, and storage studies
+
+This is a good option when `representative_days_per_period = 1` still feels too coarse, but you do not want to move all the way to several medoids per season.
+
+### Example
+
+Using `MD_GTEP_clean_case`, with:
+
+```yaml
+feature_mode: planning_features
+planning_feature_set:
+  - zonal_load
+  - zonal_net_load
+  - zonal_wind_cf
+  - zonal_solar_cf
+  - system_net_load
+  - system_ramp
+representative_days_per_period: 1
+add_extreme_days: 1
+extreme_day_metrics:
+  - peak_load
+  - peak_net_load
+  - max_ramp
+iterative_refinement: 1
+iterative_refinement_days_per_period: 1
+```
+
+HOPE selects:
+
+| Time Period | Seasonal Window | Medoid Day | Medoid Weight | Peak Load Day | Peak Net Load Day | Max Ramp Day | Refinement Day |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| `1` | Mar 20 to Jun 20 | May 27 | `89` | Jun 17 | Apr 1 | Apr 11 | May 29 |
+| `2` | Jun 21 to Sep 21 | Jul 8 | `89` | Aug 9 | Sep 10 | Aug 4 | Jul 9 |
+| `3` | Sep 22 to Dec 20 | Dec 7 | `86` | Dec 14 | Oct 8 | Dec 5 | Dec 17 |
+| `4` | Dec 21 to Mar 19 | Jan 13 | `85` | Jan 27 | Mar 11 | Jan 19 | Dec 23 |
+
+![Feature 5 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature5.png)
+
+How to read the figure:
+
+- gray line: daily peak system net load in the seasonal window
+- blue marker: the medoid day
+- colored markers: the explicitly added extreme days
+- purple marker: the added refinement day
+- the refinement day is chosen because it still has the largest remaining mismatch relative to the already selected representative-day set
+
+## Future Features
+
+The next planned representative-day feature is:
+
+- `Feature 6: Linked Representative Days for Storage`
+
+This is not implemented yet. The goal is to preserve more chronology linkage for storage across representative periods.
 
 ## Legacy Compatibility
 
 For older cases, HOPE still falls back to `time_periods` from `HOPE_model_settings.yml` if `HOPE_rep_day_settings.yml` is missing.
 
-Feature 1 also keeps a legacy comparison mode:
+HOPE also keeps a legacy comparison mode:
 
 ```yaml
 feature_mode: legacy_column_centroid

@@ -223,4 +223,32 @@ normalize_features: 1
     )
     weights = HOPE.endogenous_rep_day_weights(wrap_loaddata, wrap_af, ["Z1"], ["G1"], wrap_config)
     @test weights[1] == 2.0
+
+    refine_load, refine_af = build_four_day_extreme_timeseries([0.0, 1.0, 2.0, 10.0], [1.0, 1.0, 1.0, 1.0])
+    refine_load = vcat(refine_load, DataFrame(Symbol("Time Period") => fill(1, 24), :Month => fill(1, 24), :Day => fill(5, 24), :Hours => collect(1:24), :Z1 => fill(20.0, 24), :NI => zeros(24)))
+    refine_af = vcat(refine_af, DataFrame(Symbol("Time Period") => fill(1, 24), :Month => fill(1, 24), :Day => fill(5, 24), :Hours => collect(1:24), :G1 => ones(24)))
+    refine_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 5]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "joint_daily",
+            "representative_days_per_period" => 1,
+            "iterative_refinement" => 1,
+            "iterative_refinement_days_per_period" => 1,
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    refine_generator_df = DataFrame("Pmax (MW)" => [100.0], "Type" => ["NGCC_CCS"])
+    rep_refine = HOPE.build_endogenous_rep_periods(refine_load, refine_af, ["Z1"], ["G1"], refine_config; generator_data=refine_generator_df)
+    @test rep_refine["T"] == [1, 2]
+    @test sum(values(rep_refine["N"])) == 5.0
+    @test sort(collect(values(rep_refine["N"]))) == [1.0, 4.0]
+    @test rep_refine["metadata"][2, "SelectionType"] == "refinement_day"
+    @test rep_refine["metadata"][2, "RefinementScore"] > 0.0
+    selected_days = sort(rep_refine["metadata"][!, "SelectedDay"])
+    @test length(selected_days) == 2
+    @test maximum(selected_days) >= 4
 end
