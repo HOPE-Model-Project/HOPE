@@ -464,12 +464,13 @@ HOPE selects:
 Mapping back to full chronology:
 
 ```math
-d_t^* = \arg\min_{d \in \mathcal{D}_t} \operatorname{dist}\!\left(\phi(d), \phi(\mathcal{D}_t)\right)
+d_t^* = \arg\min_{d \in \mathcal{D}_t} \left\|\phi(d) - \bar{\phi}_t \right\|^2
 ```
 
 Meaning:
 
 - `\phi(d)` is the planning-oriented daily feature vector
+- `\bar{\phi}_t` is the average planning-oriented feature vector for seasonal window `t`
 - HOPE still maps the full chronology to one selected representative day per season
 - what changes is the feature space used to decide which real day is most representative
 
