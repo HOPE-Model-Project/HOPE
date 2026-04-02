@@ -10,14 +10,14 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
     return Dict{String,Any}(
         "time_periods" => default_time_periods,
         "clustering_method" => "kmedoids",
-        "feature_mode" => "joint_daily",
+        "feature_mode" => "planning_features",
         "planning_feature_set" => ["zonal_load", "zonal_net_load", "zonal_wind_cf", "zonal_solar_cf", "system_net_load", "system_ramp"],
-        "representative_days_per_period" => 1,
-        "add_extreme_days" => 0,
-        "extreme_day_metrics" => ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
-        "iterative_refinement" => 0,
+        "representative_days_per_period" => 2,
+        "add_extreme_days" => 1,
+        "extreme_day_metrics" => ["peak_load", "peak_net_load", "max_ramp"],
+        "iterative_refinement" => 1,
         "iterative_refinement_days_per_period" => 1,
-        "link_storage_rep_days" => 0,
+        "link_storage_rep_days" => 1,
         "include_load" => 1,
         "include_af" => 1,
         "include_dr" => 1,
@@ -147,6 +147,113 @@ function row_in_time_period(dates::NTuple{4,Int}, row)
         return start_doy <= row_doy <= end_doy
     end
     return row_doy >= start_doy || row_doy <= end_doy
+end
+
+function validate_endogenous_rep_day_partition(loaddata::DataFrame, rep_time_periods)
+    if !all(col -> col in names(loaddata), ["Month", "Day"])
+        throw(ArgumentError("endogenous_rep_day requires Month and Day columns in load_timeseries_regional for time-period validation."))
+    end
+
+    day_keys = sort!(unique([(Int(loaddata[row_idx, "Month"]), Int(loaddata[row_idx, "Day"])) for row_idx in 1:nrow(loaddata)]); by = x -> day_of_year_no_leap(x[1], x[2]))
+    missing_days = Tuple{Int,Int}[]
+    overlap_days = Vector{Tuple{Tuple{Int,Int},Vector{Int}}}()
+
+    for day_key in day_keys
+        day_row = (Month = day_key[1], Day = day_key[2])
+        matched_periods = Int[first(tp) for tp in rep_time_periods if row_in_time_period(last(tp), day_row)]
+        if isempty(matched_periods)
+            push!(missing_days, day_key)
+        elseif length(matched_periods) > 1
+            push!(overlap_days, (day_key, matched_periods))
+        end
+    end
+
+    if !isempty(missing_days) || !isempty(overlap_days)
+        format_day(day_key) = string(day_key[1], "/", day_key[2])
+        messages = String[]
+        if !isempty(missing_days)
+            examples = join(format_day.(missing_days[1:min(end, 5)]), ", ")
+            push!(messages, "gap days not covered by any time_period (examples: $(examples))")
+        end
+        if !isempty(overlap_days)
+            examples = join(["$(format_day(day_key)) -> periods $(periods)" for (day_key, periods) in overlap_days[1:min(end, 5)]], "; ")
+            push!(messages, "overlap days covered by multiple time_period entries (examples: $(examples))")
+        end
+        details = join(messages, " ; ")
+        throw(ArgumentError("Invalid representative-day time_periods: they must cover each real chronology day exactly once. Found $(details)."))
+    end
+end
+
+function validate_external_rep_day_inputs(
+    loaddata::DataFrame,
+    afdata::DataFrame,
+    rep_weight_df::DataFrame;
+    drtsdata::Union{Nothing,DataFrame}=nothing,
+)
+    if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
+        throw(ArgumentError("rep_period_weights must include columns: 'Time Period' and 'Weight'."))
+    end
+
+    t_raw = Int.(rep_weight_df[!, "Time Period"])
+    duplicate_t = unique(t_raw[findall(>(1), [count(==(t), t_raw) for t in t_raw])])
+    if !isempty(duplicate_t)
+        throw(ArgumentError("rep_period_weights contains duplicate Time Period rows: $(sort(unique(duplicate_t))). Provide exactly one weight per representative period."))
+    end
+
+    weights = Float64.(rep_weight_df[!, "Weight"])
+    bad_rows = findall(w -> !isfinite(w) || w <= 0.0, weights)
+    if !isempty(bad_rows)
+        throw(ArgumentError("rep_period_weights must contain strictly positive finite weights. Invalid rows: $(bad_rows)."))
+    end
+    total_weight = sum(weights)
+    if !(isfinite(total_weight) && total_weight > 0.0)
+        throw(ArgumentError("rep_period_weights must sum to a positive finite value. Found $(total_weight)."))
+    end
+    if abs(total_weight - round(total_weight)) > 1.0e-6
+        @warn "rep_period_weights sums to $(total_weight), which is not an integer number of original periods/days. This is allowed, but unusual for a standard annual representative-day mapping."
+    end
+
+    t_vals = sort(unique(t_raw))
+    if isempty(t_vals)
+        throw(ArgumentError("rep_period_weights is empty."))
+    end
+    if t_vals != collect(1:length(t_vals))
+        throw(ArgumentError("rep_period_weights Time Period must be contiguous 1..T. Found: $(t_vals)."))
+    end
+
+    function validate_external_timeseries_periods(df::DataFrame, label::AbstractString, expected_t::Vector{Int})
+        required_cols = ["Time Period", "Hours"]
+        missing_cols = [c for c in required_cols if !(c in names(df))]
+        if !isempty(missing_cols)
+            throw(ArgumentError("$(label) is missing required columns $(missing_cols) for external representative-day mode."))
+        end
+        data_t_vals = sort(unique(Int.(df[!, "Time Period"])))
+        if data_t_vals != expected_t
+            throw(ArgumentError("Time Period IDs in $(label) ($(data_t_vals)) must match rep_period_weights ($(expected_t)) for external representative mode."))
+        end
+        for t in expected_t
+            idx_t = findall(Int.(df[!, "Time Period"]) .== t)
+            if length(idx_t) != 24
+                throw(ArgumentError("Each external representative Time Period must contain exactly 24 rows in $(label). Found $(length(idx_t)) rows for Time Period=$(t)."))
+            end
+            hours_t = Int.(df[idx_t, "Hours"])
+            if sort(hours_t) != collect(1:24)
+                throw(ArgumentError("Hours for external representative Time Period=$(t) in $(label) must be 1..24 exactly once. Found $(sort(hours_t))."))
+            end
+        end
+    end
+
+    validate_external_timeseries_periods(loaddata, "load_timeseries_regional", t_vals)
+    validate_external_timeseries_periods(afdata, "gen_availability_timeseries", t_vals)
+    if drtsdata !== nothing
+        validate_external_timeseries_periods(drtsdata, "dr_timeseries_regional", t_vals)
+    end
+
+    if total_weight < length(t_vals)
+        @warn "rep_period_weights sums to $(total_weight), which is smaller than the number of representative periods ($(length(t_vals))). This implies an average weight below 1.0 per representative period."
+    end
+
+    return Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
 end
 
 function select_rep_columns(df::DataFrame, requested_cols; include_ni::Bool=false)
@@ -744,6 +851,7 @@ function build_endogenous_rep_periods(
     candidate_generator_data::Union{Nothing,DataFrame}=nothing,
 )
     rep_time_periods = resolve_rep_day_time_periods(config_set)
+    validate_endogenous_rep_day_partition(loaddata, rep_time_periods)
     feature_mode = lowercase(String(rep_day_settings_value(config_set, "feature_mode", "joint_daily")))
     clustering_method = lowercase(String(rep_day_settings_value(config_set, "clustering_method", "kmedoids")))
     rep_days_per_period = parse_rep_day_positive_int(

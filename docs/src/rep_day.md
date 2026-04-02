@@ -37,6 +37,8 @@ A recommended default `HOPE_rep_day_settings.yml` starts from:
 ```yaml
 # Seasonal windows for endogenous representative-day construction.
 # Format: period_id: [start_month, start_day, end_month, end_day]
+# Important: the full chronology must be covered exactly once.
+# Do not create overlaps or gaps across time_periods.
 time_periods:
   1: [3, 20, 6, 20]
   2: [6, 21, 9, 21]
@@ -134,6 +136,21 @@ In endogenous representative-day mode, HOPE uses these windows like this:
 
 So `time_periods` does not define optimization hours directly. It defines the seasonal buckets inside which HOPE searches for representative days.
 
+Important rule:
+
+- `time_periods` should cover each real chronology day exactly once
+- no day should appear in two time periods
+- no day should be left out
+
+The default setting above is correct in this sense:
+
+- period `1`: March 20 to June 20
+- period `2`: June 21 to September 21
+- period `3`: September 22 to December 20
+- period `4`: December 21 to March 19
+
+Together they partition the full year without overlap or gaps.
+
 Year-wrapping windows are also supported. For example:
 
 ```yaml
@@ -142,6 +159,19 @@ time_periods:
 ```
 
 means November 1 through February 28.
+
+HOPE now validates representative-day inputs in two places:
+
+- for `endogenous_rep_day`, `time_periods` must cover each real chronology day exactly once
+- for `external_rep_day`, HOPE checks that `rep_period_weights.csv` has one strictly positive weight per representative period and that each representative period has exactly 24 hourly rows in the aligned time-series inputs
+
+When representative-day mode is used, HOPE also writes audit tables into the case `output/` folder:
+
+- `representative_period_weights.csv`
+- `representative_period_metadata.csv`
+- `representative_period_assignments.csv` for endogenous representative-day mode
+- `representative_period_transition_weights.csv` and `representative_period_run_stats.csv` when storage linkage is enabled
+- `representative_period_weight_check.csv` to confirm that representative-period weights add back up to the original number of real days in each seasonal window
 
 ## Feature 1: Joint Medoid Representative-Day Selection
 

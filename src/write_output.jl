@@ -54,6 +54,72 @@ end
 to_float_output(x, default::Float64=0.0) = ismissing(x) || x === nothing || string(x) == "" ? default : (x isa Number ? Float64(x) : parse(Float64, string(x)))
 to_string_output(x) = ismissing(x) || x === nothing ? "" : string(x)
 
+function write_rep_day_audit_outputs(
+    outpath::AbstractString,
+    representative_day_mode::Int,
+    external_rep_day::Int,
+    N::Dict{Int,Float64};
+    rep_period_data=nothing,
+    rep_weight_df::Union{Nothing,DataFrame}=nothing,
+)
+    representative_day_mode == 0 && return
+
+    rep_ids = sort(collect(keys(N)))
+    weights_df = DataFrame(
+        RepresentativePeriod = rep_ids,
+        WeightDays = [Float64(N[t]) for t in rep_ids],
+    )
+    CSV.write(joinpath(outpath, "representative_period_weights.csv"), weights_df, writeheader=true)
+
+    if external_rep_day == 1
+        metadata_df = DataFrame(
+            RepresentativePeriod = rep_ids,
+            WeightDays = [Float64(N[t]) for t in rep_ids],
+            Method = fill("external_input", length(rep_ids)),
+        )
+        CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, writeheader=true)
+        summary_df = DataFrame(
+            Metric = ["NumRepresentativePeriods", "TotalWeightDays", "AverageWeightDays"],
+            Value = Float64[
+                length(rep_ids),
+                sum(Float64(N[t]) for t in rep_ids),
+                isempty(rep_ids) ? 0.0 : sum(Float64(N[t]) for t in rep_ids) / length(rep_ids),
+            ],
+        )
+        CSV.write(joinpath(outpath, "representative_period_weight_summary.csv"), summary_df, writeheader=true)
+        if rep_weight_df !== nothing
+            CSV.write(joinpath(outpath, "representative_period_weights_input.csv"), copy(rep_weight_df), writeheader=true)
+        end
+        return
+    end
+
+    rep_period_data === nothing && return
+
+    metadata_df = sort(copy(rep_period_data["metadata"]), :RepresentativePeriod)
+    CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, writeheader=true)
+
+    if haskey(rep_period_data, "day_assignments")
+        assignments_df = sort(copy(rep_period_data["day_assignments"]), [:DayOfYear, :RepresentativePeriod])
+        CSV.write(joinpath(outpath, "representative_period_assignments.csv"), assignments_df, writeheader=true)
+
+        original_days_df = combine(groupby(assignments_df, :TimePeriod), nrow => :OriginalDays)
+        represented_days_df = combine(groupby(metadata_df, :TimePeriod), :WeightDays => sum => :RepresentativeWeightDays, nrow => :NumRepresentativePeriods)
+        weight_check_df = leftjoin(original_days_df, represented_days_df, on=:TimePeriod)
+        weight_check_df[!, :WeightDifferenceDays] = Float64.(weight_check_df[!, :RepresentativeWeightDays] .- weight_check_df[!, :OriginalDays])
+        CSV.write(joinpath(outpath, "representative_period_weight_check.csv"), sort(weight_check_df, :TimePeriod), writeheader=true)
+    end
+
+    storage_linkage = get(rep_period_data, "storage_linkage", nothing)
+    if storage_linkage !== nothing
+        if haskey(storage_linkage, "transition_table")
+            CSV.write(joinpath(outpath, "representative_period_transition_weights.csv"), copy(storage_linkage["transition_table"]), writeheader=true)
+        end
+        if haskey(storage_linkage, "run_stats")
+            CSV.write(joinpath(outpath, "representative_period_run_stats.csv"), copy(storage_linkage["run_stats"]), writeheader=true)
+        end
+    end
+end
+
 """
 Build nodal mapping metadata for PCM output post-processing.
 Returns bus labels, bus->zone index mapping, zone->bus index lists, and bus load-share weights.
@@ -325,6 +391,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="write_output")
         input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(Loaddata)
         rep_period_data = nothing
+        N_external = Dict{Int,Float64}()
+        rep_weight_df = nothing
         if representative_day_mode == 1
             if has_custom_time_periods && external_rep_day == 0
                 throw(ArgumentError("Input timeseries defines multiple Time Periods. This is only allowed when external_rep_day = 1."))
@@ -334,10 +402,13 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                     throw(ArgumentError("external_rep_day=1 requires rep_period_weights.csv (or sheet rep_period_weights)."))
                 end
                 rep_weight_df = input_data["RepWeightData"]
-                if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
-                    throw(ArgumentError("rep_period_weights must include columns: 'Time Period', 'Weight'."))
-                end
-                T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
+                N_external = validate_external_rep_day_inputs(
+                    Loaddata,
+                    input_data["AFdata"],
+                    rep_weight_df;
+                    drtsdata=(flexible_demand == 1 ? input_data["DRtsdata"] : nothing),
+                )
+                T = sort(collect(keys(N_external)))
             else
                 rep_period_data = build_endogenous_rep_periods(
                     Loaddata,
@@ -402,17 +473,25 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         SCAP=[Storagedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
         unit_converter = 10^6
 
-        		#representative day clustering
-        if representative_day_mode == 1
+		#representative day clustering
+		if representative_day_mode == 1
             if external_rep_day == 1
-                rep_weight_df = input_data["RepWeightData"]
-                N = Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
+                N = N_external
             else
                 N = rep_period_data["N"]
             end
         else
             N = Dict{Int,Float64}(t => 1.0 for t in T)
 		end
+
+        write_rep_day_audit_outputs(
+            outpath,
+            representative_day_mode,
+            external_rep_day,
+            N;
+            rep_period_data=rep_period_data,
+            rep_weight_df=(representative_day_mode == 1 && external_rep_day == 1 ? rep_weight_df : nothing),
+        )
 
         weighted_rep_hour_sum(f) = sum(N[t] * sum(f(t, h) for h in H_t[t]) for t in T)
         

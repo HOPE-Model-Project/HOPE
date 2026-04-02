@@ -1,4 +1,5 @@
 using DataFrames
+using CSV
 
 function build_three_day_timeseries()
     month = Int[]
@@ -278,4 +279,50 @@ normalize_features: 1
     selected_days = sort(rep_refine["metadata"][!, "SelectedDay"])
     @test length(selected_days) == 2
     @test maximum(selected_days) >= 4
+
+    overlap_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(
+                1 => [1, 1, 1, 2],
+                2 => [1, 2, 1, 3],
+            ),
+        ),
+    )
+    @test_throws ArgumentError HOPE.build_endogenous_rep_periods(loaddata, afdata, ["Z1"], ["G1"], overlap_config)
+
+    gap_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(
+                1 => [1, 1, 1, 1],
+                2 => [1, 3, 1, 3],
+            ),
+        ),
+    )
+    @test_throws ArgumentError HOPE.build_endogenous_rep_periods(loaddata, afdata, ["Z1"], ["G1"], gap_config)
+
+    external_load = loaddata[1:24, :]
+    external_af = afdata[1:24, :]
+
+    external_weight_df = DataFrame(Symbol("Time Period") => [1, 1], :Weight => [1.0, 2.0])
+    @test_throws ArgumentError HOPE.validate_external_rep_day_inputs(external_load, external_af, external_weight_df)
+
+    external_bad_weight_df = DataFrame(Symbol("Time Period") => [1], :Weight => [0.0])
+    @test_throws ArgumentError HOPE.validate_external_rep_day_inputs(external_load, external_af, external_bad_weight_df)
+
+    external_ok_weight_df = DataFrame(Symbol("Time Period") => [1], :Weight => [3.0])
+    external_n = HOPE.validate_external_rep_day_inputs(external_load, external_af, external_ok_weight_df)
+    @test external_n[1] == 3.0
+
+    mktempdir() do outdir
+        HOPE.write_rep_day_audit_outputs(outdir, 1, 0, rep_refine["N"]; rep_period_data=rep_refine)
+        @test isfile(joinpath(outdir, "representative_period_weights.csv"))
+        @test isfile(joinpath(outdir, "representative_period_metadata.csv"))
+        @test isfile(joinpath(outdir, "representative_period_assignments.csv"))
+        @test isfile(joinpath(outdir, "representative_period_weight_check.csv"))
+        weight_check = CSV.read(joinpath(outdir, "representative_period_weight_check.csv"), DataFrame)
+        @test nrow(weight_check) == 1
+        @test weight_check[1, "OriginalDays"] == 5
+        @test weight_check[1, "RepresentativeWeightDays"] == 5.0
+        @test weight_check[1, "WeightDifferenceDays"] == 0.0
+    end
 end

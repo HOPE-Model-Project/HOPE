@@ -1,5 +1,7 @@
 # Seasonal windows for endogenous representative-day construction.
 # Format: period_id: [start_month, start_day, end_month, end_day]
+# Important: the full chronology must be covered exactly once.
+# Do not create overlaps or gaps across time_periods.
 time_periods:
   1: [3, 20, 6, 20]
   2: [6, 21, 9, 21]

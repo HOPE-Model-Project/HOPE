@@ -248,20 +248,13 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 					throw(ArgumentError("external_rep_day=1 requires rep_period_weights.csv (or sheet rep_period_weights)."))
 				end
 				rep_weight_df = input_data["RepWeightData"]
-				if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
-					throw(ArgumentError("rep_period_weights must include columns: 'Time Period', 'Weight'."))
-				end
-				t_vals = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
-				if isempty(t_vals)
-					throw(ArgumentError("rep_period_weights is empty."))
-				end
-				if t_vals != collect(1:length(t_vals))
-					throw(ArgumentError("rep_period_weights Time Period must be contiguous 1..T. Found: $(t_vals)."))
-				end
-				data_t_vals = sort(unique(Int.(Loaddata[!, "Time Period"])))
-				if data_t_vals != t_vals
-					throw(ArgumentError("Time Period IDs in load_timeseries_regional ($(data_t_vals)) must match rep_period_weights ($(t_vals)) for external representative mode."))
-				end
+				N_external = validate_external_rep_day_inputs(
+					Loaddata,
+					AFdata,
+					rep_weight_df;
+					drtsdata=(flexible_demand == 1 ? DRtsdata : nothing),
+				)
+				t_vals = sort(collect(keys(N_external)))
 				load_cols = ("NI" in names(Loaddata)) ? [Ordered_zone_nm; "NI"] : Ordered_zone_nm
 				Load_rep = Dict{Int,DataFrame}()
 				AF_rep = Dict{Int,DataFrame}()
@@ -283,11 +276,6 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 					if flexible_demand == 1
 						DR_rep[t] = select(DRtsdata[idx_sorted, :], Ordered_zone_nm)
 					end
-					w = rep_weight_df[rep_weight_df[!, "Time Period"] .== t, "Weight"]
-					if isempty(w)
-						throw(ArgumentError("Missing weight for Time Period=$t in rep_period_weights."))
-					end
-					N_external[t] = Float64(w[1])
 				end
 			else
 				rep_period_data = build_endogenous_rep_periods(
