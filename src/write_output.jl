@@ -403,7 +403,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         unit_converter = 10^6
 
         		#representative day clustering
-		if representative_day_mode == 1
+        if representative_day_mode == 1
             if external_rep_day == 1
                 rep_weight_df = input_data["RepWeightData"]
                 N = Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
@@ -413,6 +413,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         else
             N = Dict{Int,Float64}(t => 1.0 for t in T)
 		end
+
+        weighted_rep_hour_sum(f) = sum(N[t] * sum(f(t, h) for h in H_t[t]) for t in T)
         
         ##Generator-----------------------------------------------------------------------------------------------------------
         #Investment cost of storage unit s, M$
@@ -424,7 +426,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(G)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(G)[1])  #Annual generation output
         )
-        P_gen_df.AnnSum .= [sum(value.(model[:p][g,h]) for t in T for h in H_t[t] ) for g in G]
+        P_gen_df.AnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:p][g,h])) for g in G]
         New_built_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
         #print(New_built_idx)
         #New_built_idx = map(x -> G_new[x], [i for (i, v) in enumerate(value.(model[:x])) if v > 0])
@@ -476,7 +478,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
           load_area = vcat(Zonedata[:, "Zone_id"]), 
           AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
         )
-        P_ls_df.AnnTol .= [sum(value.(model[:p_LS][i,h]) for t in T for h in H_t[t]) for i in I]
+        P_ls_df.AnnTol .= [weighted_rep_hour_sum((t, h) -> value(model[:p_LS][i,h])) for i in I]
         power_ls = value.(model[:p_LS])
         power_ls_t_h = hcat([Array(power_ls[:,h]) for t in T for h in H_t[t]]...)
         power_ls_t_h_df = DataFrame(power_ls_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
@@ -494,7 +496,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(G_vre_exist_rps)[1]+size(G_vre_new_rps)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(G_vre_exist_rps)[1]+size(G_vre_new_rps)[1])  #Annual generation output
         )
-        P_ct_df.AnnSum .= [[sum(value.(model[:RenewableCurtailExist][g,t,h]) for t in T for h in H_t[t];init=0) for g in G_vre_exist_rps];[sum(value.(model[:RenewableCurtailNew][g,t,h]) for t in T for h in H_t[t];init=0) for g in G_vre_new_rps]]
+        P_ct_df.AnnSum .= [
+            [weighted_rep_hour_sum((t, h) -> value(model[:RenewableCurtailExist][g,t,h])) for g in G_vre_exist_rps];
+            [weighted_rep_hour_sum((t, h) -> value(model[:RenewableCurtailNew][g,t,h])) for g in G_vre_new_rps]
+        ]
         New_built_vre_idx = intersect(New_built_idx,G_VRE_C)
         New_built_matched_vre_idx = findall(x->x in New_built_vre_idx, [[g for g in G_vre_exist_rps];[g for g in G_vre_new_rps]])
 
@@ -567,7 +572,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
         )
-        P_flow_df.AnnSum .= [sum(value.(model[:f][l,h]) for t in T for h in H_t[t] ) for l in L]
+        P_flow_df.AnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:f][l,h])) for l in L]
         
         New_built_line_idx = map(x -> x + Num_Eline, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
         P_flow_df[!,"New_Build"] .= 0
@@ -590,7 +595,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
         )
-        P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,h]) for t in T for h in H_t[t] ) for s in S]
+        P_es_c_df.ChAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:c][s,h])) for s in S]
         
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_c_df[!,:New_Build] .= 0
@@ -611,7 +616,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
         )
-        P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for t in T for h in H_t[t] ) for s in S]
+        P_es_dc_df.DisAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dc][s,h])) for s in S]
         
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_dc_df[!,:New_Build] .= 0
@@ -673,7 +678,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_net_df.DRAnnSum .= [sum(power_pb[r,h] - power_df[r,h] for t in T for h in H_t[t]) for r in R]
+            dr_net_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> power_pb[r,h] - power_df[r,h]) for r in R]
             dr_net_t_h = hcat([Array(power_pb[:,h] .- power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_net_df = hcat(dr_net_df, DataFrame(dr_net_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_power.csv"), dr_net_df, writeheader=true)
@@ -684,7 +689,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_pb_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) for t in T for h in H_t[t]) for r in R]
+            dr_pb_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dr_PB][r,h])) for r in R]
             dr_pb_t_h = hcat([Array(power_pb[:,h]) for t in T for h in H_t[t]]...)
             dr_pb_df = hcat(dr_pb_df, DataFrame(dr_pb_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_pb_df, writeheader=true)
@@ -695,7 +700,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_df_df.DRAnnSum .= [sum(value.(model[:dr_DF][r,h]) for t in T for h in H_t[t]) for r in R]
+            dr_df_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dr_DF][r,h])) for r in R]
             dr_df_t_h = hcat([Array(power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_df_df = hcat(dr_df_df, DataFrame(dr_df_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_df_df, writeheader=true)
@@ -706,7 +711,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
-            dr_backlog_df.DRAnnSum .= [sum(value.(model[:b_DR][r,h]) for t in T for h in H_t[t]) for r in R]
+            dr_backlog_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:b_DR][r,h])) for r in R]
             dr_backlog_t_h = hcat([Array(power_backlog[:,h]) for t in T for h in H_t[t]]...)
             dr_backlog_df = hcat(dr_backlog_df, DataFrame(dr_backlog_t_h, dr_cols))
             CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
