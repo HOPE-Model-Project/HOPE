@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CASE = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "load_timeseries_regional.csv"
 OUT_FEATURE1 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_example.png"
 OUT_FEATURE2 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature2.png"
+OUT_FEATURE3 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature3.png"
 
 TIME_PERIODS = {
     1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 19), 93),
@@ -23,6 +24,13 @@ TIME_PERIODS_FEATURE2 = {
     2: (6, 21, 9, 21, "Jun 21 to Sep 21", [((7, 29), 54), ((8, 15), 39)]),
     3: (9, 22, 12, 20, "Sep 22 to Dec 20", [((10, 28), 38), ((11, 26), 52)]),
     4: (12, 21, 3, 19, "Dec 21 to Mar 19", [((1, 28), 64), ((3, 18), 25)]),
+}
+
+TIME_PERIODS_FEATURE3 = {
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 90), "peak_load": ((3, 20), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1)}),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((9, 17), 90), "peak_load": ((6, 21), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1)}),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((11, 3), 87), "peak_load": ((9, 22), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1)}),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 12), 86), "peak_load": ((1, 1), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1)}),
 }
 
 
@@ -243,12 +251,85 @@ def plot_feature2(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def plot_feature3(df: pd.DataFrame) -> None:
+    colors = {
+        "medoid": "#2a5b84",
+        "peak_load": "#c84b31",
+        "peak_net_load": "#3f8f5a",
+        "max_ramp": "#d98f2b",
+    }
+    labels = {
+        "medoid": "Medoid",
+        "peak_load": "Peak load",
+        "peak_net_load": "Peak net load",
+        "max_ramp": "Max ramp",
+    }
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(11.2, 7.4), constrained_layout=True)
+    fig.suptitle(
+        "Feature 3: Extreme-Day Augmentation in MD_GTEP_clean_case\n"
+        "One medoid day per season plus added extreme days with weight 1",
+        fontsize=15,
+        fontweight="bold",
+    )
+
+    for ax, period in zip(axes.flatten(), [1, 2, 3, 4]):
+        spec = TIME_PERIODS_FEATURE3[period]
+        season = df[df.apply(lambda r: in_window(int(r["Month"]), int(r["Day"]), spec), axis=1)].copy()
+        daily = (
+            season.groupby(["Month", "Day"], sort=False)["system_load"]
+            .sum()
+            .reset_index()
+        )
+        daily["season_day_idx"] = range(1, len(daily) + 1)
+        ax.plot(daily["season_day_idx"], daily["system_load"], color="#bfc9d2", lw=1.4)
+        ax.scatter(daily["season_day_idx"], daily["system_load"], s=12, color="#d8dfe5", zorder=1)
+        ax.set_title(f"Period {period}: {spec[4]}", fontsize=11, loc="left")
+        ax.grid(alpha=0.18)
+
+        text_lines = []
+        for key in ["medoid", "peak_load", "peak_net_load", "max_ramp"]:
+            (month, day), weight = spec[5][key]
+            selected_row = daily[(daily["Month"] == month) & (daily["Day"] == day)].iloc[0]
+            ax.scatter(
+                [selected_row["season_day_idx"]],
+                [selected_row["system_load"]],
+                s=65 if key == "medoid" else 48,
+                color=colors[key],
+                zorder=3,
+                label=labels[key],
+            )
+            ax.axvline(selected_row["season_day_idx"], color=colors[key], lw=1.0, ls="--", alpha=0.75)
+            weight_label = f"w={weight}" if key == "medoid" else "w=1"
+            text_lines.append(f"{labels[key]}: {month}/{day} ({weight_label})")
+
+        ax.text(
+            0.98,
+            0.97,
+            "\n".join(text_lines),
+            ha="right",
+            va="top",
+            transform=ax.transAxes,
+            fontsize=8.2,
+            bbox=dict(boxstyle="round,pad=0.25", fc="#ffffff", ec="#d8dfe5"),
+        )
+        ax.set_ylabel("Daily total load", fontsize=9)
+        ax.set_xlabel("Day index in seasonal window", fontsize=9)
+        handles, handle_labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(handle_labels, handles))
+        ax.legend(by_label.values(), by_label.keys(), loc="lower left", fontsize=7.8, frameon=True, ncol=2)
+
+    fig.savefig(OUT_FEATURE3, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     df = prepare_load_df()
     plot_feature1(df)
     plot_feature2(df)
+    plot_feature3(df)
     print(OUT_FEATURE1)
     print(OUT_FEATURE2)
+    print(OUT_FEATURE3)
 
 
 if __name__ == "__main__":

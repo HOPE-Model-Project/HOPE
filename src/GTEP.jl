@@ -289,7 +289,16 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 					N_external[t] = Float64(w[1])
 				end
 			else
-				rep_period_data = build_endogenous_rep_periods(Loaddata, AFdata, Ordered_zone_nm, Ordered_gen_nm, config_set; drtsdata=(flexible_demand == 1 ? DRtsdata : nothing))
+				rep_period_data = build_endogenous_rep_periods(
+                    Loaddata,
+                    AFdata,
+                    Ordered_zone_nm,
+                    Ordered_gen_nm,
+                    config_set;
+                    drtsdata=(flexible_demand == 1 ? DRtsdata : nothing),
+                    generator_data=Gendata,
+                    candidate_generator_data=Gendata_candidate,
+                )
 				Load_rep = rep_period_data["Load_rep"]
 				AF_rep = rep_period_data["AF_rep"]
 				if flexible_demand == 1

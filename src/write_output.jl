@@ -339,7 +339,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 end
                 T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
             else
-                rep_period_data = build_endogenous_rep_periods(Loaddata, input_data["AFdata"], Ordered_zone_nm, Ordered_gen_nm, config_set; drtsdata=(flexible_demand == 1 ? input_data["DRtsdata"] : nothing))
+                rep_period_data = build_endogenous_rep_periods(
+                    Loaddata,
+                    input_data["AFdata"],
+                    Ordered_zone_nm,
+                    Ordered_gen_nm,
+                    config_set;
+                    drtsdata=(flexible_demand == 1 ? input_data["DRtsdata"] : nothing),
+                    generator_data=Gendata,
+                    candidate_generator_data=Gendata_candidate,
+                )
                 T = rep_period_data["T"]		#Set of representative periods built from seasonal windows, index t
             end
             H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]			#Set of hours in time period (day) t, index h, subset of H

@@ -12,6 +12,8 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
         "clustering_method" => "kmedoids",
         "feature_mode" => "joint_daily",
         "representative_days_per_period" => 1,
+        "add_extreme_days" => 0,
+        "extreme_day_metrics" => ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
         "include_load" => 1,
         "include_af" => 1,
         "include_dr" => 1,
@@ -99,6 +101,16 @@ end
 function rep_day_settings_value(config_set::AbstractDict, key::AbstractString, default)
     settings = haskey(config_set, "rep_day_settings") ? config_set["rep_day_settings"] : default_rep_day_settings(config_set)
     return get(settings, key, default)
+end
+
+function parse_rep_day_metric_list(raw_metrics, keyname::AbstractString)
+    metrics = raw_metrics isa AbstractVector ? lowercase.(strip.(string.(collect(raw_metrics)))) : [lowercase(strip(string(raw_metrics)))]
+    allowed = Set(["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"])
+    bad = [m for m in metrics if !(m in allowed)]
+    if !isempty(bad)
+        throw(ArgumentError("Invalid $(keyname)=$(bad). Allowed values: peak_load, peak_net_load, min_wind, min_solar, max_ramp."))
+    end
+    return unique(metrics)
 end
 
 function day_of_year_no_leap(month::Integer, day::Integer)
@@ -304,6 +316,132 @@ function select_medoid_indices(feature_matrix::Matrix{Float64}, k::Int)
     return sorted_medoids, sorted_assignments, sorted_counts
 end
 
+function combine_rep_day_generator_data(generator_data::Union{Nothing,DataFrame}, candidate_generator_data::Union{Nothing,DataFrame})
+    generator_data === nothing && candidate_generator_data === nothing && return nothing
+    existing = generator_data === nothing ? DataFrame() : copy(generator_data)
+    candidate = candidate_generator_data === nothing ? DataFrame() : copy(candidate_generator_data)
+    return isempty(existing) ? candidate : (isempty(candidate) ? existing : vcat(existing, candidate; cols=:union))
+end
+
+function generator_metric_weights(generator_df::Union{Nothing,DataFrame}, ordered_gen, type_labels::Vector{String})
+    generator_df === nothing && return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
+    isempty(type_labels) && return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
+    cols = String[]
+    weights = Float64[]
+    for (idx, col) in enumerate(string.(ordered_gen))
+        idx > nrow(generator_df) && break
+        type_val = lowercase(strip(string(generator_df[idx, "Type"])))
+        if type_val in lowercase.(type_labels)
+            push!(cols, col)
+            push!(weights, Float64(generator_df[idx, "Pmax (MW)"]))
+        end
+    end
+    return cols, weights
+end
+
+function filter_existing_af_columns(cols::Vector{String}, weights::Vector{Float64}, afdata::DataFrame)
+    keep = findall(col -> col in names(afdata), cols)
+    return cols[keep], weights[keep]
+end
+
+function safe_weighted_average(values::Vector{Float64}, weights::Vector{Float64})
+    isempty(values) && return nothing
+    if isempty(weights) || sum(weights) <= 0
+        return mean(values)
+    end
+    return sum(values[i] * weights[i] for i in eachindex(values)) / sum(weights)
+end
+
+function row_numeric_values(df::DataFrame, row_idx::Int, cols::Vector{String})
+    isempty(cols) && return Float64[]
+    return vec(Float64.(Matrix(df[row_idx:row_idx, cols])))
+end
+
+function compute_extreme_metric_values(
+    loaddata::DataFrame,
+    afdata::DataFrame,
+    day_blocks,
+    ordered_zone,
+    ordered_gen,
+    generator_df::Union{Nothing,DataFrame},
+)
+    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni=false)
+    wind_cols, wind_weights = generator_metric_weights(generator_df, ordered_gen, ["WindOn", "WindOff"])
+    solar_cols, solar_weights = generator_metric_weights(generator_df, ordered_gen, ["SolarPV"])
+    wind_cols, wind_weights = filter_existing_af_columns(wind_cols, wind_weights, afdata)
+    solar_cols, solar_weights = filter_existing_af_columns(solar_cols, solar_weights, afdata)
+    values = Dict(
+        "peak_load" => fill(-Inf, length(day_blocks)),
+        "peak_net_load" => fill(-Inf, length(day_blocks)),
+        "min_wind" => fill(Inf, length(day_blocks)),
+        "min_solar" => fill(Inf, length(day_blocks)),
+        "max_ramp" => fill(-Inf, length(day_blocks)),
+    )
+
+    for (block_idx, block) in enumerate(day_blocks)
+        system_load = isempty(load_cols) ? zeros(24) : vec(sum(Matrix{Float64}(loaddata[block.rows, load_cols]), dims=2))
+        ni = "NI" in names(loaddata) ? Float64.(loaddata[block.rows, "NI"]) : zeros(24)
+
+        wind_cf = if isempty(wind_cols)
+            nothing
+        else
+            [safe_weighted_average(row_numeric_values(afdata, block.rows[h], wind_cols), wind_weights) for h in 1:24]
+        end
+        solar_cf = if isempty(solar_cols)
+            nothing
+        else
+            [safe_weighted_average(row_numeric_values(afdata, block.rows[h], solar_cols), solar_weights) for h in 1:24]
+        end
+
+        wind_potential = wind_cf === nothing ? zeros(24) : collect(sum(wind_weights) .* wind_cf)
+        solar_potential = solar_cf === nothing ? zeros(24) : collect(sum(solar_weights) .* solar_cf)
+        net_load = system_load .- ni .- wind_potential .- solar_potential
+
+        values["peak_load"][block_idx] = maximum(system_load)
+        values["peak_net_load"][block_idx] = maximum(net_load)
+        values["max_ramp"][block_idx] = isempty(net_load) ? -Inf : maximum(vcat(0.0, diff(net_load)))
+        values["min_wind"][block_idx] = wind_cf === nothing ? Inf : mean(wind_cf)
+        values["min_solar"][block_idx] = solar_cf === nothing ? Inf : mean(solar_cf)
+    end
+
+    return values
+end
+
+function select_extreme_day_indices(
+    loaddata::DataFrame,
+    afdata::DataFrame,
+    day_blocks,
+    ordered_zone,
+    ordered_gen,
+    config_set::AbstractDict;
+    generator_data::Union{Nothing,DataFrame}=nothing,
+)
+    add_extreme_days = parse_rep_day_binary(rep_day_settings_value(config_set, "add_extreme_days", 0), "rep_day_settings.add_extreme_days")
+    add_extreme_days == 0 && return Int[], String[]
+
+    metrics = parse_rep_day_metric_list(
+        rep_day_settings_value(config_set, "extreme_day_metrics", ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"]),
+        "rep_day_settings.extreme_day_metrics",
+    )
+    metric_values = compute_extreme_metric_values(loaddata, afdata, day_blocks, ordered_zone, ordered_gen, generator_data)
+    selected_indices = Int[]
+    selected_metrics = String[]
+    seen = Set{Int}()
+    for metric in metrics
+        vals = metric_values[metric]
+        if all(v -> !isfinite(v), vals)
+            continue
+        end
+        idx = metric in ("min_wind", "min_solar") ? argmin(vals) : argmax(vals)
+        if !(idx in seen)
+            push!(selected_indices, idx)
+            push!(selected_metrics, metric)
+            push!(seen, idx)
+        end
+    end
+    return selected_indices, selected_metrics
+end
+
 """
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
@@ -318,6 +456,8 @@ function build_endogenous_rep_periods(
     ordered_gen,
     config_set::AbstractDict;
     drtsdata::Union{Nothing,DataFrame}=nothing,
+    generator_data::Union{Nothing,DataFrame}=nothing,
+    candidate_generator_data::Union{Nothing,DataFrame}=nothing,
 )
     rep_time_periods = resolve_rep_day_time_periods(config_set)
     feature_mode = lowercase(String(rep_day_settings_value(config_set, "feature_mode", "joint_daily")))
@@ -339,6 +479,8 @@ function build_endogenous_rep_periods(
         SelectedDay = Int[],
         WeightDays = Float64[],
         Method = String[],
+        SelectionType = String[],
+        ExtremeMetric = String[],
     )
     rep_period_ids_by_time_period = Dict{Int,Vector{Int}}()
     rep_period_id = 1
@@ -354,6 +496,9 @@ function build_endogenous_rep_periods(
             if k_eff != 1
                 throw(ArgumentError("feature_mode=legacy_column_centroid currently supports only representative_days_per_period = 1."))
             end
+            if parse_rep_day_binary(rep_day_settings_value(config_set, "add_extreme_days", 0), "rep_day_settings.add_extreme_days") == 1
+                throw(ArgumentError("Feature 3 extreme-day augmentation is currently supported only with feature_mode = joint_daily."))
+            end
             legacy_load, legacy_n = legacy_column_centroid_ts(loaddata, [tp => dates], ordered_zone)
             legacy_af, _ = legacy_column_centroid_ts(afdata, [tp => dates], ordered_gen)
             load_rep[rep_period_id] = legacy_load[tp]
@@ -364,7 +509,7 @@ function build_endogenous_rep_periods(
             end
             ndays[rep_period_id] = Float64(legacy_n[tp])
             rep_period_ids_by_time_period[tp] = [rep_period_id]
-            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid"))
+            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid", "cluster_medoid", ""))
             rep_period_id += 1
             continue
         end
@@ -377,7 +522,31 @@ function build_endogenous_rep_periods(
         end
 
         feature_matrix = build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
-        medoid_indices, _, counts = select_medoid_indices(feature_matrix, k_eff)
+        medoid_indices, assignments, counts = select_medoid_indices(feature_matrix, k_eff)
+        cluster_counts = Float64.(counts)
+        all_generator_data = combine_rep_day_generator_data(generator_data, candidate_generator_data)
+        extreme_indices, extreme_metrics = select_extreme_day_indices(
+            loaddata,
+            afdata,
+            blocks,
+            ordered_zone,
+            ordered_gen,
+            config_set;
+            generator_data=all_generator_data,
+        )
+        selected_medoid_set = Set(medoid_indices)
+        augmented_extremes = Tuple{Int,String}[]
+        for (extreme_idx, metric) in zip(extreme_indices, extreme_metrics)
+            if extreme_idx in selected_medoid_set
+                continue
+            end
+            cluster_idx = assignments[extreme_idx]
+            if cluster_counts[cluster_idx] <= 1.0
+                continue
+            end
+            cluster_counts[cluster_idx] -= 1.0
+            push!(augmented_extremes, (extreme_idx, metric))
+        end
         rep_ids = Int[]
         for (local_idx, block_idx) in enumerate(medoid_indices)
             selected_block = blocks[block_idx]
@@ -386,8 +555,20 @@ function build_endogenous_rep_periods(
             if drtsdata !== nothing
                 dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
             end
-            ndays[rep_period_id] = Float64(counts[local_idx])
-            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids"))
+            ndays[rep_period_id] = cluster_counts[local_idx]
+            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids", "cluster_medoid", ""))
+            push!(rep_ids, rep_period_id)
+            rep_period_id += 1
+        end
+        for (offset_idx, (block_idx, metric)) in enumerate(augmented_extremes)
+            selected_block = blocks[block_idx]
+            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
+            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+            if drtsdata !== nothing
+                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+            end
+            ndays[rep_period_id] = 1.0
+            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids_extreme", "extreme_day", metric))
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end

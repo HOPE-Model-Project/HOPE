@@ -453,6 +453,8 @@ function rep_period_weights_for_erec(config_set::Dict, input_data::Dict)
                 ordered_gen,
                 config_set;
                 drtsdata=(haskey(input_data, "DRtsdata") ? input_data["DRtsdata"] : nothing),
+                generator_data=input_data["Gendata"],
+                candidate_generator_data=input_data["Gendata_candidate"],
             )
             T = rep_period_data["T"]
             H_t = [collect(1 + 24 * (t - 1):24 + 24 * (t - 1)) for t in T]

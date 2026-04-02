@@ -22,6 +22,28 @@ function build_three_day_timeseries()
     return loaddata, afdata
 end
 
+function build_four_day_extreme_timeseries(load_levels, af_levels)
+    month = Int[]
+    day = Int[]
+    hour = Int[]
+    time_period = Int[]
+    load = Float64[]
+    af = Float64[]
+    for d in 1:4
+        for h in 1:24
+            push!(month, 1)
+            push!(day, d)
+            push!(hour, h)
+            push!(time_period, 1)
+            push!(load, load_levels[d])
+            push!(af, af_levels[d])
+        end
+    end
+    loaddata = DataFrame(Symbol("Time Period") => time_period, :Month => month, :Day => day, :Hours => hour, :Z1 => load, :NI => zeros(length(load)))
+    afdata = DataFrame(Symbol("Time Period") => time_period, :Month => month, :Day => day, :Hours => hour, :G1 => af)
+    return loaddata, afdata
+end
+
 @testset "Representative Day Helpers" begin
     mktempdir() do tmpdir
         case_dir = joinpath(tmpdir, "case")
@@ -107,6 +129,53 @@ normalize_features: 1
     rep_profiles = [rep_multi["Load_rep"][t][!, "Z1"] for t in rep_multi["T"]]
     @test any(profile == multi_load[1:24, "Z1"] for profile in rep_profiles)
     @test any(profile == multi_load[49:72, "Z1"] for profile in rep_profiles)
+
+    extreme_load, extreme_af = build_four_day_extreme_timeseries([0.0, 1.0, 2.0, 10.0], [1.0, 1.0, 1.0, 1.0])
+    extreme_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 4]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "joint_daily",
+            "representative_days_per_period" => 1,
+            "add_extreme_days" => 1,
+            "extreme_day_metrics" => ["peak_load"],
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    generator_df = DataFrame("Pmax (MW)" => [100.0], "Type" => ["NGCC_CCS"])
+    rep_extreme = HOPE.build_endogenous_rep_periods(extreme_load, extreme_af, ["Z1"], ["G1"], extreme_config; generator_data=generator_df)
+    @test rep_extreme["T"] == [1, 2]
+    @test rep_extreme["metadata"][1, "SelectionType"] == "cluster_medoid"
+    @test rep_extreme["metadata"][2, "SelectionType"] == "extreme_day"
+    @test rep_extreme["metadata"][2, "ExtremeMetric"] == "peak_load"
+    @test sort(rep_extreme["metadata"][!, "SelectedDay"]) == [3, 4]
+    @test sort(collect(values(rep_extreme["N"]))) == [1.0, 3.0]
+    @test sum(values(rep_extreme["N"])) == 4.0
+
+    wind_load, wind_af = build_four_day_extreme_timeseries([5.0, 5.0, 5.0, 5.0], [0.9, 0.8, 0.7, 0.1])
+    wind_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 4]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "joint_daily",
+            "representative_days_per_period" => 1,
+            "add_extreme_days" => 1,
+            "extreme_day_metrics" => ["min_wind"],
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    wind_generator_df = DataFrame("Pmax (MW)" => [50.0], "Type" => ["WindOn"])
+    rep_wind_extreme = HOPE.build_endogenous_rep_periods(wind_load, wind_af, ["Z1"], ["G1"], wind_config; generator_data=wind_generator_df)
+    @test rep_wind_extreme["T"] == [1, 2]
+    @test rep_wind_extreme["metadata"][2, "ExtremeMetric"] == "min_wind"
+    @test 4 in rep_wind_extreme["metadata"][!, "SelectedDay"]
+    @test sum(values(rep_wind_extreme["N"])) == 4.0
 
     wrap_loaddata = DataFrame(
         Symbol("Time Period") => vcat(fill(1, 24), fill(1, 24)),
