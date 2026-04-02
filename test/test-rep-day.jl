@@ -70,6 +70,44 @@ normalize_features: 1
     @test rep["Load_rep"][1][!, "Z1"] == loaddata[25:48, "Z1"]
     @test rep["AF_rep"][1][!, "G1"] == afdata[25:48, "G1"]
 
+    multi_load = DataFrame(
+        Symbol("Time Period") => repeat([1], 96),
+        :Month => repeat([1], 96),
+        :Day => vcat(fill(1, 24), fill(2, 24), fill(3, 24), fill(4, 24)),
+        :Hours => repeat(collect(1:24), 4),
+        :Z1 => vcat(fill(0.0, 24), fill(0.0, 24), fill(10.0, 24), fill(10.0, 24)),
+        :NI => zeros(96),
+    )
+    multi_af = DataFrame(
+        Symbol("Time Period") => repeat([1], 96),
+        :Month => repeat([1], 96),
+        :Day => vcat(fill(1, 24), fill(2, 24), fill(3, 24), fill(4, 24)),
+        :Hours => repeat(collect(1:24), 4),
+        :G1 => vcat(fill(1.0, 24), fill(1.0, 24), fill(0.0, 24), fill(0.0, 24)),
+    )
+    multi_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 4]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "joint_daily",
+            "representative_days_per_period" => 2,
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    rep_multi = HOPE.build_endogenous_rep_periods(multi_load, multi_af, ["Z1"], ["G1"], multi_config)
+    @test rep_multi["T"] == [1, 2]
+    @test sort(collect(values(rep_multi["N"]))) == [2.0, 2.0]
+    @test nrow(rep_multi["metadata"]) == 2
+    @test sort(rep_multi["metadata"][!, "RepresentativeIndex"]) == [1, 2]
+    selected_days = sort(rep_multi["metadata"][!, "SelectedDay"])
+    @test (selected_days == [1, 3]) || (selected_days == [1, 4]) || (selected_days == [2, 3]) || (selected_days == [2, 4])
+    rep_profiles = [rep_multi["Load_rep"][t][!, "Z1"] for t in rep_multi["T"]]
+    @test any(profile == multi_load[1:24, "Z1"] for profile in rep_profiles)
+    @test any(profile == multi_load[49:72, "Z1"] for profile in rep_profiles)
+
     wrap_loaddata = DataFrame(
         Symbol("Time Period") => vcat(fill(1, 24), fill(1, 24)),
         :Month => vcat(fill(12, 24), fill(1, 24)),
@@ -83,6 +121,13 @@ normalize_features: 1
             "time_periods" => Dict(1 => [12, 31, 1, 1]),
         ),
     )
-    weights = HOPE.endogenous_rep_day_weights(wrap_loaddata, wrap_config)
+    wrap_af = DataFrame(
+        Symbol("Time Period") => vcat(fill(1, 24), fill(1, 24)),
+        :Month => vcat(fill(12, 24), fill(1, 24)),
+        :Day => vcat(fill(31, 24), fill(1, 24)),
+        :Hours => repeat(collect(1:24), 2),
+        :G1 => ones(48),
+    )
+    weights = HOPE.endogenous_rep_day_weights(wrap_loaddata, wrap_af, ["Z1"], ["G1"], wrap_config)
     @test weights[1] == 2.0
 end

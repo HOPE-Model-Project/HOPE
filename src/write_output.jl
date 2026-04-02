@@ -308,6 +308,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
+        Ordered_gen_nm = ["G$(g)" for g in 1:(Num_Egen + Num_Cgen)]
         D=[d for d=1:Num_load] 	
         D_i=[[d] for d in D]
         if flexible_demand == 1
@@ -323,6 +324,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		L_new=[l for l=Num_Eline+1:Num_Eline+Num_Cline]					#Set of candidate transmission corridors
         endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="write_output")
         input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(Loaddata)
+        rep_period_data = nothing
         if representative_day_mode == 1
             if has_custom_time_periods && external_rep_day == 0
                 throw(ArgumentError("Input timeseries defines multiple Time Periods. This is only allowed when external_rep_day = 1."))
@@ -337,7 +339,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 end
                 T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
             else
-                T=[tp for (tp, _) in resolve_rep_day_time_periods(config_set)]		#Set of time periods (e.g., representative days of seasons), index t
+                rep_period_data = build_endogenous_rep_periods(Loaddata, input_data["AFdata"], Ordered_zone_nm, Ordered_gen_nm, config_set; drtsdata=(flexible_demand == 1 ? input_data["DRtsdata"] : nothing))
+                T = rep_period_data["T"]		#Set of representative periods built from seasonal windows, index t
             end
             H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]			#Set of hours in time period (day) t, index h, subset of H
             H_T = collect(unique(reduce(vcat,H_t)))						#Set of unique hours in time period, index h, subset of H
@@ -396,7 +399,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 rep_weight_df = input_data["RepWeightData"]
                 N = Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
             else
-                N = endogenous_rep_day_weights(Loaddata, config_set)
+                N = rep_period_data["N"]
             end
         else
             N = Dict{Int,Float64}(t => 1.0 for t in T)

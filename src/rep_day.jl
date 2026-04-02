@@ -11,6 +11,7 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
         "time_periods" => default_time_periods,
         "clustering_method" => "kmedoids",
         "feature_mode" => "joint_daily",
+        "representative_days_per_period" => 1,
         "include_load" => 1,
         "include_af" => 1,
         "include_dr" => 1,
@@ -45,6 +46,14 @@ function parse_rep_day_binary(x, keyname::AbstractString)
     v = to_int_rep_day(x)
     if !(v in (0, 1))
         throw(ArgumentError("Invalid $(keyname)=$(v). Expected 0 or 1."))
+    end
+    return v
+end
+
+function parse_rep_day_positive_int(x, keyname::AbstractString)
+    v = to_int_rep_day(x)
+    if v < 1
+        throw(ArgumentError("Invalid $(keyname)=$(v). Expected an integer >= 1."))
     end
     return v
 end
@@ -270,12 +279,37 @@ function select_medoid_index(feature_matrix::Matrix{Float64})
     return argmin(scores)
 end
 
+function select_medoid_indices(feature_matrix::Matrix{Float64}, k::Int)
+    n_days = size(feature_matrix, 1)
+    if k >= n_days
+        medoids = collect(1:n_days)
+        assignments = collect(1:n_days)
+        counts = ones(Int, n_days)
+        return medoids, assignments, counts
+    elseif k == 1
+        medoid = select_medoid_index(feature_matrix)
+        assignments = ones(Int, n_days)
+        counts = [n_days]
+        return [medoid], assignments, counts
+    end
+
+    distance_matrix = pairwise(SqEuclidean(), transpose(feature_matrix), dims=2)
+    result = kmedoids(distance_matrix, k)
+    medoids = collect(result.medoids)
+    sort_order = sortperm(medoids)
+    sorted_medoids = medoids[sort_order]
+    cluster_map = Dict(old_idx => new_idx for (new_idx, old_idx) in enumerate(sort_order))
+    sorted_assignments = [cluster_map[a] for a in result.assignments]
+    sorted_counts = [count(==(cluster_idx), sorted_assignments) for cluster_idx in 1:k]
+    return sorted_medoids, sorted_assignments, sorted_counts
+end
+
 """
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
 Construct endogenous representative-day inputs using the advanced settings in
-`HOPE_rep_day_settings.yml`. Feature 1 selects one actual representative day per
-time period from a joint daily feature matrix.
+`HOPE_rep_day_settings.yml`. Features 1 and 2 select one or more actual
+representative days per time period from a joint daily feature matrix.
 """
 function build_endogenous_rep_periods(
     loaddata::DataFrame,
@@ -288,35 +322,50 @@ function build_endogenous_rep_periods(
     rep_time_periods = resolve_rep_day_time_periods(config_set)
     feature_mode = lowercase(String(rep_day_settings_value(config_set, "feature_mode", "joint_daily")))
     clustering_method = lowercase(String(rep_day_settings_value(config_set, "clustering_method", "kmedoids")))
+    rep_days_per_period = parse_rep_day_positive_int(
+        rep_day_settings_value(config_set, "representative_days_per_period", 1),
+        "rep_day_settings.representative_days_per_period",
+    )
 
     load_rep = Dict{Int,DataFrame}()
     af_rep = Dict{Int,DataFrame}()
     dr_rep = drtsdata === nothing ? nothing : Dict{Int,DataFrame}()
     ndays = Dict{Int,Float64}()
     metadata = DataFrame(
+        RepresentativePeriod = Int[],
         TimePeriod = Int[],
+        RepresentativeIndex = Int[],
         SelectedMonth = Int[],
         SelectedDay = Int[],
         WeightDays = Float64[],
         Method = String[],
     )
+    rep_period_ids_by_time_period = Dict{Int,Vector{Int}}()
+    rep_period_id = 1
 
     for (tp, dates) in rep_time_periods
         blocks = collect_day_blocks(loaddata, dates)
-        selected_block = nothing
-        selected_method = clustering_method
+        k_eff = min(rep_days_per_period, length(blocks))
+        if rep_days_per_period > length(blocks)
+            @warn "rep_day_settings.representative_days_per_period=$(rep_days_per_period) exceeds the number of available days ($(length(blocks))) in time_period=$(tp). Using $(k_eff) representative days for this period."
+        end
 
         if feature_mode == "legacy_column_centroid"
+            if k_eff != 1
+                throw(ArgumentError("feature_mode=legacy_column_centroid currently supports only representative_days_per_period = 1."))
+            end
             legacy_load, legacy_n = legacy_column_centroid_ts(loaddata, [tp => dates], ordered_zone)
             legacy_af, _ = legacy_column_centroid_ts(afdata, [tp => dates], ordered_gen)
-            load_rep[tp] = legacy_load[tp]
-            af_rep[tp] = legacy_af[tp]
+            load_rep[rep_period_id] = legacy_load[tp]
+            af_rep[rep_period_id] = legacy_af[tp]
             if drtsdata !== nothing
                 legacy_dr, _ = legacy_column_centroid_ts(drtsdata, [tp => dates], ordered_zone)
-                dr_rep[tp] = legacy_dr[tp]
+                dr_rep[rep_period_id] = legacy_dr[tp]
             end
-            ndays[tp] = Float64(legacy_n[tp])
-            push!(metadata, (tp, dates[1], dates[2], ndays[tp], "legacy_column_centroid"))
+            ndays[rep_period_id] = Float64(legacy_n[tp])
+            rep_period_ids_by_time_period[tp] = [rep_period_id]
+            push!(metadata, (rep_period_id, tp, 1, dates[1], dates[2], ndays[rep_period_id], "legacy_column_centroid"))
+            rep_period_id += 1
             continue
         end
 
@@ -324,20 +373,25 @@ function build_endogenous_rep_periods(
             throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, legacy_column_centroid."))
         end
         if clustering_method != "kmedoids"
-            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Feature 1. Supported value: kmedoids."))
+            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Features 1-2. Supported value: kmedoids."))
         end
 
         feature_matrix = build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
-        selected_idx = select_medoid_index(feature_matrix)
-        selected_block = blocks[selected_idx]
-
-        load_rep[tp] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
-        af_rep[tp] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
-        if drtsdata !== nothing
-            dr_rep[tp] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+        medoid_indices, _, counts = select_medoid_indices(feature_matrix, k_eff)
+        rep_ids = Int[]
+        for (local_idx, block_idx) in enumerate(medoid_indices)
+            selected_block = blocks[block_idx]
+            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
+            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+            if drtsdata !== nothing
+                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+            end
+            ndays[rep_period_id] = Float64(counts[local_idx])
+            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids"))
+            push!(rep_ids, rep_period_id)
+            rep_period_id += 1
         end
-        ndays[tp] = Float64(length(blocks))
-        push!(metadata, (tp, selected_block.key[1], selected_block.key[2], ndays[tp], "joint_daily_kmedoids"))
+        rep_period_ids_by_time_period[tp] = rep_ids
     end
 
     return Dict(
@@ -347,10 +401,20 @@ function build_endogenous_rep_periods(
         "N" => ndays,
         "metadata" => metadata,
         "time_periods" => rep_time_periods,
+        "T" => sort(collect(keys(ndays))),
+        "representative_days_per_period" => rep_days_per_period,
+        "rep_period_ids_by_time_period" => rep_period_ids_by_time_period,
     )
 end
 
-function endogenous_rep_day_weights(loaddata::DataFrame, config_set::AbstractDict)
-    rep_time_periods = resolve_rep_day_time_periods(config_set)
-    return Dict(tp => Float64(length(collect_day_blocks(loaddata, dates))) for (tp, dates) in rep_time_periods)
+function endogenous_rep_day_weights(
+    loaddata::DataFrame,
+    afdata::DataFrame,
+    ordered_zone,
+    ordered_gen,
+    config_set::AbstractDict;
+    drtsdata::Union{Nothing,DataFrame}=nothing,
+)
+    rep = build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=drtsdata)
+    return rep["N"]
 end

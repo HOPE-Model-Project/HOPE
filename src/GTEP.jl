@@ -240,6 +240,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		# - endogenous_rep_day=1: HOPE clusters by time_periods
 		# - external_rep_day=1: use user-provided representative periods + weights
 		N_external = Dict{Int,Float64}()
+		rep_period_data = nothing
 		if representative_day_mode == 1
 			if external_rep_day == 1
 				if !haskey(input_data, "RepWeightData")
@@ -317,7 +318,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			if external_rep_day == 1
 				T = sort(collect(keys(N_external)))
 			else
-				T=[tp for (tp, _) in resolve_rep_day_time_periods(config_set)]		#Set of time periods (e.g., representative days of seasons), index t
+				T = rep_period_data["T"]		#Set of representative periods built from seasonal windows, index t
 			end
 		else
 			T = input_T
@@ -518,7 +519,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			if external_rep_day == 1
 				N = N_external
 			else
-				N = endogenous_rep_day_weights(Loaddata, config_set) #t	  #Number of time periods (days) represented by time period (day) t per year
+				N = rep_period_data["N"] #t	  #Number of time periods (days) represented by representative period t per year
 			end
 			#NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 			NI_hi = Dict([(h,i) => -Load_rep[t][!,"NI"][h- 24*(t-1)]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for t in T for h in H_t[t]])

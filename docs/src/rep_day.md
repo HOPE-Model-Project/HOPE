@@ -39,6 +39,16 @@ Feature 1 improves the old endogenous representative-day process in two ways:
 
 This means load and VRE are now taken from the same real day, which preserves cross-series consistency better than the legacy centroid construction.
 
+## Feature 2: Multiple Representative Days per Time Period
+
+Feature 2 extends Feature 1 by allowing HOPE to select more than one actual representative day inside each seasonal window.
+
+- HOPE still builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles.
+- Instead of selecting just one medoid day for each time period, HOPE now selects `k` medoid days.
+- Each selected day receives its own weight equal to the number of real days assigned to that medoid cluster.
+
+This reduces the amount of smoothing inside each season and lets HOPE keep multiple characteristic daily patterns, such as a milder day and a more stressed day within the same seasonal window.
+
 ## Recommended `HOPE_rep_day_settings.yml`
 
 ```yaml
@@ -50,6 +60,7 @@ time_periods:
 
 clustering_method: kmedoids
 feature_mode: joint_daily
+representative_days_per_period: 1
 include_load: 1
 include_af: 1
 include_dr: 1
@@ -61,6 +72,7 @@ Meaning:
 - `time_periods`: seasonal windows used for endogenous representative-day construction
 - `clustering_method: kmedoids`: Feature 1 selects one actual medoid day per time period
 - `feature_mode: joint_daily`: cluster one combined daily feature vector, not each column independently
+- `representative_days_per_period`: number of representative days to select inside each seasonal window
 - `include_load`, `include_af`, `include_dr`: control which data streams enter the feature vector
 - `normalize_features: 1`: standardize feature dimensions before distance calculations
 
@@ -135,6 +147,47 @@ This helps users see both:
 
 - where the selected day sits within the season, and
 - what the selected 24-hour profile looks like compared with the rest of the season
+
+## Feature 2 Example
+
+If the same `MD_GTEP_clean_case` uses:
+
+```yaml
+representative_days_per_period: 2
+```
+
+then HOPE selects two actual representative days inside each seasonal window instead of one.
+
+For this case, the selected days and weights are:
+
+| Time Period | Seasonal Window | Representative Day 1 | Weight 1 | Representative Day 2 | Weight 2 |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| `1` | Mar 20 to Jun 20 | Apr 22 | `45` | May 7 | `48` |
+| `2` | Jun 21 to Sep 21 | Jul 29 | `54` | Aug 15 | `39` |
+| `3` | Sep 22 to Dec 20 | Oct 28 | `38` | Nov 26 | `52` |
+| `4` | Dec 21 to Mar 19 | Jan 28 | `64` | Mar 18 | `25` |
+
+![Feature 2 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature2.png)
+
+So the four seasonal windows now become eight representative periods in the model:
+
+- time period `1` maps to representative periods `1` and `2`
+- time period `2` maps to representative periods `3` and `4`
+- time period `3` maps to representative periods `5` and `6`
+- time period `4` maps to representative periods `7` and `8`
+
+The cluster weights no longer have to be equal. For example, in time period `4`, January 28 represents `64` real days while March 18 represents only `25` real days. This is exactly what Feature 2 is designed to capture: more than one characteristic day shape inside the same season.
+
+How to read the Feature 2 figure:
+
+- left column: daily total load across each seasonal window, with both selected representative days highlighted
+- right column: all 24-hour total load profiles in that season shown in gray, with the two selected representative days highlighted separately
+
+For users, the main practical interpretation is:
+
+- `representative_days_per_period: 1` gives one representative day per seasonal window
+- `representative_days_per_period: 2` gives two representative days per seasonal window, each with its own weight
+- increasing this setting trades more chronology detail for longer solve times
 
 ## Legacy Compatibility
 

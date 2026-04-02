@@ -428,16 +428,36 @@ end
 function rep_period_weights_for_erec(config_set::Dict, input_data::Dict)
     loaddata = input_data["Loaddata"]
     endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="EREC")
-    T, H_t, H_T, has_custom_time_periods = build_time_period_hours(loaddata)
+    input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(loaddata)
+    T = input_T
+    H_t = input_H_t
+    H_T = input_H_T
     N = Dict{Int,Float64}()
     if representative_day_mode == 1
         if external_rep_day == 1
             rep_weight_df = input_data["RepWeightData"]
+            T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
+            H_t = [collect(1 + 24 * (t - 1):24 + 24 * (t - 1)) for t in T]
+            H_T = collect(unique(reduce(vcat, H_t)))
             for row in eachrow(rep_weight_df)
                 N[Int(row["Time Period"])] = Float64(row["Weight"])
             end
         else
-            N = endogenous_rep_day_weights(loaddata, config_set)
+            zonedata = input_data["Zonedata"]
+            ordered_zone = [string(zonedata[i, "Zone_id"]) for i in 1:nrow(zonedata)]
+            ordered_gen = ["G$(i)" for i in 1:(nrow(input_data["Gendata"]) + nrow(input_data["Gendata_candidate"]))]
+            rep_period_data = build_endogenous_rep_periods(
+                loaddata,
+                input_data["AFdata"],
+                ordered_zone,
+                ordered_gen,
+                config_set;
+                drtsdata=(haskey(input_data, "DRtsdata") ? input_data["DRtsdata"] : nothing),
+            )
+            T = rep_period_data["T"]
+            H_t = [collect(1 + 24 * (t - 1):24 + 24 * (t - 1)) for t in T]
+            H_T = collect(unique(reduce(vcat, H_t)))
+            N = rep_period_data["N"]
         end
     else
         N = Dict(t => 1.0 for t in T)
