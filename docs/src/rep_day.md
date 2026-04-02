@@ -229,9 +229,9 @@ HOPE selects:
 | Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
 | :-- | :-- | :-- | :-- |
 | `1` | Mar 20 to Jun 20 | May 19 | `93` |
-| `2` | Jun 21 to Sep 21 | Aug 31 | `93` |
-| `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
-| `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
+| `2` | Jun 21 to Sep 21 | Aug 20 | `93` |
+| `3` | Sep 22 to Dec 20 | Nov 9 | `90` |
+| `4` | Dec 21 to Mar 19 | Feb 8 | `89` |
 
 Mapping back to full chronology:
 
@@ -300,10 +300,10 @@ HOPE selects:
 
 | Time Period | Seasonal Window | Representative Day 1 | Weight 1 | Representative Day 2 | Weight 2 |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| `1` | Mar 20 to Jun 20 | Apr 22 | `45` | May 7 | `48` |
-| `2` | Jun 21 to Sep 21 | Jul 29 | `54` | Aug 15 | `39` |
-| `3` | Sep 22 to Dec 20 | Oct 28 | `38` | Nov 26 | `52` |
-| `4` | Dec 21 to Mar 19 | Jan 28 | `64` | Mar 18 | `25` |
+| `1` | Mar 20 to Jun 20 | May 10 | `28` | May 19 | `65` |
+| `2` | Jun 21 to Sep 21 | Aug 7 | `38` | Aug 16 | `55` |
+| `3` | Sep 22 to Dec 20 | Nov 3 | `57` | Dec 18 | `33` |
+| `4` | Dec 21 to Mar 19 | Jan 17 | `28` | Feb 8 | `61` |
 
 Mapping back to full chronology:
 
@@ -386,10 +386,10 @@ HOPE selects:
 
 | Time Period | Seasonal Window | Medoid Day | Medoid Weight | Peak Load Day | Peak Net Load Day | Max Ramp Day |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| `1` | Mar 20 to Jun 20 | May 27 | `90` | Mar 20 | Apr 1 | Apr 11 |
-| `2` | Jun 21 to Sep 21 | Sep 17 | `90` | Jun 21 | Sep 10 | Aug 4 |
-| `3` | Sep 22 to Dec 20 | Nov 3 | `87` | Sep 22 | Oct 8 | Dec 5 |
-| `4` | Dec 21 to Mar 19 | Feb 12 | `86` | Jan 1 | Mar 11 | Jan 19 |
+| `1` | Mar 20 to Jun 20 | May 19 | `90` | Jun 17 | Apr 4 | Mar 21 |
+| `2` | Jun 21 to Sep 21 | Aug 20 | `90` | Aug 9 | Sep 8 | Jul 23 |
+| `3` | Sep 22 to Dec 20 | Nov 9 | `87` | Dec 14 | Sep 29 | Oct 15 |
+| `4` | Dec 21 to Mar 19 | Feb 8 | `86` | Jan 27 | Mar 8 | Jan 18 |
 
 Mapping back to full chronology:
 
@@ -484,10 +484,10 @@ HOPE selects:
 
 | Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
 | :-- | :-- | :-- | :-- |
-| `1` | Mar 20 to Jun 20 | May 27 | `93` |
-| `2` | Jun 21 to Sep 21 | Jul 8 | `93` |
-| `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
-| `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
+| `1` | Mar 20 to Jun 20 | May 19 | `93` |
+| `2` | Jun 21 to Sep 21 | Aug 20 | `93` |
+| `3` | Sep 22 to Dec 20 | Nov 9 | `90` |
+| `4` | Dec 21 to Mar 19 | Feb 8 | `89` |
 
 Mapping back to full chronology:
 
@@ -504,7 +504,7 @@ Meaning:
 
 ![Feature 4 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature4.png)
 
-Compared with Feature 1, the visible change in this example is time period `2`, where the selected representative day shifts from `Aug 31` to `Jul 8`. That happens because Feature 4 is no longer trying to match every raw hourly column equally. Instead, it prioritizes the planning-oriented signals in `planning_feature_set`, such as system net load and ramp behavior.
+In the current `MD_GTEP_clean_case`, Feature 4 happens to select the same medoid days as Feature 1. That does not mean the feature is inactive. It means the planning-oriented feature space and the joint daily feature space point to the same representative days for this particular case. In other cases, especially with stronger net-load stress or different VRE shapes, Feature 4 can shift the selected days materially.
 
 How to read the figure:
 
@@ -512,6 +512,12 @@ How to read the figure:
 - blue line: daily peak system net load
 - orange line: daily maximum system ramp
 - red dashed marker: the selected representative day for that seasonal window
+
+In this figure, system load is shown in physical MW using the zonal peak-demand scaling in `zonedata.csv`. Net load is computed as:
+
+$$\text{system net load} = \text{system load} - \text{NI} - \text{existing wind output} - \text{existing solar output}$$
+
+So if the blue line dips slightly below zero on some days, it means the combination of net imports and existing VRE output exceeds total load during the highest-net-load hour for that day.
 
 ## Feature 5: Iterative Representative-Day Refinement
 
@@ -580,10 +586,10 @@ HOPE selects:
 
 | Time Period | Seasonal Window | Medoid Day | Medoid Weight | Peak Load Day | Peak Net Load Day | Max Ramp Day | Refinement Day |
 | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| `1` | Mar 20 to Jun 20 | May 27 | `89` | Jun 17 | Apr 1 | Apr 11 | May 29 |
-| `2` | Jun 21 to Sep 21 | Jul 8 | `89` | Aug 9 | Sep 10 | Aug 4 | Jul 9 |
-| `3` | Sep 22 to Dec 20 | Dec 7 | `86` | Dec 14 | Oct 8 | Dec 5 | Dec 17 |
-| `4` | Dec 21 to Mar 19 | Jan 13 | `85` | Jan 27 | Mar 11 | Jan 19 | Dec 23 |
+| `1` | Mar 20 to Jun 20 | May 19 | `89` | Jun 17 | Apr 4 | Mar 21 | Mar 30 |
+| `2` | Jun 21 to Sep 21 | Aug 20 | `89` | Aug 9 | Sep 8 | Jul 23 | Jul 21 |
+| `3` | Sep 22 to Dec 20 | Nov 9 | `86` | Dec 14 | Sep 29 | Oct 15 | Nov 21 |
+| `4` | Dec 21 to Mar 19 | Feb 8 | `85` | Jan 27 | Mar 8 | Jan 18 | Dec 21 |
 
 Mapping back to full chronology:
 
@@ -692,10 +698,10 @@ For the four medoid representative days, HOPE computes these predecessor pattern
 
 | Time Period | Medoid Day | Weight | Example Storage-Link Interpretation |
 | :-- | :-- | :-- | :-- |
-| `1` | May 27 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the winter medoid and the four added stress days |
-| `2` | Jul 8 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the spring medoid and the four added stress days |
-| `3` | Dec 7 | `86` | predecessor mix is `94.2%` from itself, plus about `1.2%` each from the summer medoid and the four added stress days |
-| `4` | Jan 13 | `85` | predecessor mix is `94.1%` from itself, plus about `1.2%` each from the fall medoid and the four added stress days |
+| `1` | May 19 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the winter medoid and the four added stress days |
+| `2` | Aug 20 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the spring medoid and the four added stress days |
+| `3` | Nov 9 | `86` | predecessor mix is `94.2%` from itself, plus about `1.2%` each from the summer medoid and the four added stress days |
+| `4` | Feb 8 | `85` | predecessor mix is `95.3%` from itself, plus about `1.2%` each from the four added stress days |
 
 Mapping back to full chronology:
 
@@ -712,13 +718,7 @@ Meaning:
 - $\omega_{r' \rightarrow r}$ is the predecessor weight from representative period $r'$ into representative period $r$
 - long-duration storage uses these transition weights to link SOC across representative periods
 
-Feature 6 also records persistence information. For example, in this MD case:
-
-- period 1 medoid `May 27` appears in `5` chronology runs
-- its average run length is `17.8` days
-- its maximum run length is `47` days
-
-That kind of information is exactly what the simple old representative-day ordering could not capture well for long-duration storage.
+Feature 6 also records persistence information, such as how often a representative period appears in separate chronology runs and how long those runs last. That kind of information is exactly what the simple old representative-day ordering could not capture well for long-duration storage.
 
 ![Feature 6 representative-day linkage in MD_GTEP_clean_case](assets/rep_day_md_case_feature6.png)
 

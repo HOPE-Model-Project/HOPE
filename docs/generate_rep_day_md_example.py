@@ -17,47 +17,50 @@ OUT_FEATURE6 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature6.png"
 GENDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata.csv"
 GENDATA_CAND = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata_candidate.csv"
 AFDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gen_availability_timeseries.csv"
+ZONEDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "zonedata.csv"
+WINDDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "wind_timeseries_regional.csv"
+SOLARDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "solar_timeseries_regional.csv"
 
 TIME_PERIODS = {
     1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 19), 93),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", (8, 31), 93),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", (12, 7), 90),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", (1, 13), 89),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", (8, 20), 93),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", (11, 9), 90),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", (2, 8), 89),
 }
 
 TIME_PERIODS_FEATURE2 = {
-    1: (3, 20, 6, 20, "Mar 20 to Jun 20", [((4, 22), 45), ((5, 7), 48)]),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", [((7, 29), 54), ((8, 15), 39)]),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", [((10, 28), 38), ((11, 26), 52)]),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", [((1, 28), 64), ((3, 18), 25)]),
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", [((5, 10), 28), ((5, 19), 65)]),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", [((8, 7), 38), ((8, 16), 55)]),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", [((11, 3), 57), ((12, 18), 33)]),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", [((1, 17), 28), ((2, 8), 61)]),
 }
 
 TIME_PERIODS_FEATURE3 = {
-    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 90), "peak_load": ((3, 20), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1)}),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((9, 17), 90), "peak_load": ((6, 21), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1)}),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((11, 3), 87), "peak_load": ((9, 22), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1)}),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 12), 86), "peak_load": ((1, 1), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1)}),
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 19), 90), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 4), 1), "max_ramp": ((3, 21), 1)}),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((8, 20), 90), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 8), 1), "max_ramp": ((7, 23), 1)}),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((11, 9), 87), "peak_load": ((12, 14), 1), "peak_net_load": ((9, 29), 1), "max_ramp": ((10, 15), 1)}),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 8), 86), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 8), 1), "max_ramp": ((1, 18), 1)}),
 }
 
 TIME_PERIODS_FEATURE4 = {
-    1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 27), 93),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", (7, 8), 93),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", (12, 7), 90),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", (1, 13), 89),
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 19), 93),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", (8, 20), 93),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", (11, 9), 90),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", (2, 8), 89),
 }
 
 TIME_PERIODS_FEATURE5 = {
-    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1), "refinement": ((5, 29), 1)}),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((7, 8), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1), "refinement": ((7, 9), 1)}),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((12, 7), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1), "refinement": ((12, 17), 1)}),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((1, 13), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1), "refinement": ((12, 23), 1)}),
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 19), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 4), 1), "max_ramp": ((3, 21), 1), "refinement": ((3, 30), 1)}),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((8, 20), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 8), 1), "max_ramp": ((7, 23), 1), "refinement": ((7, 21), 1)}),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((11, 9), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((9, 29), 1), "max_ramp": ((10, 15), 1), "refinement": ((11, 21), 1)}),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 8), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 8), 1), "max_ramp": ((1, 18), 1), "refinement": ((12, 21), 1)}),
 }
 
 TIME_PERIODS_FEATURE6 = {
-    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1), "refinement": ((5, 29), 1)}, "Medoid predecessors:\nself 94.4%, winter medoid 1.1%\nadded days 4 x 1.1%"),
-    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((7, 8), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1), "refinement": ((7, 9), 1)}, "Medoid predecessors:\nself 94.4%, spring medoid 1.1%\nadded days 4 x 1.1%"),
-    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((12, 7), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1), "refinement": ((12, 17), 1)}, "Medoid predecessors:\nself 94.2%, summer medoid 1.2%\nadded days 4 x 1.2%"),
-    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((1, 13), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1), "refinement": ((12, 23), 1)}, "Medoid predecessors:\nself 94.1%, fall medoid 1.2%\nadded days 4 x 1.2%"),
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 19), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 4), 1), "max_ramp": ((3, 21), 1), "refinement": ((3, 30), 1)}, "Medoid predecessors:\nself 94.4%, winter medoid 1.1%\nadded days 4 x 1.1%"),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((8, 20), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 8), 1), "max_ramp": ((7, 23), 1), "refinement": ((7, 21), 1)}, "Medoid predecessors:\nself 94.4%, spring medoid 1.1%\nadded days 4 x 1.1%"),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((11, 9), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((9, 29), 1), "max_ramp": ((10, 15), 1), "refinement": ((11, 21), 1)}, "Medoid predecessors:\nself 94.2%, summer medoid 1.2%\nadded days 4 x 1.2%"),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 8), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 8), 1), "max_ramp": ((1, 18), 1), "refinement": ((12, 21), 1)}, "Medoid predecessors:\nself 95.3%\nadded days 4 x 1.2%"),
 }
 
 
@@ -84,43 +87,44 @@ def prepare_load_df() -> pd.DataFrame:
 
 def prepare_feature4_daily_metrics() -> pd.DataFrame:
     load_df = pd.read_csv(CASE)
-    af_df = pd.read_csv(AFDATA)
+    wind_df = pd.read_csv(WINDDATA)
+    solar_df = pd.read_csv(SOLARDATA)
+    zonedata = pd.read_csv(ZONEDATA)
     gen_existing = pd.read_csv(GENDATA)
-    gen_candidate = pd.read_csv(GENDATA_CAND)
-    gen_df = pd.concat([gen_existing, gen_candidate], ignore_index=True)
     zone_cols = [c for c in load_df.columns if c not in {"Time Period", "Month", "Day", "Hours", "NI"}]
+    zone_peak = {
+        str(row["Zone_id"]): float(row["Demand (MW)"])
+        for _, row in zonedata.iterrows()
+        if str(row["Zone_id"]) in zone_cols
+    }
 
-    wind_zone_map = {z: [] for z in zone_cols}
-    solar_zone_map = {z: [] for z in zone_cols}
-    for idx, row in gen_df.iterrows():
-        col = f"G{idx + 1}"
-        if col not in af_df.columns:
-            continue
+    # Use existing VRE nameplate capacity with zonal wind/solar profiles.
+    # This keeps the demo plot in physical MW units and avoids mixing
+    # candidate build capacity into the planning-feature illustration.
+    wind_cap = {z: 0.0 for z in zone_cols}
+    solar_cap = {z: 0.0 for z in zone_cols}
+    for _, row in gen_existing.iterrows():
         zone = str(row["Zone"])
         tech = str(row["Type"]).strip().lower()
         pmax = float(row["Pmax (MW)"])
-        if zone not in wind_zone_map:
+        if zone not in wind_cap:
             continue
         if tech in {"windon", "windoff"}:
-            wind_zone_map[zone].append((col, pmax))
+            wind_cap[zone] += pmax
         elif tech == "solarpv":
-            solar_zone_map[zone].append((col, pmax))
+            solar_cap[zone] += pmax
 
     rows = []
     for (month, day), block in load_df.groupby(["Month", "Day"], sort=False):
-        system_load_hourly = block[zone_cols].sum(axis=1).to_numpy()
+        system_load_hourly = sum(block[zone].to_numpy() * zone_peak.get(zone, 0.0) for zone in zone_cols)
         ni = block["NI"].to_numpy() if "NI" in block.columns else 0.0
         system_wind = 0.0 * system_load_hourly
         system_solar = 0.0 * system_load_hourly
         for zone in zone_cols:
-            if wind_zone_map[zone]:
-                cols, weights = zip(*wind_zone_map[zone])
-                weights = pd.Series(weights, dtype=float).to_numpy()
-                system_wind += af_df.loc[block.index, list(cols)].to_numpy() @ (weights / weights.sum())
-            if solar_zone_map[zone]:
-                cols, weights = zip(*solar_zone_map[zone])
-                weights = pd.Series(weights, dtype=float).to_numpy()
-                system_solar += af_df.loc[block.index, list(cols)].to_numpy() @ (weights / weights.sum())
+            if zone in wind_df.columns:
+                system_wind += wind_df.loc[block.index, zone].to_numpy() * wind_cap.get(zone, 0.0)
+            if zone in solar_df.columns:
+                system_solar += solar_df.loc[block.index, zone].to_numpy() * solar_cap.get(zone, 0.0)
         system_net = system_load_hourly - ni - system_wind - system_solar
         system_ramp = pd.Series(system_net).diff().fillna(0.0).to_numpy()
         rows.append(
