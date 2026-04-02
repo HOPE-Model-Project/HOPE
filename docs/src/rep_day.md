@@ -19,9 +19,20 @@ Settings/HOPE_rep_day_settings.yml
 
 This keeps `HOPE_model_settings.yml` high-level while leaving the chronology-reduction details in a separate advanced settings file.
 
-## Phase 1 Method
+## Representative-Day Feature Roadmap
 
-Phase 1 improves the old endogenous representative-day process in two ways:
+The planned user-facing representative-day feature set is:
+
+- `Feature 1: Joint Medoid Representative-Day Selection`
+- `Feature 2: Multiple Representative Days per Time Period`
+- `Feature 3: Extreme-Day Augmentation`
+- `Feature 4: Planning-Focused Feature Engineering`
+- `Feature 5: Iterative Representative-Day Refinement`
+- `Feature 6: Linked Representative Days for Storage`
+
+## Feature 1: Joint Medoid Representative-Day Selection
+
+Feature 1 improves the old endogenous representative-day process in two ways:
 
 - HOPE builds one joint daily feature vector using aligned load, generator availability, and optional DR profiles.
 - HOPE selects one actual observed representative day per time period using a 1-medoid rule, instead of building a synthetic day column by column.
@@ -48,7 +59,7 @@ normalize_features: 1
 Meaning:
 
 - `time_periods`: seasonal windows used for endogenous representative-day construction
-- `clustering_method: kmedoids`: Phase 1 selects one actual medoid day per time period
+- `clustering_method: kmedoids`: Feature 1 selects one actual medoid day per time period
 - `feature_mode: joint_daily`: cluster one combined daily feature vector, not each column independently
 - `include_load`, `include_af`, `include_dr`: control which data streams enter the feature vector
 - `normalize_features: 1`: standardize feature dimensions before distance calculations
@@ -98,7 +109,7 @@ time_periods:
   4: [12, 21, 3, 19]
 ```
 
-HOPE Phase 1 selected these actual representative days:
+HOPE Feature 1 selected these actual representative days:
 
 | Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
 | :-- | :-- | :-- | :-- |
@@ -107,17 +118,29 @@ HOPE Phase 1 selected these actual representative days:
 | `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
 | `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
 
+![Representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
+
 So for this case, HOPE reduces the full year to 4 representative days, but each representative day is an actual observed day from the corresponding seasonal window. For example:
 
 - all days from March 20 to June 20 are compared in the joint feature space
 - HOPE selects May 19 as the medoid day for that window
 - that selected day gets weight `93`, meaning it represents 93 real days in the model objective and annual accounting
 
+How to read the figure:
+
+- left column: daily total load across each seasonal window, with the selected representative day highlighted
+- right column: all 24-hour total load profiles in that season shown in gray, the selected representative day in red, and the seasonal mean profile in dashed blue
+
+This helps users see both:
+
+- where the selected day sits within the season, and
+- what the selected 24-hour profile looks like compared with the rest of the season
+
 ## Legacy Compatibility
 
 For older cases, HOPE still falls back to `time_periods` from `HOPE_model_settings.yml` if `HOPE_rep_day_settings.yml` is missing.
 
-Phase 1 also keeps a legacy comparison mode:
+Feature 1 also keeps a legacy comparison mode:
 
 ```yaml
 feature_mode: legacy_column_centroid

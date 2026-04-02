@@ -274,7 +274,7 @@ end
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
 Construct endogenous representative-day inputs using the advanced settings in
-`HOPE_rep_day_settings.yml`. Phase 1 selects one actual representative day per
+`HOPE_rep_day_settings.yml`. Feature 1 selects one actual representative day per
 time period from a joint daily feature matrix.
 """
 function build_endogenous_rep_periods(
@@ -324,7 +324,7 @@ function build_endogenous_rep_periods(
             throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, legacy_column_centroid."))
         end
         if clustering_method != "kmedoids"
-            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Phase 1. Supported value: kmedoids."))
+            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Feature 1. Supported value: kmedoids."))
         end
 
         feature_matrix = build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
