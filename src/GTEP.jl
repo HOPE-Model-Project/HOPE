@@ -1,4 +1,4 @@
-function get_representative_ts(df, time_periods, ordered_zone, k=1)
+function legacy_get_representative_ts_gtep(df, time_periods, ordered_zone, k=1)
     #k = 1# Cluster the time series data to find a representative day
     # Function to filter rows based on the season's start and end dates
     filter_time_period(time_period, row) = (row.Month == time_period[1] && row.Day >= time_period[2]) || (row.Month == time_period[3] && row.Day <= time_period[4]) || (row.Month > time_period[1] && row.Month < time_period[3])|| ( time_period[1]>time_period[3] && row.Month < time_period[3])
@@ -288,12 +288,11 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 					N_external[t] = Float64(w[1])
 				end
 			else
-				time_periods = config_set["time_periods"]
-				#get representative time seires
-				Load_rep = get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[1]
-				AF_rep = get_representative_ts(AFdata,time_periods,Ordered_gen_nm)[1]
+				rep_period_data = build_endogenous_rep_periods(Loaddata, AFdata, Ordered_zone_nm, Ordered_gen_nm, config_set; drtsdata=(flexible_demand == 1 ? DRtsdata : nothing))
+				Load_rep = rep_period_data["Load_rep"]
+				AF_rep = rep_period_data["AF_rep"]
 				if flexible_demand == 1
-					DR_rep = get_representative_ts(DRtsdata,time_periods,Ordered_zone_nm)[1]
+					DR_rep = rep_period_data["DR_rep"]
 				end
 			end
 		else
@@ -318,7 +317,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			if external_rep_day == 1
 				T = sort(collect(keys(N_external)))
 			else
-				T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+				T=[tp for (tp, _) in resolve_rep_day_time_periods(config_set)]		#Set of time periods (e.g., representative days of seasons), index t
 			end
 		else
 			T = input_T
@@ -519,7 +518,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			if external_rep_day == 1
 				N = N_external
 			else
-				N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]#t	  #Number of time periods (days) represented by time period (day) t per year
+				N = endogenous_rep_day_weights(Loaddata, config_set) #t	  #Number of time periods (days) represented by time period (day) t per year
 			end
 			#NI_t = Dict([t => Dict([(h,i) =>-Load_rep[t][!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
 			NI_hi = Dict([(h,i) => -Load_rep[t][!,"NI"][h- 24*(t-1)]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for t in T for h in H_t[t]])

@@ -166,6 +166,7 @@ function save_postprocess_snapshot_bundle(
     write_yaml_file(joinpath(snapshot_dir, "resolved_model_settings.yml"), config_set)
     settings_src_dir = joinpath(case_path, "Settings")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_model_settings.yml")
+    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_rep_day_settings.yml")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_erec_settings.yml")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), string(config_set["solver"]) * "_settings.yml")
 
@@ -436,9 +437,7 @@ function rep_period_weights_for_erec(config_set::Dict, input_data::Dict)
                 N[Int(row["Time Period"])] = Float64(row["Weight"])
             end
         else
-            zonedata = input_data["Zonedata"]
-            ordered_zone = [zonedata[i, "Zone_id"] for i in 1:nrow(zonedata)]
-            N = Dict(k => Float64(v) for (k, v) in get_representative_ts(loaddata, config_set["time_periods"], ordered_zone)[2])
+            N = endogenous_rep_day_weights(loaddata, config_set)
         end
     else
         N = Dict(t => 1.0 for t in T)
@@ -1124,6 +1123,10 @@ function calculate_erec(case::AbstractString; kwargs...)
 
     base_config = open(base_settings_path) do io
         YAML.load(io)
+    end
+    endogenous_rep_day, _, _ = resolve_rep_day_mode(base_config; context="calculate_erec")
+    if endogenous_rep_day == 1
+        base_config["rep_day_settings"] = load_rep_day_settings(case_path, base_config)
     end
     erec_settings = load_erec_settings(case_path)
     for (k, v) in kwargs

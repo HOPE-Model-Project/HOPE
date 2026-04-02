@@ -97,6 +97,9 @@ resource_types:
   - generator
 """)
         end
+        open(joinpath(settings_dir, "HOPE_rep_day_settings.yml"), "w") do io
+            write(io, "time_periods:\n  1: [1, 1, 1, 1]\n")
+        end
         open(joinpath(settings_dir, "cbc_settings.yml"), "w") do io
             write(io, "TimeLimit: 60\n")
         end
@@ -128,6 +131,7 @@ resource_types:
         @test isfile(joinpath(snapshot_dir, "metadata.yml"))
         @test isfile(joinpath(snapshot_dir, "resolved_model_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_model_settings.yml"))
+        @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_rep_day_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_erec_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "Settings", "cbc_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "base_input", "gendata.csv"))

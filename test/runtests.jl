@@ -3,6 +3,7 @@ using Test
 
 @testset "HOPE.jl" begin
     include("test-basic-test.jl")
+    include("test-rep-day.jl")
     include("test-erec-core.jl")
     include("test-erec-endtoend.jl")
     include("test-erec-integration.jl")

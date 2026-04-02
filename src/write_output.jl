@@ -337,7 +337,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 end
                 T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
             else
-                T=[t for t=1:length(config_set["time_periods"])]		#Set of time periods (e.g., representative days of seasons), index t
+                T=[tp for (tp, _) in resolve_rep_day_time_periods(config_set)]		#Set of time periods (e.g., representative days of seasons), index t
             end
             H_t=[collect(1+24*(t-1):24+24*(t-1)) for t in T]			#Set of hours in time period (day) t, index h, subset of H
             H_T = collect(unique(reduce(vcat,H_t)))						#Set of unique hours in time period, index h, subset of H
@@ -396,8 +396,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 rep_weight_df = input_data["RepWeightData"]
                 N = Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
             else
-			    time_periods = config_set["time_periods"]
-                N=get_representative_ts(Loaddata,time_periods,Ordered_zone_nm)[2]
+                N = endogenous_rep_day_weights(Loaddata, config_set)
             end
         else
             N = Dict{Int,Float64}(t => 1.0 for t in T)

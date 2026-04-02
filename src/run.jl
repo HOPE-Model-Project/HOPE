@@ -77,6 +77,10 @@ function run_hope(case::AbstractString)
 		config_set = open(settings_file) do io
 			YAML.load(io)
 		end
+		endogenous_rep_day, _, _ = resolve_rep_day_mode(config_set; context="run_hope")
+		if endogenous_rep_day == 1
+			config_set["rep_day_settings"] = load_rep_day_settings(path, config_set)
+		end
 
 		# Set solver configuration
 		optimizer = initiate_solver(path, String(config_set["solver"]))
@@ -144,6 +148,10 @@ function write_hope(case::AbstractString, solved_case::Model)
 		# Set model configuration 
 		config_set = open(settings_file) do io
 			YAML.load(io)
+		end
+		endogenous_rep_day, _, _ = resolve_rep_day_mode(config_set; context="write_hope")
+		if endogenous_rep_day == 1
+			config_set["rep_day_settings"] = load_rep_day_settings(path, config_set)
 		end
 		# Read in data
 		input_data = load_data(config_set, path)
