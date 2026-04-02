@@ -32,16 +32,16 @@ The user-facing representative-day feature set is:
 
 ## Common Settings
 
-A typical `HOPE_rep_day_settings.yml` starts from:
+A recommended default `HOPE_rep_day_settings.yml` starts from:
 
 ```yaml
 # Seasonal windows for endogenous representative-day construction.
 # Format: period_id: [start_month, start_day, end_month, end_day]
 time_periods:
-  1: [1, 1, 3, 31]
-  2: [4, 1, 6, 30]
-  3: [7, 1, 9, 30]
-  4: [10, 1, 12, 31]
+  1: [3, 20, 6, 20]
+  2: [6, 21, 9, 21]
+  3: [9, 22, 12, 20]
+  4: [12, 21, 3, 19]
 
 # Clustering method for representative-day selection.
 # Current supported value for Features 1-6: kmedoids
@@ -50,7 +50,7 @@ clustering_method: kmedoids
 # How HOPE builds the daily feature vector before clustering.
 # joint_daily = use aligned hourly load/AF/DR profiles directly
 # planning_features = use compact planning-oriented signals such as net load and ramps
-feature_mode: joint_daily
+feature_mode: planning_features
 
 # Planning-oriented features used when feature_mode: planning_features
 planning_feature_set:
@@ -62,30 +62,28 @@ planning_feature_set:
   - system_ramp
 
 # Number of medoid representative days selected in each seasonal window.
-representative_days_per_period: 1
+representative_days_per_period: 2
 
 # Feature 3: add explicit extreme days after medoid selection.
 # 0 = off, 1 = on
-add_extreme_days: 0
+add_extreme_days: 1
 
 # Extreme-day metrics used when add_extreme_days: 1
 extreme_day_metrics:
   - peak_load
   - peak_net_load
-  - min_wind
-  - min_solar
   - max_ramp
 
 # Feature 5: add refinement days after medoid/extreme selection.
 # 0 = off, 1 = on
-iterative_refinement: 0
+iterative_refinement: 1
 
 # Number of refinement days added in each seasonal window when iterative_refinement: 1
 iterative_refinement_days_per_period: 1
 
 # Feature 6: build chronology-aware linkage metadata for long-duration storage.
 # 0 = off, 1 = on
-link_storage_rep_days: 0
+link_storage_rep_days: 1
 
 # Include load series in joint_daily feature construction.
 include_load: 1
@@ -113,18 +111,18 @@ So this example:
 
 ```yaml
 time_periods:
-  1: [1, 1, 3, 31]
-  2: [4, 1, 6, 30]
-  3: [7, 1, 9, 30]
-  4: [10, 1, 12, 31]
+  1: [3, 20, 6, 20]
+  2: [6, 21, 9, 21]
+  3: [9, 22, 12, 20]
+  4: [12, 21, 3, 19]
 ```
 
 means:
 
-- `1`: January 1 to March 31
-- `2`: April 1 to June 30
-- `3`: July 1 to September 30
-- `4`: October 1 to December 31
+- `1`: March 20 to June 20
+- `2`: June 21 to September 21
+- `3`: September 22 to December 20
+- `4`: December 21 to March 19
 
 In endogenous representative-day mode, HOPE uses these windows like this:
 
@@ -213,9 +211,9 @@ Mapping back to full chronology:
 
 Meaning:
 
-- \(\mathcal{D}_t\): all real days in seasonal window \(t\)
-- \(d_t^*\): the one selected medoid day
-- \(w_t\): the number of original real days represented by that selected day
+- $\mathcal{D}_t$: all real days in seasonal window $t$
+- $d_t^*$: the one selected medoid day
+- $w_t$: the number of original real days represented by that selected day
 
 ![Feature 1 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
 
@@ -372,7 +370,7 @@ w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t|
 
 Meaning:
 
-- \(\mathcal{E}_t\) is the set of explicitly added extreme days
+- $\mathcal{E}_t$ is the set of explicitly added extreme days
 - each extreme day gets weight `1`
 - the medoid keeps the remainder of the original seasonal weight
 
@@ -469,8 +467,8 @@ d_t^* = \arg\min_{d \in \mathcal{D}_t} \left\|\phi(d) - \bar{\phi}_t \right\|^2
 
 Meaning:
 
-- \(\phi(d)\) is the planning-oriented daily feature vector
-- \(\bar{\phi}_t\) is the average planning-oriented feature vector for seasonal window \(t\)
+- $\phi(d)$ is the planning-oriented daily feature vector
+- $\bar{\phi}_t$ is the average planning-oriented feature vector for seasonal window $t$
 - HOPE still maps the full chronology to one selected representative day per season
 - what changes is the feature space used to decide which real day is most representative
 
@@ -567,7 +565,7 @@ w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t| - |\mathcal{R}_t|
 
 Meaning:
 
-- \(\mathcal{R}_t\) is the set of refinement days added after medoid/extreme selection
+- $\mathcal{R}_t$ is the set of refinement days added after medoid/extreme selection
 - each refinement day gets weight `1`
 - the medoid keeps the remaining seasonal weight
 - refinement days are chosen because they are still poorly represented by the current selected set
@@ -680,8 +678,8 @@ Mapping back to full chronology:
 
 Meaning:
 
-- \(\pi(d)\) maps each original real day \(d\) to its assigned representative period \(r\)
-- \(\omega_{r' \rightarrow r}\) is the predecessor weight from representative period \(r'\) into representative period \(r\)
+- $\pi(d)$ maps each original real day $d$ to its assigned representative period $r$
+- $\omega_{r' \rightarrow r}$ is the predecessor weight from representative period $r'$ into representative period $r$
 - long-duration storage uses these transition weights to link SOC across representative periods
 
 Feature 6 also records persistence information. For example, in this MD case:
