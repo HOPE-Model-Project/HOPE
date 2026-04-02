@@ -213,9 +213,9 @@ Mapping back to full chronology:
 
 Meaning:
 
-- `\mathcal{D}_t`: all real days in seasonal window `t`
-- `d_t^*`: the one selected medoid day
-- `w_t`: the number of original real days represented by that selected day
+- \(\mathcal{D}_t\): all real days in seasonal window \(t\)
+- \(d_t^*\): the one selected medoid day
+- \(w_t\): the number of original real days represented by that selected day
 
 ![Feature 1 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
 
@@ -372,7 +372,7 @@ w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t|
 
 Meaning:
 
-- `\mathcal{E}_t` is the set of explicitly added extreme days
+- \(\mathcal{E}_t\) is the set of explicitly added extreme days
 - each extreme day gets weight `1`
 - the medoid keeps the remainder of the original seasonal weight
 
@@ -469,8 +469,8 @@ d_t^* = \arg\min_{d \in \mathcal{D}_t} \left\|\phi(d) - \bar{\phi}_t \right\|^2
 
 Meaning:
 
-- `\phi(d)` is the planning-oriented daily feature vector
-- `\bar{\phi}_t` is the average planning-oriented feature vector for seasonal window `t`
+- \(\phi(d)\) is the planning-oriented daily feature vector
+- \(\bar{\phi}_t\) is the average planning-oriented feature vector for seasonal window \(t\)
 - HOPE still maps the full chronology to one selected representative day per season
 - what changes is the feature space used to decide which real day is most representative
 
@@ -567,7 +567,7 @@ w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t| - |\mathcal{R}_t|
 
 Meaning:
 
-- `\mathcal{R}_t` is the set of refinement days added after medoid/extreme selection
+- \(\mathcal{R}_t\) is the set of refinement days added after medoid/extreme selection
 - each refinement day gets weight `1`
 - the medoid keeps the remaining seasonal weight
 - refinement days are chosen because they are still poorly represented by the current selected set
@@ -680,8 +680,8 @@ Mapping back to full chronology:
 
 Meaning:
 
-- `\pi(d)` maps each original real day `d` to its assigned representative period `r`
-- `\omega_{r' \rightarrow r}` is the predecessor weight from representative period `r'` into representative period `r`
+- \(\pi(d)\) maps each original real day \(d\) to its assigned representative period \(r\)
+- \(\omega_{r' \rightarrow r}\) is the predecessor weight from representative period \(r'\) into representative period \(r\)
 - long-duration storage uses these transition weights to link SOC across representative periods
 
 Feature 6 also records persistence information. For example, in this MD case:
@@ -712,3 +712,23 @@ feature_mode: legacy_column_centroid
 ```
 
 That reproduces the old behavior of building one synthetic centroid day per time period, independently by column.
+
+## References
+
+The current HOPE representative-day design was informed by the following literature and software documentation.
+
+1. Kris Poncelet, Hanspeter Hoschle, Erik Delarue, Ana Virag, and William D'haeseleer, "Selecting Representative Days for Capturing the Implications of Integrating Intermittent Renewables in Generation Expansion Planning Problems," *IEEE Transactions on Power Systems*, 2017. DOI: [10.1109/TPWRS.2016.2596803](https://doi.org/10.1109/TPWRS.2016.2596803)
+
+2. Ian Scott, Pedro M. S. Carvalho, Audun Botterud, and Carlos A. Santos Silva, "Clustering representative days for power systems generation expansion planning: Capturing the effects of variable renewables and energy storage," *Applied Energy*, 2019. DOI: [10.1016/j.apenergy.2019.113603](https://doi.org/10.1016/j.apenergy.2019.113603)
+
+3. Holger Teichgraeber, Lucas Elias Kupper, and Adam R. Brandt, "Designing reliable future energy systems by iteratively including extreme periods in time-series aggregation," *Applied Energy*, 2021. DOI: [10.1016/j.apenergy.2021.117696](https://doi.org/10.1016/j.apenergy.2021.117696)
+
+4. Alvaro Garcia-Cerezo, Luis Baringo, and Raquel Garcia-Bertrand, "Representative Days for Expansion Decisions in Power Systems," *Energies*, 2020. DOI: [10.3390/en13020335](https://doi.org/10.3390/en13020335)
+
+5. "Representative days and hours with piecewise linear transitions for power system planning," *Electric Power Systems Research*, 2024. DOI: [10.1016/j.epsr.2024.110788](https://doi.org/10.1016/j.epsr.2024.110788)
+
+6. Energy Planning Model documentation, "Representative Days." [https://esmap-world-bank-group.github.io/EPM/docs/input_representative_days.html](https://esmap-world-bank-group.github.io/EPM/docs/input_representative_days.html)
+
+7. GenX.jl documentation, "Time-domain Reduction." [https://genxproject.github.io/GenX.jl/stable/Model_Reference/TDR/](https://genxproject.github.io/GenX.jl/stable/Model_Reference/TDR/)
+
+8. PyPSA documentation, "Time Series Aggregation." [https://docs.pypsa.org/stable/examples/time-series-aggregation/](https://docs.pypsa.org/stable/examples/time-series-aggregation/)
