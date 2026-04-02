@@ -35,14 +35,24 @@ The user-facing representative-day feature set is:
 A typical `HOPE_rep_day_settings.yml` starts from:
 
 ```yaml
+# Seasonal windows for endogenous representative-day construction.
+# Format: period_id: [start_month, start_day, end_month, end_day]
 time_periods:
   1: [1, 1, 3, 31]
   2: [4, 1, 6, 30]
   3: [7, 1, 9, 30]
   4: [10, 1, 12, 31]
 
+# Clustering method for representative-day selection.
+# Current supported value for Features 1-6: kmedoids
 clustering_method: kmedoids
+
+# How HOPE builds the daily feature vector before clustering.
+# joint_daily = use aligned hourly load/AF/DR profiles directly
+# planning_features = use compact planning-oriented signals such as net load and ramps
 feature_mode: joint_daily
+
+# Planning-oriented features used when feature_mode: planning_features
 planning_feature_set:
   - zonal_load
   - zonal_net_load
@@ -50,37 +60,46 @@ planning_feature_set:
   - zonal_solar_cf
   - system_net_load
   - system_ramp
+
+# Number of medoid representative days selected in each seasonal window.
 representative_days_per_period: 1
+
+# Feature 3: add explicit extreme days after medoid selection.
+# 0 = off, 1 = on
 add_extreme_days: 0
+
+# Extreme-day metrics used when add_extreme_days: 1
 extreme_day_metrics:
   - peak_load
   - peak_net_load
   - min_wind
   - min_solar
   - max_ramp
+
+# Feature 5: add refinement days after medoid/extreme selection.
+# 0 = off, 1 = on
 iterative_refinement: 0
+
+# Number of refinement days added in each seasonal window when iterative_refinement: 1
 iterative_refinement_days_per_period: 1
+
+# Feature 6: build chronology-aware linkage metadata for long-duration storage.
+# 0 = off, 1 = on
 link_storage_rep_days: 0
+
+# Include load series in joint_daily feature construction.
 include_load: 1
+
+# Include generator availability-factor series in joint_daily feature construction.
 include_af: 1
+
+# Include demand-response series in joint_daily feature construction.
 include_dr: 1
+
+# Standardize feature dimensions before distance calculations.
+# Recommended to keep on unless you intentionally want large-magnitude features to dominate.
 normalize_features: 1
 ```
-
-Meaning:
-
-- `time_periods`: seasonal windows used for endogenous representative-day construction
-- `clustering_method: kmedoids`: select actual observed days instead of synthetic centroids
-- `feature_mode`: choose how HOPE constructs the daily feature vector before clustering
-- `planning_feature_set`: used when `feature_mode: planning_features`
-- `representative_days_per_period`: number of medoid days per seasonal window
-- `add_extreme_days`: turn Feature 3 on or off
-- `extreme_day_metrics`: choose which stress events HOPE adds explicitly
-- `iterative_refinement`: turn Feature 5 on or off
-- `iterative_refinement_days_per_period`: number of extra refinement days HOPE adds after the medoid/extreme selection
-- `link_storage_rep_days`: turn Feature 6 on or off for long-duration storage
-- `include_load`, `include_af`, `include_dr`: used by `feature_mode: joint_daily`
-- `normalize_features: 1`: standardize feature dimensions before distance calculations
 
 ## Understanding `time_periods`
 
@@ -186,6 +205,18 @@ HOPE selects:
 | `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
 | `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
 
+Mapping back to full chronology:
+
+```math
+\mathcal{D}_t \rightarrow d_t^*, \qquad w_t = |\mathcal{D}_t|
+```
+
+Meaning:
+
+- `\mathcal{D}_t`: all real days in seasonal window `t`
+- `d_t^*`: the one selected medoid day
+- `w_t`: the number of original real days represented by that selected day
+
 ![Feature 1 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_example.png)
 
 How to read the figure:
@@ -245,6 +276,19 @@ HOPE selects:
 | `2` | Jun 21 to Sep 21 | Jul 29 | `54` | Aug 15 | `39` |
 | `3` | Sep 22 to Dec 20 | Oct 28 | `38` | Nov 26 | `52` |
 | `4` | Dec 21 to Mar 19 | Jan 28 | `64` | Mar 18 | `25` |
+
+Mapping back to full chronology:
+
+```math
+\mathcal{D}_t \rightarrow \{d_{t,1}^*, \dots, d_{t,k}^*\}, \qquad
+\sum_{j=1}^{k} w_{t,j} = |\mathcal{D}_t|
+```
+
+Meaning:
+
+- HOPE partitions the real days in each seasonal window into `k` clusters
+- each selected medoid day represents one cluster
+- the medoid weight is the number of original days assigned to that cluster
 
 ![Feature 2 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature2.png)
 
@@ -318,6 +362,19 @@ HOPE selects:
 | `2` | Jun 21 to Sep 21 | Sep 17 | `90` | Jun 21 | Sep 10 | Aug 4 |
 | `3` | Sep 22 to Dec 20 | Nov 3 | `87` | Sep 22 | Oct 8 | Dec 5 |
 | `4` | Dec 21 to Mar 19 | Feb 12 | `86` | Jan 1 | Mar 11 | Jan 19 |
+
+Mapping back to full chronology:
+
+```math
+\mathcal{D}_t \rightarrow \{d_t^{medoid}\} \cup \mathcal{E}_t, \qquad
+w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t|
+```
+
+Meaning:
+
+- `\mathcal{E}_t` is the set of explicitly added extreme days
+- each extreme day gets weight `1`
+- the medoid keeps the remainder of the original seasonal weight
 
 ![Feature 3 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature3.png)
 
@@ -404,6 +461,18 @@ HOPE selects:
 | `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
 | `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
 
+Mapping back to full chronology:
+
+```math
+d_t^* = \arg\min_{d \in \mathcal{D}_t} \operatorname{dist}\!\left(\phi(d), \phi(\mathcal{D}_t)\right)
+```
+
+Meaning:
+
+- `\phi(d)` is the planning-oriented daily feature vector
+- HOPE still maps the full chronology to one selected representative day per season
+- what changes is the feature space used to decide which real day is most representative
+
 ![Feature 4 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature4.png)
 
 Compared with Feature 1, the visible change in this example is time period `2`, where the selected representative day shifts from `Aug 31` to `Jul 8`. That happens because Feature 4 is no longer trying to match every raw hourly column equally. Instead, it prioritizes the planning-oriented signals in `planning_feature_set`, such as system net load and ramp behavior.
@@ -486,6 +555,21 @@ HOPE selects:
 | `2` | Jun 21 to Sep 21 | Jul 8 | `89` | Aug 9 | Sep 10 | Aug 4 | Jul 9 |
 | `3` | Sep 22 to Dec 20 | Dec 7 | `86` | Dec 14 | Oct 8 | Dec 5 | Dec 17 |
 | `4` | Dec 21 to Mar 19 | Jan 13 | `85` | Jan 27 | Mar 11 | Jan 19 | Dec 23 |
+
+Mapping back to full chronology:
+
+```math
+\mathcal{D}_t \rightarrow \{d_t^{medoid}\} \cup \mathcal{E}_t \cup \mathcal{R}_t,
+\qquad
+w_t^{medoid} = |\mathcal{D}_t| - |\mathcal{E}_t| - |\mathcal{R}_t|
+```
+
+Meaning:
+
+- `\mathcal{R}_t` is the set of refinement days added after medoid/extreme selection
+- each refinement day gets weight `1`
+- the medoid keeps the remaining seasonal weight
+- refinement days are chosen because they are still poorly represented by the current selected set
 
 ![Feature 5 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature5.png)
 
@@ -583,6 +667,21 @@ For the four medoid representative days, HOPE computes these predecessor pattern
 | `2` | Jul 8 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the spring medoid and the four added stress days |
 | `3` | Dec 7 | `86` | predecessor mix is `94.2%` from itself, plus about `1.2%` each from the summer medoid and the four added stress days |
 | `4` | Jan 13 | `85` | predecessor mix is `94.1%` from itself, plus about `1.2%` each from the fall medoid and the four added stress days |
+
+Mapping back to full chronology:
+
+```math
+\pi(d) = r, \qquad
+\omega_{r' \rightarrow r} =
+\frac{\#\{d : \pi(d_{-1}) = r', \; \pi(d) = r\}}
+{\#\{d : \pi(d) = r\}}
+```
+
+Meaning:
+
+- `\pi(d)` maps each original real day `d` to its assigned representative period `r`
+- `\omega_{r' \rightarrow r}` is the predecessor weight from representative period `r'` into representative period `r`
+- long-duration storage uses these transition weights to link SOC across representative periods
 
 Feature 6 also records persistence information. For example, in this MD case:
 
