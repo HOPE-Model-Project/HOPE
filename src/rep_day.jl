@@ -106,8 +106,8 @@ function row_in_time_period(dates::NTuple{4,Int}, row)
     return row_doy >= start_doy || row_doy <= end_doy
 end
 
-function select_rep_columns(df::DataFrame, requested_cols::Vector{String}; include_ni::Bool=false)
-    cols = [col for col in requested_cols if col in names(df)]
+function select_rep_columns(df::DataFrame, requested_cols; include_ni::Bool=false)
+    cols = [col for col in string.(collect(requested_cols)) if col in names(df)]
     if include_ni && ("NI" in names(df))
         push!(cols, "NI")
     end
@@ -146,7 +146,7 @@ function append_day_block_features!(
     pieces::Vector{Vector{Float64}},
     df::Union{Nothing,DataFrame},
     rows::Vector{Int},
-    cols::Vector{String},
+    cols,
 )
     if df === nothing || isempty(cols)
         return pieces
@@ -162,8 +162,8 @@ function build_joint_daily_feature_matrix(
     afdata::DataFrame,
     drtsdata::Union{Nothing,DataFrame},
     day_blocks,
-    ordered_zone::Vector{String},
-    ordered_gen::Vector{String},
+    ordered_zone,
+    ordered_gen,
     config_set::AbstractDict,
 )
     include_load = parse_rep_day_binary(rep_day_settings_value(config_set, "include_load", 1), "rep_day_settings.include_load")
@@ -207,7 +207,7 @@ function build_joint_daily_feature_matrix(
     return feature_matrix
 end
 
-function legacy_column_centroid_ts(df::DataFrame, time_periods, ordered_cols::Vector{String})
+function legacy_column_centroid_ts(df::DataFrame, time_periods, ordered_cols)
     rep_dat_dict = Dict{Int,DataFrame}()
     ndays_dict = Dict{Int,Int}()
     for (tp, dates) in time_periods
@@ -245,7 +245,7 @@ function get_representative_ts(df, time_periods, ordered_cols, k=1)
     return legacy_column_centroid_ts(df, normalize_time_period_iterable(time_periods), string.(ordered_cols))
 end
 
-function extract_rep_block(df::DataFrame, rows::Vector{Int}, ordered_cols::Vector{String}; include_ni::Bool=false, add_hour::Bool=false)
+function extract_rep_block(df::DataFrame, rows::Vector{Int}, ordered_cols; include_ni::Bool=false, add_hour::Bool=false)
     selected_cols = select_rep_columns(df, ordered_cols; include_ni=include_ni)
     rep_df = select(df[rows, :], selected_cols)
     if add_hour
@@ -280,8 +280,8 @@ time period from a joint daily feature matrix.
 function build_endogenous_rep_periods(
     loaddata::DataFrame,
     afdata::DataFrame,
-    ordered_zone::Vector{String},
-    ordered_gen::Vector{String},
+    ordered_zone,
+    ordered_gen,
     config_set::AbstractDict;
     drtsdata::Union{Nothing,DataFrame}=nothing,
 )

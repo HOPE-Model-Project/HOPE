@@ -28,8 +28,6 @@ Phase 1 improves the old endogenous representative-day process in two ways:
 
 This means load and VRE are now taken from the same real day, which preserves cross-series consistency better than the legacy centroid construction.
 
-![Phase 1 representative day mapping](assets/rep_day_phase1_mapping.svg)
-
 ## Recommended `HOPE_rep_day_settings.yml`
 
 ```yaml
@@ -54,6 +52,66 @@ Meaning:
 - `feature_mode: joint_daily`: cluster one combined daily feature vector, not each column independently
 - `include_load`, `include_af`, `include_dr`: control which data streams enter the feature vector
 - `normalize_features: 1`: standardize feature dimensions before distance calculations
+
+## Understanding `time_periods`
+
+Each `time_periods` entry uses the format:
+
+```yaml
+period_id: [start_month, start_day, end_month, end_day]
+```
+
+So the example above means:
+
+- `1: [1, 1, 3, 31]` means January 1 to March 31
+- `2: [4, 1, 6, 30]` means April 1 to June 30
+- `3: [7, 1, 9, 30]` means July 1 to September 30
+- `4: [10, 1, 12, 31]` means October 1 to December 31
+
+In endogenous representative-day mode, HOPE uses these windows like this:
+
+1. collect all full-chronology days that fall inside each window
+2. build one daily feature vector for each real day in that window
+3. choose the representative day from only that window
+4. assign the selected representative day a weight equal to the number of real days in that window
+
+So `time_periods` does not define optimization hours directly. It defines the seasonal buckets inside which HOPE searches for representative days.
+
+Year-wrapping windows are also supported. For example:
+
+```yaml
+time_periods:
+  1: [11, 1, 2, 28]
+```
+
+means November 1 through February 28.
+
+## Concrete Example
+
+Using the existing case `MD_GTEP_clean_case`, with its seasonal windows:
+
+```yaml
+time_periods:
+  1: [3, 20, 6, 20]
+  2: [6, 21, 9, 21]
+  3: [9, 22, 12, 20]
+  4: [12, 21, 3, 19]
+```
+
+HOPE Phase 1 selected these actual representative days:
+
+| Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
+| :-- | :-- | :-- | :-- |
+| `1` | Mar 20 to Jun 20 | May 19 | `93` |
+| `2` | Jun 21 to Sep 21 | Aug 31 | `93` |
+| `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
+| `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
+
+So for this case, HOPE reduces the full year to 4 representative days, but each representative day is an actual observed day from the corresponding seasonal window. For example:
+
+- all days from March 20 to June 20 are compared in the joint feature space
+- HOPE selects May 19 as the medoid day for that window
+- that selected day gets weight `93`, meaning it represents 93 real days in the model objective and annual accounting
 
 ## Legacy Compatibility
 
