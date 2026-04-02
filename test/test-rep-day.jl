@@ -130,6 +130,33 @@ normalize_features: 1
     @test any(profile == multi_load[1:24, "Z1"] for profile in rep_profiles)
     @test any(profile == multi_load[49:72, "Z1"] for profile in rep_profiles)
 
+    linked_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 4]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "joint_daily",
+            "representative_days_per_period" => 2,
+            "link_storage_rep_days" => 1,
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    rep_linked = HOPE.build_endogenous_rep_periods(multi_load, multi_af, ["Z1"], ["G1"], linked_config)
+    linkage = rep_linked["storage_linkage"]
+    @test linkage !== nothing
+    @test nrow(linkage["day_assignments"]) == 4
+    @test sort(linkage["day_assignments"][!, "RepresentativePeriod"]) == [1, 1, 2, 2]
+    @test sort(linkage["predecessors"][1]) == [1, 2]
+    @test sort(linkage["predecessors"][2]) == [1, 2]
+    @test linkage["predecessor_weight"][(1, 1)] ≈ 0.5
+    @test linkage["predecessor_weight"][(2, 1)] ≈ 0.5
+    @test linkage["predecessor_weight"][(1, 2)] ≈ 0.5
+    @test linkage["predecessor_weight"][(2, 2)] ≈ 0.5
+    run_stats = linkage["run_stats"]
+    @test all(run_stats[!, "MaxRunLength"] .== 2)
+
     planning_load, planning_af = build_three_day_timeseries()
     planning_af[!, "G2"] = vcat(fill(0.0, 24), fill(1.0, 24), fill(0.0, 24))
     planning_config = Dict{String,Any}(

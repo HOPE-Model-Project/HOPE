@@ -13,6 +13,7 @@ OUT_FEATURE2 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature2.png"
 OUT_FEATURE3 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature3.png"
 OUT_FEATURE4 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature4.png"
 OUT_FEATURE5 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature5.png"
+OUT_FEATURE6 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature6.png"
 GENDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata.csv"
 GENDATA_CAND = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata_candidate.csv"
 AFDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gen_availability_timeseries.csv"
@@ -50,6 +51,13 @@ TIME_PERIODS_FEATURE5 = {
     2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((7, 8), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1), "refinement": ((7, 9), 1)}),
     3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((12, 7), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1), "refinement": ((12, 17), 1)}),
     4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((1, 13), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1), "refinement": ((12, 23), 1)}),
+}
+
+TIME_PERIODS_FEATURE6 = {
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", {"medoid": ((5, 27), 89), "peak_load": ((6, 17), 1), "peak_net_load": ((4, 1), 1), "max_ramp": ((4, 11), 1), "refinement": ((5, 29), 1)}, "Medoid predecessors:\nself 94.4%, winter medoid 1.1%\nadded days 4 x 1.1%"),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", {"medoid": ((7, 8), 89), "peak_load": ((8, 9), 1), "peak_net_load": ((9, 10), 1), "max_ramp": ((8, 4), 1), "refinement": ((7, 9), 1)}, "Medoid predecessors:\nself 94.4%, spring medoid 1.1%\nadded days 4 x 1.1%"),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", {"medoid": ((12, 7), 86), "peak_load": ((12, 14), 1), "peak_net_load": ((10, 8), 1), "max_ramp": ((12, 5), 1), "refinement": ((12, 17), 1)}, "Medoid predecessors:\nself 94.2%, summer medoid 1.2%\nadded days 4 x 1.2%"),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((1, 13), 85), "peak_load": ((1, 27), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1), "refinement": ((12, 23), 1)}, "Medoid predecessors:\nself 94.1%, fall medoid 1.2%\nadded days 4 x 1.2%"),
 }
 
 
@@ -504,6 +512,62 @@ def plot_feature5(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def plot_feature6(df: pd.DataFrame) -> None:
+    colors = {
+        "medoid": "#2a5b84",
+        "peak_load": "#c84b31",
+        "peak_net_load": "#3f8f5a",
+        "max_ramp": "#d98f2b",
+        "refinement": "#7b5ea7",
+    }
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10.5, 6.7), constrained_layout=True)
+    fig.suptitle(
+        "Feature 6: Linked Representative Days for Storage in MD_GTEP_clean_case\n"
+        "Long-duration storage uses actual day-to-representative mapping to build predecessor weights",
+        fontsize=14.3,
+        fontweight="bold",
+    )
+
+    for ax, period in zip(axes.flatten(), [1, 2, 3, 4]):
+        spec = TIME_PERIODS_FEATURE6[period]
+        season = df[df.apply(lambda r: in_window(int(r["Month"]), int(r["Day"]), spec), axis=1)].copy()
+        daily = season.groupby(["Month", "Day"], sort=False)["system_load"].sum().reset_index()
+        daily["season_day_idx"] = range(1, len(daily) + 1)
+        daily["assigned"] = "medoid"
+        for key in ["peak_load", "peak_net_load", "max_ramp", "refinement"]:
+            month, day = spec[5][key][0]
+            daily.loc[(daily["Month"] == month) & (daily["Day"] == day), "assigned"] = key
+
+        ax.plot(daily["season_day_idx"], [0.5] * len(daily), color="#d8dfe5", lw=10, solid_capstyle="butt", zorder=1)
+        for key, color in colors.items():
+            mask = daily["assigned"] == key
+            if mask.any():
+                ax.scatter(daily.loc[mask, "season_day_idx"], [0.5] * mask.sum(), s=58, color=color, marker="s", zorder=3)
+
+        medoid_month, medoid_day = spec[5]["medoid"][0]
+        medoid_row = daily[(daily["Month"] == medoid_month) & (daily["Day"] == medoid_day)].iloc[0]
+        ax.axvline(medoid_row["season_day_idx"], color=colors["medoid"], lw=1.2, ls="--", alpha=0.75)
+        ax.set_title(f"Period {period}: {spec[4]}", fontsize=11, loc="left")
+        ax.set_xlim(0, len(daily) + 1)
+        ax.set_ylim(0.1, 0.9)
+        ax.set_yticks([])
+        ax.grid(axis="x", alpha=0.12)
+        ax.set_xlabel("Day index in seasonal window", fontsize=9)
+        ax.text(
+            0.98,
+            0.94,
+            spec[6],
+            ha="right",
+            va="top",
+            transform=ax.transAxes,
+            fontsize=8.1,
+            bbox=dict(boxstyle="round,pad=0.24", fc="#ffffff", ec="#d8dfe5"),
+        )
+
+    fig.savefig(OUT_FEATURE6, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     df = prepare_load_df()
     plot_feature1(df)
@@ -511,11 +575,13 @@ def main() -> None:
     plot_feature3(df)
     plot_feature4(df)
     plot_feature5(df)
+    plot_feature6(df)
     print(OUT_FEATURE1)
     print(OUT_FEATURE2)
     print(OUT_FEATURE3)
     print(OUT_FEATURE4)
     print(OUT_FEATURE5)
+    print(OUT_FEATURE6)
 
 
 if __name__ == "__main__":

@@ -241,6 +241,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		# - external_rep_day=1: use user-provided representative periods + weights
 		N_external = Dict{Int,Float64}()
 		rep_period_data = nothing
+		storage_linkage = nothing
 		if representative_day_mode == 1
 			if external_rep_day == 1
 				if !haskey(input_data, "RepWeightData")
@@ -301,6 +302,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
                 )
 				Load_rep = rep_period_data["Load_rep"]
 				AF_rep = rep_period_data["AF_rep"]
+				storage_linkage = get(rep_period_data, "storage_linkage", nothing)
 				if flexible_demand == 1
 					DR_rep = rep_period_data["DR_rep"]
 				end
@@ -762,13 +764,29 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			SDBe_ed_con=@constraint(model, [t in T, s in S_SD_exist], soc[s,H_t[t][end]] == alpha_storage_anchor * SECAP[s],base_name = "SDBe_ed_con")
 			SDBn_st_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][1]] == alpha_storage_anchor * z[s]*SECAP[s],base_name = "SDBn_st_con" )
 			SDBn_ed_con=@constraint(model, [t in T, s in S_SD_new], soc[s,H_t[t][end]] == alpha_storage_anchor * z[s]*SECAP[s],base_name = "SDBn_ed_con")
-			T_first = T[1]
-			T_last = T[end]
-			T_follow = length(T) > 1 ? T[2:end] : Int[]
-			SDBe_ld_wrap_con=@constraint(model, [s in S_LD_exist], soc[s,H_t[T_first][1]] == soc[s,H_t[T_last][end]] + e_ch[s]*c[s,H_t[T_first][1]] - dc[s,H_t[T_first][1]]/e_dis[s], base_name = "SDBe_ld_wrap_con")
-			SDBe_ld_link_con=@constraint(model, [t in T_follow, s in S_LD_exist], soc[s,H_t[t][1]] == soc[s,H_t[t-1][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s], base_name = "SDBe_ld_link_con")
-			SDBn_ld_wrap_con=@constraint(model, [s in S_LD_new], soc[s,H_t[T_first][1]] == soc[s,H_t[T_last][end]] + e_ch[s]*c[s,H_t[T_first][1]] - dc[s,H_t[T_first][1]]/e_dis[s], base_name = "SDBn_ld_wrap_con")
-			SDBn_ld_link_con=@constraint(model, [t in T_follow, s in S_LD_new], soc[s,H_t[t][1]] == soc[s,H_t[t-1][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s], base_name = "SDBn_ld_link_con")
+			use_storage_linkage = storage_linkage !== nothing && haskey(storage_linkage, "predecessors") && !isempty(storage_linkage["predecessors"])
+			if use_storage_linkage
+				storage_predecessors = storage_linkage["predecessors"]
+				storage_predecessor_weight = storage_linkage["predecessor_weight"]
+				SDBe_ld_linked_con=@constraint(model, [t in T, s in S_LD_exist],
+					soc[s,H_t[t][1]] ==
+					sum(storage_predecessor_weight[(tp,t)] * soc[s,H_t[tp][end]] for tp in storage_predecessors[t]) +
+					e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s],
+					base_name = "SDBe_ld_linked_con")
+				SDBn_ld_linked_con=@constraint(model, [t in T, s in S_LD_new],
+					soc[s,H_t[t][1]] ==
+					sum(storage_predecessor_weight[(tp,t)] * soc[s,H_t[tp][end]] for tp in storage_predecessors[t]) +
+					e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s],
+					base_name = "SDBn_ld_linked_con")
+			else
+				T_first = T[1]
+				T_last = T[end]
+				T_follow = length(T) > 1 ? T[2:end] : Int[]
+				SDBe_ld_wrap_con=@constraint(model, [s in S_LD_exist], soc[s,H_t[T_first][1]] == soc[s,H_t[T_last][end]] + e_ch[s]*c[s,H_t[T_first][1]] - dc[s,H_t[T_first][1]]/e_dis[s], base_name = "SDBe_ld_wrap_con")
+				SDBe_ld_link_con=@constraint(model, [t in T_follow, s in S_LD_exist], soc[s,H_t[t][1]] == soc[s,H_t[t-1][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s], base_name = "SDBe_ld_link_con")
+				SDBn_ld_wrap_con=@constraint(model, [s in S_LD_new], soc[s,H_t[T_first][1]] == soc[s,H_t[T_last][end]] + e_ch[s]*c[s,H_t[T_first][1]] - dc[s,H_t[T_first][1]]/e_dis[s], base_name = "SDBn_ld_wrap_con")
+				SDBn_ld_link_con=@constraint(model, [t in T_follow, s in S_LD_new], soc[s,H_t[t][1]] == soc[s,H_t[t-1][end]] + e_ch[s]*c[s,H_t[t][1]] - dc[s,H_t[t][1]]/e_dis[s], base_name = "SDBn_ld_link_con")
+			end
 		end
 
 		

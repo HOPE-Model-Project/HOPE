@@ -60,6 +60,7 @@ extreme_day_metrics:
   - max_ramp
 iterative_refinement: 0
 iterative_refinement_days_per_period: 1
+link_storage_rep_days: 0
 include_load: 1
 include_af: 1
 include_dr: 1
@@ -77,6 +78,7 @@ Meaning:
 - `extreme_day_metrics`: choose which stress events HOPE adds explicitly
 - `iterative_refinement`: turn Feature 5 on or off
 - `iterative_refinement_days_per_period`: number of extra refinement days HOPE adds after the medoid/extreme selection
+- `link_storage_rep_days`: turn Feature 6 on or off for long-duration storage
 - `include_load`, `include_af`, `include_dr`: used by `feature_mode: joint_daily`
 - `normalize_features: 1`: standardize feature dimensions before distance calculations
 
@@ -495,13 +497,109 @@ How to read the figure:
 - purple marker: the added refinement day
 - the refinement day is chosen because it still has the largest remaining mismatch relative to the already selected representative-day set
 
-## Future Features
+## Feature 6: Linked Representative Days for Storage
 
-The next planned representative-day feature is:
+### Focus
 
-- `Feature 6: Linked Representative Days for Storage`
+Feature 6 improves how long-duration storage sees time.
 
-This is not implemented yet. The goal is to preserve more chronology linkage for storage across representative periods.
+The earlier representative-day features improve which days are selected. Feature 6 improves how those selected days are connected, so long-duration storage is no longer forced to move only through a simple `t-1` sequence.
+
+### Mechanism
+
+When:
+
+```yaml
+link_storage_rep_days: 1
+```
+
+HOPE extends the endogenous representative-day preprocessing with storage-linkage metadata:
+
+1. each real day in the full chronology is mapped to one selected representative period
+2. HOPE records the actual chronological sequence of those assigned representative periods over the year
+3. HOPE builds predecessor weights for each representative period from the observed day-to-day transitions
+4. HOPE also records run-length statistics for each representative period
+5. in GTEP representative-day mode, long-duration storage uses those predecessor weights in the SOC linkage constraints
+
+So the input-processing improvement is important here. Feature 6 is not only a constraint change. It also creates new chronology metadata from the original full-year daily sequence.
+
+In the current implementation:
+
+- short-duration storage still uses the existing start/end anchor logic
+- long-duration storage uses weighted predecessor linkage derived from the actual representative-day assignment map
+
+### Interpretation
+
+Feature 6 should be interpreted as:
+
+- a chronology-aware upgrade for long-duration storage
+- a better approximation of seasonal carryover than a simple fixed `t-1` ordering
+- a way to preserve some persistence and recurrence information from the original year without returning to full 8760 modeling
+
+The key idea is that a representative day can now mostly follow itself, but still receive small transition weights from rare stress days and from the previous seasonal medoid when the real calendar sequence says that happens.
+
+### Recommendation
+
+Use Feature 6 when:
+
+- long-duration storage or pumped storage matters materially
+- seasonal energy shifting is important
+- you already use representative days but want a more realistic SOC linkage for storage
+- the simple inter-period `t-1` linkage feels too artificial
+
+This is especially useful when combined with Features 4 and 5, because then both the selected representative days and the storage chronology linkage are planning-focused.
+
+### Example
+
+Using `MD_GTEP_clean_case`, with:
+
+```yaml
+feature_mode: planning_features
+planning_feature_set:
+  - zonal_load
+  - zonal_net_load
+  - zonal_wind_cf
+  - zonal_solar_cf
+  - system_net_load
+  - system_ramp
+representative_days_per_period: 1
+add_extreme_days: 1
+extreme_day_metrics:
+  - peak_load
+  - peak_net_load
+  - max_ramp
+iterative_refinement: 1
+iterative_refinement_days_per_period: 1
+link_storage_rep_days: 1
+```
+
+HOPE keeps the same selected representative days as Feature 5, but now adds storage-linkage metadata from the actual mapped day sequence.
+
+For the four medoid representative days, HOPE computes these predecessor patterns for long-duration storage:
+
+| Time Period | Medoid Day | Weight | Example Storage-Link Interpretation |
+| :-- | :-- | :-- | :-- |
+| `1` | May 27 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the winter medoid and the four added stress days |
+| `2` | Jul 8 | `89` | predecessor mix is `94.4%` from itself, plus about `1.1%` each from the spring medoid and the four added stress days |
+| `3` | Dec 7 | `86` | predecessor mix is `94.2%` from itself, plus about `1.2%` each from the summer medoid and the four added stress days |
+| `4` | Jan 13 | `85` | predecessor mix is `94.1%` from itself, plus about `1.2%` each from the fall medoid and the four added stress days |
+
+Feature 6 also records persistence information. For example, in this MD case:
+
+- period 1 medoid `May 27` appears in `5` chronology runs
+- its average run length is `17.8` days
+- its maximum run length is `47` days
+
+That kind of information is exactly what the simple old representative-day ordering could not capture well for long-duration storage.
+
+![Feature 6 representative-day linkage in MD_GTEP_clean_case](assets/rep_day_md_case_feature6.png)
+
+How to read the figure:
+
+- each square is one real day in the seasonal window
+- blue squares are days assigned to the medoid representative day
+- red, green, orange, and purple squares are the explicitly added peak-load, peak-net-load, max-ramp, and refinement days
+- long-duration storage uses the observed chronology of these assignments to build predecessor weights between representative periods
 
 ## Legacy Compatibility
 

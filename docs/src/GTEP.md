@@ -193,7 +193,8 @@ Storage chronology depends on time structure:
 - Full-year mode (`endogenous_rep_day = 0` and `external_rep_day = 0`): cyclic SOC wrap from hour 8760 to hour 1.
 - Representative-day mode (`endogenous_rep_day = 1` or `external_rep_day = 1`):
   - Short-duration storage ($S^{SD}$) uses start/end anchor $\alpha^{anchor}_{s,t}$ (`alpha_storage_anchor[s,t]` in code).
-  - Long-duration storage ($S^{LD}$) links SOC across representative periods with wrap from last period to first.
+  - Long-duration storage ($S^{LD}$) links SOC across representative periods.
+  - With Feature 6 (`link_storage_rep_days = 1` in `HOPE_rep_day_settings.yml`), endogenous representative-day mode uses predecessor weights derived from the real day-to-representative mapping rather than a simple fixed `t-1` ordering.
 
 ### 6. [GTEP-C6] Planning reserve adequacy
 

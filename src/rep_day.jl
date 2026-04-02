@@ -17,6 +17,7 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
         "extreme_day_metrics" => ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
         "iterative_refinement" => 0,
         "iterative_refinement_days_per_period" => 1,
+        "link_storage_rep_days" => 0,
         "include_load" => 1,
         "include_af" => 1,
         "include_dr" => 1,
@@ -657,6 +658,73 @@ function select_iterative_refinement_days(
     return refinement
 end
 
+function build_storage_rep_linkage(day_assignments::DataFrame)
+    if nrow(day_assignments) == 0
+        return Dict(
+            "day_assignments" => DataFrame(),
+            "transition_table" => DataFrame(PredecessorRepresentativePeriod=Int[], RepresentativePeriod=Int[], Count=Int[], Weight=Float64[]),
+            "predecessors" => Dict{Int,Vector{Int}}(),
+            "predecessor_weight" => Dict{Tuple{Int,Int},Float64}(),
+            "run_stats" => DataFrame(RepresentativePeriod=Int[], NumRuns=Int[], AverageRunLength=Float64[], MaxRunLength=Int[]),
+        )
+    end
+
+    sorted_assignments = sort(copy(day_assignments), [:DayOfYear, :TimePeriod, :Month, :Day])
+    reps = Int.(sorted_assignments[:, "RepresentativePeriod"])
+    unique_reps = sort(unique(reps))
+
+    transition_counts = Dict{Tuple{Int,Int},Int}()
+    for idx in eachindex(reps)
+        prev_rep = reps[idx == 1 ? end : idx - 1]
+        curr_rep = reps[idx]
+        transition_counts[(prev_rep, curr_rep)] = get(transition_counts, (prev_rep, curr_rep), 0) + 1
+    end
+
+    transition_rows = NamedTuple{(:PredecessorRepresentativePeriod, :RepresentativePeriod, :Count, :Weight),Tuple{Int,Int,Int,Float64}}[]
+    predecessors = Dict{Int,Vector{Int}}()
+    predecessor_weight = Dict{Tuple{Int,Int},Float64}()
+    for rep in unique_reps
+        incoming = [(prev, cnt) for ((prev, curr), cnt) in transition_counts if curr == rep]
+        sort!(incoming; by=first)
+        total_incoming = sum(cnt for (_, cnt) in incoming)
+        predecessors[rep] = Int[prev for (prev, _) in incoming]
+        for (prev, cnt) in incoming
+            weight = total_incoming > 0 ? cnt / total_incoming : 0.0
+            predecessor_weight[(prev, rep)] = weight
+            push!(transition_rows, (prev, rep, cnt, weight))
+        end
+    end
+
+    run_rows = NamedTuple{(:RepresentativePeriod, :NumRuns, :AverageRunLength, :MaxRunLength),Tuple{Int,Int,Float64,Int}}[]
+    run_lengths = Dict{Int,Vector{Int}}()
+    current_rep = reps[1]
+    current_len = 1
+    for idx in 2:length(reps)
+        if reps[idx] == current_rep
+            current_len += 1
+        else
+            push!(get!(run_lengths, current_rep, Int[]), current_len)
+            current_rep = reps[idx]
+            current_len = 1
+        end
+    end
+    push!(get!(run_lengths, current_rep, Int[]), current_len)
+    for rep in unique_reps
+        lengths = get(run_lengths, rep, Int[])
+        avg_len = isempty(lengths) ? 0.0 : mean(lengths)
+        max_len = isempty(lengths) ? 0 : maximum(lengths)
+        push!(run_rows, (rep, length(lengths), avg_len, max_len))
+    end
+
+    return Dict(
+        "day_assignments" => sorted_assignments,
+        "transition_table" => DataFrame(transition_rows),
+        "predecessors" => predecessors,
+        "predecessor_weight" => predecessor_weight,
+        "run_stats" => DataFrame(run_rows),
+    )
+end
+
 """
     build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=nothing)
 
@@ -687,6 +755,14 @@ function build_endogenous_rep_periods(
     af_rep = Dict{Int,DataFrame}()
     dr_rep = drtsdata === nothing ? nothing : Dict{Int,DataFrame}()
     ndays = Dict{Int,Float64}()
+    day_assignments = DataFrame(
+        TimePeriod = Int[],
+        Month = Int[],
+        Day = Int[],
+        DayOfYear = Int[],
+        RepresentativePeriod = Int[],
+        AssignmentType = String[],
+    )
     metadata = DataFrame(
         RepresentativePeriod = Int[],
         TimePeriod = Int[],
@@ -709,6 +785,7 @@ function build_endogenous_rep_periods(
         rep_day_settings_value(config_set, "iterative_refinement_days_per_period", 1),
         "rep_day_settings.iterative_refinement_days_per_period",
     )
+    link_storage_rep_days = parse_rep_day_binary(rep_day_settings_value(config_set, "link_storage_rep_days", 0), "rep_day_settings.link_storage_rep_days")
 
     for (tp, dates) in rep_time_periods
         blocks = collect_day_blocks(loaddata, dates)
@@ -787,6 +864,9 @@ function build_endogenous_rep_periods(
         selected_indices = vcat(medoid_indices, first.(augmented_extremes))
         refinement_days = iterative_refinement == 1 ? select_iterative_refinement_days(feature_matrix, assignments, cluster_counts, selected_indices, iterative_refinement_days) : Tuple{Int,Float64}[]
         rep_ids = Int[]
+        medoid_rep_id_map = Dict{Int,Int}()
+        extreme_rep_id_map = Dict{Int,Int}()
+        refinement_rep_id_map = Dict{Int,Int}()
         for (local_idx, block_idx) in enumerate(medoid_indices)
             selected_block = blocks[block_idx]
             load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
@@ -796,6 +876,7 @@ function build_endogenous_rep_periods(
             end
             ndays[rep_period_id] = cluster_counts[local_idx]
             push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, "cluster_medoid", "", 0.0))
+            medoid_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
@@ -808,6 +889,7 @@ function build_endogenous_rep_periods(
             end
             ndays[rep_period_id] = 1.0
             push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], extreme_method_label, "extreme_day", metric, 0.0))
+            extreme_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
@@ -820,18 +902,47 @@ function build_endogenous_rep_periods(
             end
             ndays[rep_period_id] = 1.0
             push!(metadata, (rep_period_id, tp, k_eff + length(augmented_extremes) + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], refinement_method_label, "refinement_day", "", score))
+            refinement_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
+        for (block_idx, block) in enumerate(blocks)
+            assigned_rep = 0
+            assignment_type = "cluster_member"
+            if haskey(extreme_rep_id_map, block_idx)
+                assigned_rep = extreme_rep_id_map[block_idx]
+                assignment_type = "extreme_day"
+            elseif haskey(refinement_rep_id_map, block_idx)
+                assigned_rep = refinement_rep_id_map[block_idx]
+                assignment_type = "refinement_day"
+            else
+                assigned_rep = medoid_rep_id_map[medoid_indices[assignments[block_idx]]]
+                if haskey(medoid_rep_id_map, block_idx)
+                    assignment_type = "cluster_medoid"
+                end
+            end
+            push!(day_assignments, (
+                tp,
+                block.key[1],
+                block.key[2],
+                day_of_year_no_leap(block.key[1], block.key[2]),
+                assigned_rep,
+                assignment_type,
+            ))
+        end
         rep_period_ids_by_time_period[tp] = rep_ids
     end
+
+    storage_linkage = link_storage_rep_days == 1 ? build_storage_rep_linkage(day_assignments) : nothing
 
     return Dict(
         "Load_rep" => load_rep,
         "AF_rep" => af_rep,
         "DR_rep" => dr_rep,
         "N" => ndays,
+        "day_assignments" => day_assignments,
         "metadata" => metadata,
+        "storage_linkage" => storage_linkage,
         "time_periods" => rep_time_periods,
         "T" => sort(collect(keys(ndays))),
         "representative_days_per_period" => rep_days_per_period,
