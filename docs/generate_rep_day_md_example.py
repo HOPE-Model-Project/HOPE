@@ -11,6 +11,10 @@ CASE = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "load_timese
 OUT_FEATURE1 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_example.png"
 OUT_FEATURE2 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature2.png"
 OUT_FEATURE3 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature3.png"
+OUT_FEATURE4 = ROOT / "docs" / "src" / "assets" / "rep_day_md_case_feature4.png"
+GENDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata.csv"
+GENDATA_CAND = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gendata_candidate.csv"
+AFDATA = ROOT / "ModelCases" / "MD_GTEP_clean_case" / "Data_100RPS" / "gen_availability_timeseries.csv"
 
 TIME_PERIODS = {
     1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 19), 93),
@@ -33,6 +37,13 @@ TIME_PERIODS_FEATURE3 = {
     4: (12, 21, 3, 19, "Dec 21 to Mar 19", {"medoid": ((2, 12), 86), "peak_load": ((1, 1), 1), "peak_net_load": ((3, 11), 1), "max_ramp": ((1, 19), 1)}),
 }
 
+TIME_PERIODS_FEATURE4 = {
+    1: (3, 20, 6, 20, "Mar 20 to Jun 20", (5, 27), 93),
+    2: (6, 21, 9, 21, "Jun 21 to Sep 21", (7, 8), 93),
+    3: (9, 22, 12, 20, "Sep 22 to Dec 20", (12, 7), 90),
+    4: (12, 21, 3, 19, "Dec 21 to Mar 19", (1, 13), 89),
+}
+
 
 def day_of_year(month: int, day: int) -> int:
     return pd.Timestamp(year=2021, month=month, day=day).dayofyear
@@ -53,6 +64,59 @@ def prepare_load_df() -> pd.DataFrame:
     zone_cols = [c for c in df.columns if c not in {"Time Period", "Month", "Day", "Hours", "NI"}]
     df["system_load"] = df[zone_cols].sum(axis=1)
     return df
+
+
+def prepare_feature4_daily_metrics() -> pd.DataFrame:
+    load_df = pd.read_csv(CASE)
+    af_df = pd.read_csv(AFDATA)
+    gen_existing = pd.read_csv(GENDATA)
+    gen_candidate = pd.read_csv(GENDATA_CAND)
+    gen_df = pd.concat([gen_existing, gen_candidate], ignore_index=True)
+    zone_cols = [c for c in load_df.columns if c not in {"Time Period", "Month", "Day", "Hours", "NI"}]
+
+    wind_zone_map = {z: [] for z in zone_cols}
+    solar_zone_map = {z: [] for z in zone_cols}
+    for idx, row in gen_df.iterrows():
+        col = f"G{idx + 1}"
+        if col not in af_df.columns:
+            continue
+        zone = str(row["Zone"])
+        tech = str(row["Type"]).strip().lower()
+        pmax = float(row["Pmax (MW)"])
+        if zone not in wind_zone_map:
+            continue
+        if tech in {"windon", "windoff"}:
+            wind_zone_map[zone].append((col, pmax))
+        elif tech == "solarpv":
+            solar_zone_map[zone].append((col, pmax))
+
+    rows = []
+    for (month, day), block in load_df.groupby(["Month", "Day"], sort=False):
+        system_load_hourly = block[zone_cols].sum(axis=1).to_numpy()
+        ni = block["NI"].to_numpy() if "NI" in block.columns else 0.0
+        system_wind = 0.0 * system_load_hourly
+        system_solar = 0.0 * system_load_hourly
+        for zone in zone_cols:
+            if wind_zone_map[zone]:
+                cols, weights = zip(*wind_zone_map[zone])
+                weights = pd.Series(weights, dtype=float).to_numpy()
+                system_wind += af_df.loc[block.index, list(cols)].to_numpy() @ (weights / weights.sum())
+            if solar_zone_map[zone]:
+                cols, weights = zip(*solar_zone_map[zone])
+                weights = pd.Series(weights, dtype=float).to_numpy()
+                system_solar += af_df.loc[block.index, list(cols)].to_numpy() @ (weights / weights.sum())
+        system_net = system_load_hourly - ni - system_wind - system_solar
+        system_ramp = pd.Series(system_net).diff().fillna(0.0).to_numpy()
+        rows.append(
+            {
+                "Month": int(month),
+                "Day": int(day),
+                "peak_system_load": float(system_load_hourly.max()),
+                "peak_system_net_load": float(system_net.max()),
+                "max_system_ramp": float(system_ramp.max()),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def plot_feature1(df: pd.DataFrame) -> None:
@@ -322,14 +386,58 @@ def plot_feature3(df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def plot_feature4(df: pd.DataFrame) -> None:
+    daily_metrics = prepare_feature4_daily_metrics()
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10.5, 6.9), constrained_layout=True)
+    fig.suptitle(
+        "Feature 4: Planning-Focused Feature Engineering in MD_GTEP_clean_case\n"
+        "Clustering uses compact planning signals instead of raw hourly generator columns",
+        fontsize=14.5,
+        fontweight="bold",
+    )
+
+    for ax, period in zip(axes.flatten(), [1, 2, 3, 4]):
+        spec = TIME_PERIODS_FEATURE4[period]
+        selected_month, selected_day = spec[5]
+        season = daily_metrics[daily_metrics.apply(lambda r: in_window(int(r["Month"]), int(r["Day"]), spec), axis=1)].copy()
+        season["season_day_idx"] = range(1, len(season) + 1)
+        selected = season[(season["Month"] == selected_month) & (season["Day"] == selected_day)].iloc[0]
+
+        ax.plot(season["season_day_idx"], season["peak_system_load"], color="#c8d0d8", lw=1.5, label="Peak system load")
+        ax.plot(season["season_day_idx"], season["peak_system_net_load"], color="#2a5b84", lw=1.7, label="Peak system net load")
+        ax.plot(season["season_day_idx"], season["max_system_ramp"], color="#d98f2b", lw=1.4, label="Max system ramp")
+        ax.axvline(selected["season_day_idx"], color="#c84b31", lw=1.5, ls="--")
+        ax.scatter([selected["season_day_idx"]], [selected["peak_system_net_load"]], s=60, color="#c84b31", zorder=4)
+        ax.set_title(f"Period {period}: {spec[4]}", fontsize=11, loc="left")
+        ax.grid(alpha=0.18)
+        ax.text(
+            0.98,
+            0.96,
+            f"Selected: {selected_month}/{selected_day}\nWeight = {spec[6]}",
+            ha="right",
+            va="top",
+            transform=ax.transAxes,
+            fontsize=8.4,
+            bbox=dict(boxstyle="round,pad=0.25", fc="#ffffff", ec="#d8dfe5"),
+        )
+        ax.set_ylabel("MW", fontsize=9)
+        ax.set_xlabel("Day index in seasonal window", fontsize=9)
+        ax.legend(loc="lower left", fontsize=7.4, frameon=True)
+
+    fig.savefig(OUT_FEATURE4, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     df = prepare_load_df()
     plot_feature1(df)
     plot_feature2(df)
     plot_feature3(df)
+    plot_feature4(df)
     print(OUT_FEATURE1)
     print(OUT_FEATURE2)
     print(OUT_FEATURE3)
+    print(OUT_FEATURE4)
 
 
 if __name__ == "__main__":

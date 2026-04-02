@@ -130,6 +130,30 @@ normalize_features: 1
     @test any(profile == multi_load[1:24, "Z1"] for profile in rep_profiles)
     @test any(profile == multi_load[49:72, "Z1"] for profile in rep_profiles)
 
+    planning_load, planning_af = build_three_day_timeseries()
+    planning_af[!, "G2"] = vcat(fill(0.0, 24), fill(1.0, 24), fill(0.0, 24))
+    planning_config = Dict{String,Any}(
+        "rep_day_settings" => Dict(
+            "time_periods" => Dict(1 => [1, 1, 1, 3]),
+            "clustering_method" => "kmedoids",
+            "feature_mode" => "planning_features",
+            "planning_feature_set" => ["system_load"],
+            "representative_days_per_period" => 1,
+            "include_load" => 1,
+            "include_af" => 1,
+            "include_dr" => 0,
+            "normalize_features" => 1,
+        ),
+    )
+    planning_generator_df = DataFrame(
+        "Zone" => ["Z1", "Z1"],
+        "Type" => ["NGCC_CCS", "NGCT_CCS"],
+        "Pmax (MW)" => [100.0, 100.0],
+    )
+    rep_planning = HOPE.build_endogenous_rep_periods(planning_load, planning_af, ["Z1"], ["G1", "G2"], planning_config; generator_data=planning_generator_df)
+    @test rep_planning["metadata"][1, "SelectedDay"] == 2
+    @test rep_planning["metadata"][1, "Method"] == "planning_features_kmedoids"
+
     extreme_load, extreme_af = build_four_day_extreme_timeseries([0.0, 1.0, 2.0, 10.0], [1.0, 1.0, 1.0, 1.0])
     extreme_config = Dict{String,Any}(
         "rep_day_settings" => Dict(

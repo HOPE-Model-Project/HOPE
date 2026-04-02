@@ -60,6 +60,16 @@ Feature 3 adds explicitly selected extreme days on top of the clustered medoid d
 
 This is especially useful for adequacy and stress-event studies, where pure clustering can miss rare but important days.
 
+## Feature 4: Planning-Focused Feature Engineering
+
+Feature 4 changes the feature vector itself.
+
+- Instead of clustering on the raw hourly input columns directly, HOPE can now build a compact planning-oriented feature vector.
+- These engineered features focus on signals that matter more for planning decisions, such as zonal load, zonal net load, zonal wind/solar shape, system net load, and ramps.
+- This reduces the chance that clustering is driven by low-value variation in raw generator-level columns.
+
+In practice, Feature 4 is useful when users want representative days that better reflect adequacy, net-load stress, and storage-relevant chronology, rather than just raw column similarity.
+
 ## Recommended `HOPE_rep_day_settings.yml`
 
 ```yaml
@@ -71,6 +81,13 @@ time_periods:
 
 clustering_method: kmedoids
 feature_mode: joint_daily
+planning_feature_set:
+  - zonal_load
+  - zonal_net_load
+  - zonal_wind_cf
+  - zonal_solar_cf
+  - system_net_load
+  - system_ramp
 representative_days_per_period: 1
 add_extreme_days: 0
 extreme_day_metrics:
@@ -90,6 +107,7 @@ Meaning:
 - `time_periods`: seasonal windows used for endogenous representative-day construction
 - `clustering_method: kmedoids`: Feature 1 selects one actual medoid day per time period
 - `feature_mode: joint_daily`: cluster one combined daily feature vector, not each column independently
+- `planning_feature_set`: used when `feature_mode: planning_features`; defines which engineered planning signals enter the clustering vector
 - `representative_days_per_period`: number of representative days to select inside each seasonal window
 - `add_extreme_days: 1`: turn on Feature 3 extreme-day augmentation
 - `extreme_day_metrics`: choose which extreme-day rules to add; supported values are `peak_load`, `peak_net_load`, `min_wind`, `min_solar`, and `max_ramp`
@@ -253,6 +271,50 @@ Two practical notes for users:
 
 - if two extreme metrics point to the same real day, HOPE adds that day only once
 - if a metric such as `min_wind` or `min_solar` does not create a new distinct day, it will not increase the number of representative periods
+
+## Feature 4 Example
+
+If the same `MD_GTEP_clean_case` uses:
+
+```yaml
+feature_mode: planning_features
+planning_feature_set:
+  - zonal_load
+  - zonal_net_load
+  - zonal_wind_cf
+  - zonal_solar_cf
+  - system_net_load
+  - system_ramp
+representative_days_per_period: 1
+add_extreme_days: 0
+```
+
+then HOPE clusters on a compact set of planning signals instead of the full raw hourly load and AF columns.
+
+For this case, the selected representative days are:
+
+| Time Period | Seasonal Window | Selected Representative Day | Weight (Days Represented) |
+| :-- | :-- | :-- | :-- |
+| `1` | Mar 20 to Jun 20 | May 27 | `93` |
+| `2` | Jun 21 to Sep 21 | Jul 8 | `93` |
+| `3` | Sep 22 to Dec 20 | Dec 7 | `90` |
+| `4` | Dec 21 to Mar 19 | Jan 13 | `89` |
+
+![Feature 4 representative-day selection in MD_GTEP_clean_case](assets/rep_day_md_case_feature4.png)
+
+Compared with Feature 1, the main visible change in this example is time period `2`, where the selected representative day shifts from `Aug 31` to `Jul 8`. That happens because Feature 4 is not trying to match every raw hourly column equally. Instead, it prioritizes the planning-oriented signals in `planning_feature_set`, such as system net load and ramp behavior.
+
+How to read the Feature 4 figure:
+
+- gray line: daily peak system load
+- blue line: daily peak system net load
+- orange line: daily maximum system ramp
+- red dashed marker: the selected representative day for that seasonal window
+
+For users, the practical interpretation is:
+
+- `feature_mode: joint_daily` is closer to “cluster the original hourly data directly”
+- `feature_mode: planning_features` is closer to “cluster the planning signals that drive adequacy, VRE, and storage decisions”
 
 ## Legacy Compatibility
 

@@ -11,6 +11,7 @@ function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
         "time_periods" => default_time_periods,
         "clustering_method" => "kmedoids",
         "feature_mode" => "joint_daily",
+        "planning_feature_set" => ["zonal_load", "zonal_net_load", "zonal_wind_cf", "zonal_solar_cf", "system_net_load", "system_ramp"],
         "representative_days_per_period" => 1,
         "add_extreme_days" => 0,
         "extreme_day_metrics" => ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
@@ -111,6 +112,16 @@ function parse_rep_day_metric_list(raw_metrics, keyname::AbstractString)
         throw(ArgumentError("Invalid $(keyname)=$(bad). Allowed values: peak_load, peak_net_load, min_wind, min_solar, max_ramp."))
     end
     return unique(metrics)
+end
+
+function parse_rep_day_feature_list(raw_features, keyname::AbstractString)
+    features = raw_features isa AbstractVector ? lowercase.(strip.(string.(collect(raw_features)))) : [lowercase(strip(string(raw_features)))]
+    allowed = Set(["zonal_load", "zonal_net_load", "zonal_wind_cf", "zonal_solar_cf", "system_load", "system_net_load", "zonal_ramp", "system_ramp", "ni"])
+    bad = [f for f in features if !(f in allowed)]
+    if !isempty(bad)
+        throw(ArgumentError("Invalid $(keyname)=$(bad). Allowed values: zonal_load, zonal_net_load, zonal_wind_cf, zonal_solar_cf, system_load, system_net_load, zonal_ramp, system_ramp, ni."))
+    end
+    return unique(features)
 end
 
 function day_of_year_no_leap(month::Integer, day::Integer)
@@ -225,6 +236,154 @@ function build_joint_daily_feature_matrix(
         end
     end
 
+    return feature_matrix
+end
+
+function zone_string(value)
+    return string(value)
+end
+
+function generator_zone_type_maps(generator_df::Union{Nothing,DataFrame}, ordered_zone, ordered_gen, afdata::DataFrame)
+    zone_labels = string.(ordered_zone)
+    wind_maps = Dict(zone => (String[], Float64[]) for zone in zone_labels)
+    solar_maps = Dict(zone => (String[], Float64[]) for zone in zone_labels)
+    generator_df === nothing && return wind_maps, solar_maps
+
+    for (idx, gen_col) in enumerate(string.(ordered_gen))
+        idx > nrow(generator_df) && break
+        if !(gen_col in names(afdata))
+            continue
+        end
+        type_val = lowercase(strip(string(generator_df[idx, "Type"])))
+        zone_val = if "Zone" in names(generator_df)
+            zone_string(generator_df[idx, "Zone"])
+        elseif length(zone_labels) == 1
+            zone_labels[1]
+        else
+            continue
+        end
+        if !(zone_val in zone_labels)
+            continue
+        end
+        weight = Float64(generator_df[idx, "Pmax (MW)"])
+        if type_val in ("windon", "windoff")
+            push!(wind_maps[zone_val][1], gen_col)
+            push!(wind_maps[zone_val][2], weight)
+        elseif type_val == "solarpv"
+            push!(solar_maps[zone_val][1], gen_col)
+            push!(solar_maps[zone_val][2], weight)
+        end
+    end
+    return wind_maps, solar_maps
+end
+
+function weighted_profile_from_cols(df::DataFrame, rows::Vector{Int}, cols::Vector{String}, weights::Vector{Float64})
+    if isempty(cols)
+        return zeros(Float64, length(rows))
+    end
+    mat = Matrix{Float64}(df[rows, cols])
+    if isempty(weights) || sum(weights) <= 0
+        return vec(mean(mat, dims=2))
+    end
+    return vec(mat * (weights ./ sum(weights)))
+end
+
+function build_planning_daily_feature_matrix(
+    loaddata::DataFrame,
+    afdata::DataFrame,
+    day_blocks,
+    ordered_zone,
+    ordered_gen,
+    config_set::AbstractDict,
+    generator_df::Union{Nothing,DataFrame},
+)
+    normalize_features = parse_rep_day_binary(rep_day_settings_value(config_set, "normalize_features", 1), "rep_day_settings.normalize_features")
+    feature_set = parse_rep_day_feature_list(
+        rep_day_settings_value(config_set, "planning_feature_set", default_rep_day_settings(config_set)["planning_feature_set"]),
+        "rep_day_settings.planning_feature_set",
+    )
+    isempty(feature_set) && throw(ArgumentError("rep_day_settings.planning_feature_set cannot be empty when feature_mode = planning_features."))
+
+    zone_labels = string.(ordered_zone)
+    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni=false)
+    wind_maps, solar_maps = generator_zone_type_maps(generator_df, ordered_zone, ordered_gen, afdata)
+
+    feature_matrix = Matrix{Float64}(undef, length(day_blocks), 0)
+    for (day_idx, block) in enumerate(day_blocks)
+        load_block = Matrix{Float64}(loaddata[block.rows, load_cols])
+        system_load = vec(sum(load_block, dims=2))
+        ni = "NI" in names(loaddata) ? Float64.(loaddata[block.rows, "NI"]) : zeros(24)
+        zonal_features = Dict{String,Any}()
+        system_wind = zeros(24)
+        system_solar = zeros(24)
+        zonal_net_cols = Vector{Vector{Float64}}()
+
+        for (z_idx, zone) in enumerate(zone_labels)
+            zonal_load = load_block[:, z_idx]
+            wind_cols, wind_weights = wind_maps[zone]
+            solar_cols, solar_weights = solar_maps[zone]
+            zonal_wind_cf = weighted_profile_from_cols(afdata, block.rows, wind_cols, wind_weights)
+            zonal_solar_cf = weighted_profile_from_cols(afdata, block.rows, solar_cols, solar_weights)
+            zonal_wind_potential = sum(wind_weights) .* zonal_wind_cf
+            zonal_solar_potential = sum(solar_weights) .* zonal_solar_cf
+            system_wind .+= zonal_wind_potential
+            system_solar .+= zonal_solar_potential
+            zonal_ni = similar(system_load)
+            for h in eachindex(system_load)
+                zonal_ni[h] = system_load[h] > 0 ? ni[h] * zonal_load[h] / system_load[h] : 0.0
+            end
+            zonal_net_load = zonal_load .- zonal_ni .- zonal_wind_potential .- zonal_solar_potential
+            push!(zonal_net_cols, zonal_net_load)
+            zonal_features["load_$zone"] = zonal_load
+            zonal_features["net_$zone"] = zonal_net_load
+            zonal_features["wind_$zone"] = zonal_wind_cf
+            zonal_features["solar_$zone"] = zonal_solar_cf
+            zonal_features["ramp_$zone"] = vcat(0.0, diff(zonal_net_load))
+        end
+
+        system_net_load = system_load .- ni .- system_wind .- system_solar
+        system_ramp = vcat(0.0, diff(system_net_load))
+        pieces = Vector{Float64}[]
+        for feature in feature_set
+            if feature == "zonal_load"
+                append!(pieces, [zonal_features["load_$zone"] for zone in zone_labels])
+            elseif feature == "zonal_net_load"
+                append!(pieces, [zonal_features["net_$zone"] for zone in zone_labels])
+            elseif feature == "zonal_wind_cf"
+                append!(pieces, [zonal_features["wind_$zone"] for zone in zone_labels])
+            elseif feature == "zonal_solar_cf"
+                append!(pieces, [zonal_features["solar_$zone"] for zone in zone_labels])
+            elseif feature == "system_load"
+                push!(pieces, system_load)
+            elseif feature == "system_net_load"
+                push!(pieces, system_net_load)
+            elseif feature == "zonal_ramp"
+                append!(pieces, [zonal_features["ramp_$zone"] for zone in zone_labels])
+            elseif feature == "system_ramp"
+                push!(pieces, system_ramp)
+            elseif feature == "ni"
+                push!(pieces, ni)
+            end
+        end
+        day_vector = vcat(pieces...)
+        if day_idx == 1
+            feature_matrix = Matrix{Float64}(undef, length(day_blocks), length(day_vector))
+        end
+        feature_matrix[day_idx, :] = day_vector
+    end
+
+    if normalize_features == 1
+        for j in axes(feature_matrix, 2)
+            col = feature_matrix[:, j]
+            mu = mean(col)
+            sigma = std(col)
+            if sigma > 0
+                feature_matrix[:, j] = (col .- mu) ./ sigma
+            else
+                feature_matrix[:, j] .= 0.0
+            end
+        end
+    end
     return feature_matrix
 end
 
@@ -484,6 +643,8 @@ function build_endogenous_rep_periods(
     )
     rep_period_ids_by_time_period = Dict{Int,Vector{Int}}()
     rep_period_id = 1
+    method_label = feature_mode == "planning_features" ? "planning_features_kmedoids" : "joint_daily_kmedoids"
+    extreme_method_label = feature_mode == "planning_features" ? "planning_features_kmedoids_extreme" : "joint_daily_kmedoids_extreme"
 
     for (tp, dates) in rep_time_periods
         blocks = collect_day_blocks(loaddata, dates)
@@ -514,17 +675,29 @@ function build_endogenous_rep_periods(
             continue
         end
 
-        if feature_mode != "joint_daily"
-            throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, legacy_column_centroid."))
+        if !(feature_mode in ("joint_daily", "planning_features"))
+            throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, planning_features, legacy_column_centroid."))
         end
         if clustering_method != "kmedoids"
-            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Features 1-2. Supported value: kmedoids."))
+            throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method) for Features 1-4. Supported value: kmedoids."))
         end
 
-        feature_matrix = build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
+        all_generator_data = combine_rep_day_generator_data(generator_data, candidate_generator_data)
+        feature_matrix = if feature_mode == "joint_daily"
+            build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
+        else
+            build_planning_daily_feature_matrix(
+                loaddata,
+                afdata,
+                blocks,
+                ordered_zone,
+                ordered_gen,
+                config_set,
+                all_generator_data,
+            )
+        end
         medoid_indices, assignments, counts = select_medoid_indices(feature_matrix, k_eff)
         cluster_counts = Float64.(counts)
-        all_generator_data = combine_rep_day_generator_data(generator_data, candidate_generator_data)
         extreme_indices, extreme_metrics = select_extreme_day_indices(
             loaddata,
             afdata,
@@ -556,7 +729,7 @@ function build_endogenous_rep_periods(
                 dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
             end
             ndays[rep_period_id] = cluster_counts[local_idx]
-            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids", "cluster_medoid", ""))
+            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, "cluster_medoid", ""))
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
@@ -568,7 +741,7 @@ function build_endogenous_rep_periods(
                 dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
             end
             ndays[rep_period_id] = 1.0
-            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], "joint_daily_kmedoids_extreme", "extreme_day", metric))
+            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], extreme_method_label, "extreme_day", metric))
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
