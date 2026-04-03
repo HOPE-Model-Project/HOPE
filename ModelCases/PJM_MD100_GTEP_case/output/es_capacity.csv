@@ -58,7 +58,7 @@ BES,JC_NJ,Existing,0,2.4,0.6
 Battery,DEOK_OH,Candidate,0,0.0,0.0
 Battery,AEP_VA,Candidate,0,0.0,0.0
 Battery,ME_PA,Candidate,0,0.0,0.0
-Battery,DOM_NC,Candidate,1,2254.7179626621073,563.6794906655268
+Battery,DOM_NC,Candidate,1,2088.0714945976483,522.0178736494121
 Battery,JC_NJ,Candidate,0,0.0,0.0
 Battery,PN_PA,Candidate,0,0.0,0.0
 Battery,AP_MD,Candidate,0,0.0,0.0

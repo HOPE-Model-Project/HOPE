@@ -612,15 +612,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         C_gen_df[New_built_idx,:New_Build] .= 1
 
         C_gen_df[!,:Capacity_RET] .= 0.0
-        Retirement_idx = map(x -> G_RET[x], [i for (i, v) in enumerate(value.(model[:x_RET])) if v > 0])
-        #Retirement_idx = map(x -> x + Num_Egen, [i for (i, v) in enumerate(value.(model[:x_RET])) if v > 0])
-        #print(G_RET)
-        #print(value.(model[:x_RET]))
-        #print(Retirement_idx)
-        if isempty(Retirement_idx)
-            C_gen_df[:,:Capacity_RET] .= [0.0 for g in 1:size(G)[1]]
-        else
-            C_gen_df[Retirement_idx,:Capacity_RET] .= [v for (i,v) in enumerate(Gendata[G_RET,"Pmax (MW)"] .*value.(model[:x_RET]))]
+        x_ret_values = Float64.(value.(model[:x_RET]))
+        retired_gret_idx = [i for (i, v) in enumerate(x_ret_values) if v > 0]
+        Retirement_idx = map(x -> G_RET[x], retired_gret_idx)
+        if !isempty(Retirement_idx)
+            retired_caps = Float64.(Gendata[G_RET[retired_gret_idx], "Pmax (MW)"]) .* x_ret_values[retired_gret_idx]
+            C_gen_df[Retirement_idx,:Capacity_RET] .= retired_caps
         end
 
         C_gen_df[!,:Capacity] .=  C_gen_df[!,:Capacity] .- C_gen_df[!,:Capacity_RET]

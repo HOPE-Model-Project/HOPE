@@ -364,9 +364,9 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			println("Warning: enforcing G_VRE ⊆ G_RPS by adding $(length(missing_vre_in_rps)) VRE units into G_RPS.")
 			G_RPS = sort(unique(vcat(G_RPS, missing_vre_in_rps)))
 		end
-		missing_rps_profile_cols = [Ordered_gen_nm[g] for g in G_RPS if !(Ordered_gen_nm[g] in provided_af_cols)]
-		if !isempty(missing_rps_profile_cols)
-			println("Warning: AF timeseries missing for $(length(missing_rps_profile_cols)) RPS/VRE generators; static AF fallback will be used.")
+		missing_vre_profile_cols = [Ordered_gen_nm[g] for g in G_VRE if !(Ordered_gen_nm[g] in provided_af_cols)]
+		if !isempty(missing_vre_profile_cols)
+			println("Warning: AF timeseries missing for $(length(missing_vre_profile_cols)) VRE generators; static AF fallback will be used.")
 		end
 		G_exist=[g for g=1:Num_gen]										#Set of existing generation units, index g, subset of G  
 		G_RET_raw=findall(x -> x in [1], Gendata[:,"Flag_RET"])			#Set of existing generation units marked as retirement-eligible, index g, subset of G
