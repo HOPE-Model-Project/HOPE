@@ -21,21 +21,26 @@ end
 
 flag_any(gdf::AbstractDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
 
-function grouped_row_indices_by_zone_type(df::DataFrame)
-    groups = Dict{Tuple{String,String}, Vector{Int}}()
-    order = Tuple{String,String}[]
+function grouped_row_indices_by_aggregation(df::DataFrame, config_set::AbstractDict=Dict{String,Any}(); model_mode::AbstractString="GTEP")
+    key_cols = aggregation_grouping_keys(df, config_set, model_mode)
+    groups = Dict{Tuple{Vararg{String}}, Vector{Int}}()
+    order = Tuple{Vararg{String}}[]
     for (i, row) in enumerate(eachrow(df))
-        key = (string(row["Zone"]), string(row["Type"]))
+        key = if aggregation_should_merge_type(string(row["Type"]), config_set)
+            Tuple(string(row[col]) for col in key_cols)
+        else
+            Tuple(vcat(["__separate__$(i)"], [string(row[col]) for col in key_cols]))
+        end
         if !haskey(groups, key)
             groups[key] = Int[]
             push!(order, key)
         end
         push!(groups[key], i)
     end
-    return order, groups
+    return order, groups, key_cols
 end
 
-function aggregate_gendata_gtep(df::DataFrame)
+function aggregate_gendata_gtep(df::DataFrame, config_set::AbstractDict=Dict{String,Any}())
     work = copy(df)
     if !("AF" in names(work))
         work[!, :AF] = fill(1.0, nrow(work))
@@ -61,7 +66,7 @@ function aggregate_gendata_gtep(df::DataFrame)
         out[!, :Flag_RPS] = Int[]
     end
 
-    order, groups = grouped_row_indices_by_zone_type(work)
+    order, groups, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="GTEP")
     for key in order
         gdf = work[groups[key], :]
         w = agg_weights_from_pmax(gdf)
@@ -105,10 +110,10 @@ function aggregate_gendata_gtep(df::DataFrame)
     return out
 end
 
-function aggregate_afdata_gtep(raw_gendata::DataFrame, aggregated_gendata::DataFrame, gendata_candidate::DataFrame, raw_afdata::DataFrame)
+function aggregate_afdata_gtep(raw_gendata::DataFrame, aggregated_gendata::DataFrame, gendata_candidate::DataFrame, raw_afdata::DataFrame, config_set::AbstractDict=Dict{String,Any}())
     time_cols = [col for col in ["Time Period", "Month", "Day", "Hours"] if col in names(raw_afdata)]
     out = copy(raw_afdata[:, time_cols])
-    order, groups = grouped_row_indices_by_zone_type(raw_gendata)
+    order, groups, _ = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
 
     for (new_idx, key) in enumerate(order)
         rows = groups[key]
@@ -165,6 +170,9 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         :RM_SPIN => Float64[],
         :RU => Float64[],
         :RD => Float64[],
+        :NumUnits => Int[],
+        Symbol("ClusteredUnitPmax (MW)") => Float64[],
+        Symbol("ClusteredUnitPmin (MW)") => Float64[],
         :Flag_thermal => Int[],
         :Flag_VRE => Int[],
         :Flag_mustrun => Int[],
@@ -185,13 +193,20 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         out[!, :RM_NSPIN] = Float64[]
     end
 
-    for gdf in groupby(work, [:Zone, :Type])
+    order, groups, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="PCM")
+    for key in order
+        gdf = work[groups[key], :]
         w = agg_weights_from_pmax(gdf)
+        total_pmax = sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")])
+        total_pmin = sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")])
+        cluster_units = max(length(groups[key]), 1)
+        cluster_unit_pmax = cluster_units > 0 ? total_pmax / cluster_units : total_pmax
+        cluster_unit_pmin = cluster_units > 0 ? total_pmin / cluster_units : total_pmin
         row = Dict{Symbol,Any}(
             :Zone => gdf[1, :Zone],
             :Type => gdf[1, :Type],
-            Symbol("Pmax (MW)") => sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
-            Symbol("Pmin (MW)") => sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")]),
+            Symbol("Pmax (MW)") => total_pmax,
+            Symbol("Pmin (MW)") => total_pmin,
             Symbol("Cost (\$/MWh)") => wmean_col(gdf, Symbol("Cost (\$/MWh)"), w; default=0.0),
             :EF => wmean_col(gdf, :EF, w; default=0.0),
             :CC => wmean_col(gdf, :CC, w; default=0.0),
@@ -199,6 +214,9 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
             :RM_SPIN => wmean_col(gdf, :RM_SPIN, w; default=0.0),
             :RU => wmean_col(gdf, :RU, w; default=0.0),
             :RD => wmean_col(gdf, :RD, w; default=0.0),
+            :NumUnits => cluster_units,
+            Symbol("ClusteredUnitPmax (MW)") => cluster_unit_pmax,
+            Symbol("ClusteredUnitPmin (MW)") => cluster_unit_pmin,
             :Flag_thermal => flag_any(gdf, :Flag_thermal),
             :Flag_VRE => flag_any(gdf, :Flag_VRE),
             :Flag_mustrun => flag_any(gdf, :Flag_mustrun),
@@ -234,14 +252,16 @@ end
 function build_gtep_aggregation_audit(
     raw_gendata::DataFrame,
     aggregated_gendata::DataFrame;
+    config_set::AbstractDict=Dict{String,Any}(),
     raw_afdata::Union{Nothing,DataFrame}=nothing,
     aggregated_afdata::Union{Nothing,DataFrame}=nothing,
 )
-    order, groups = grouped_row_indices_by_zone_type(raw_gendata)
+    order, groups, key_cols = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
     mapping_df = DataFrame(
         AggregatedResource = String[],
         Zone = String[],
         Type = String[],
+        GroupingKey = String[],
         OriginalIndex = Int[],
         OriginalResource = String[],
         OriginalPmaxMW = Float64[],
@@ -252,6 +272,7 @@ function build_gtep_aggregation_audit(
         AggregatedResource = String[],
         Zone = String[],
         Type = String[],
+        GroupingKey = String[],
         GroupSize = Int[],
         OriginalPmaxMW = Float64[],
         AggregatedPmaxMW = Float64[],
@@ -269,6 +290,7 @@ function build_gtep_aggregation_audit(
         AggregatedResource = String[],
         Zone = String[],
         Type = String[],
+        GroupingKey = String[],
         NumSourceColumns = Int[],
         AggregatedColumn = String[],
         SourceMeanAFMin = Float64[],
@@ -285,12 +307,14 @@ function build_gtep_aggregation_audit(
         weights = [max(to_float_agg(gdf[r, Symbol("Pmax (MW)")], 0.0), 0.0) for r in 1:nrow(gdf)]
         shares = normalized_agg_shares(weights)
         agg_nm = "G$(new_idx)"
+        grouping_key = join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; ")
 
         for (local_idx, raw_idx) in enumerate(rows)
             push!(mapping_df, (
                 agg_nm,
-                string(key[1]),
-                string(key[2]),
+                string(raw_gendata[raw_idx, "Zone"]),
+                string(raw_gendata[raw_idx, "Type"]),
+                grouping_key,
                 raw_idx,
                 "G$(raw_idx)",
                 to_float_agg(raw_gendata[raw_idx, Symbol("Pmax (MW)")], 0.0),
@@ -302,8 +326,9 @@ function build_gtep_aggregation_audit(
         agg_row = aggregated_gendata[new_idx, :]
         push!(summary_df, (
             agg_nm,
-            string(key[1]),
-            string(key[2]),
+            string(gdf[1, "Zone"]),
+            string(gdf[1, "Type"]),
+            grouping_key,
             length(rows),
             sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
             to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
@@ -328,8 +353,9 @@ function build_gtep_aggregation_audit(
                 agg_vals = Float64.(aggregated_afdata[!, target_col])
                 push!(af_summary_df, (
                     agg_nm,
-                    string(key[1]),
-                    string(key[2]),
+                    string(gdf[1, "Zone"]),
+                    string(gdf[1, "Type"]),
+                    grouping_key,
                     length(source_cols),
                     target_col,
                     minimum(source_means),
@@ -351,12 +377,13 @@ function build_gtep_aggregation_audit(
     )
 end
 
-function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata::DataFrame)
-    order, groups = grouped_row_indices_by_zone_type(raw_gendata)
+function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata::DataFrame; config_set::AbstractDict=Dict{String,Any}())
+    order, groups, key_cols = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="PCM")
     mapping_df = DataFrame(
         AggregatedResource = String[],
         Zone = String[],
         Type = String[],
+        GroupingKey = String[],
         OriginalIndex = Int[],
         OriginalResource = String[],
         OriginalPmaxMW = Float64[],
@@ -371,12 +398,14 @@ function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata:
         weights = [max(to_float_agg(gdf[r, Symbol("Pmax (MW)")], 0.0), 0.0) for r in 1:nrow(gdf)]
         shares = normalized_agg_shares(weights)
         agg_nm = "G$(new_idx)"
+        grouping_key = join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; ")
 
         for (local_idx, raw_idx) in enumerate(rows)
             push!(mapping_df, (
                 agg_nm,
-                string(key[1]),
-                string(key[2]),
+                string(raw_gendata[raw_idx, "Zone"]),
+                string(raw_gendata[raw_idx, "Type"]),
+                grouping_key,
                 raw_idx,
                 "G$(raw_idx)",
                 to_float_agg(raw_gendata[raw_idx, Symbol("Pmax (MW)")], 0.0),
@@ -388,12 +417,16 @@ function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata:
         agg_row = aggregated_gendata[new_idx, :]
         row = Dict{Symbol,Any}(
             :AggregatedResource => agg_nm,
-            :Zone => string(key[1]),
-            :Type => string(key[2]),
+            :Zone => string(gdf[1, "Zone"]),
+            :Type => string(gdf[1, "Type"]),
+            :GroupingKey => grouping_key,
             :GroupSize => length(rows),
             :OriginalPmaxMW => sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")]),
             :AggregatedPmaxMW => to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
             :AggregatedPminMW => to_float_agg(agg_row[Symbol("Pmin (MW)")], 0.0),
+            :NumUnits => ("NumUnits" in names(aggregated_gendata)) ? Int(round(to_float_agg(agg_row[:NumUnits], 1.0))) : 1,
+            :ClusteredUnitPmaxMW => (Symbol("ClusteredUnitPmax (MW)") in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmax (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
+            :ClusteredUnitPminMW => (Symbol("ClusteredUnitPmin (MW)") in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmin (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmin (MW)")], 0.0),
             Symbol("AggregatedCostPerMWh") => to_float_agg(agg_row[Symbol("Cost (\$/MWh)")], 0.0),
             :AggregatedCC => to_float_agg(agg_row[:CC], 0.0),
             :AggregatedFOR => to_float_agg(agg_row[:FOR], 0.0),
@@ -460,7 +493,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading technology")
             gendata_raw = DataFrame(XLSX.readtable(xlsx_path,"gendata"))
             if resource_aggregation_enabled(config_set)
-                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
+                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
                 input_data["Gendata"]=gendata_raw
             end 
@@ -508,10 +541,11 @@ function load_data(config_set::Dict,path::AbstractString)
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
                 if resource_aggregation_enabled(config_set)
                     raw_afdata = input_data["AFdata"]
-                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], raw_afdata)
+                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], raw_afdata, config_set)
                     input_data["AggregationAudit"] = build_gtep_aggregation_audit(
                         gendata_raw,
                         input_data["Gendata"];
+                        config_set=config_set,
                         raw_afdata=raw_afdata,
                         aggregated_afdata=input_data["AFdata"],
                     )
@@ -537,7 +571,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("Reading technology")
             gendata_raw = CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
             if resource_aggregation_enabled(config_set)
-                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
+                input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
                 input_data["Gendata"]=gendata_raw
             end 
@@ -576,10 +610,11 @@ function load_data(config_set::Dict,path::AbstractString)
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
                 if resource_aggregation_enabled(config_set)
                     raw_afdata = input_data["AFdata"]
-                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], raw_afdata)
+                    input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], raw_afdata, config_set)
                     input_data["AggregationAudit"] = build_gtep_aggregation_audit(
                         gendata_raw,
                         input_data["Gendata"];
+                        config_set=config_set,
                         raw_afdata=raw_afdata,
                         aggregated_afdata=input_data["AFdata"],
                     )
@@ -641,7 +676,7 @@ function load_data(config_set::Dict,path::AbstractString)
             gendata_raw = DataFrame(XLSX.readtable(xlsx_path,"gendata"))
             if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_pcm(gendata_raw,config_set)
-                input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"])
+                input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"]; config_set=config_set)
             else
                 input_data["Gendata"]=gendata_raw
             end 
@@ -753,7 +788,7 @@ function load_data(config_set::Dict,path::AbstractString)
             gendata_raw = CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
             if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_pcm(gendata_raw,config_set)
-                input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"])
+                input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"]; config_set=config_set)
             else
                 input_data["Gendata"]=gendata_raw
             end 

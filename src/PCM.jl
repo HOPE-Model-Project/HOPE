@@ -33,6 +33,31 @@ function get_TPmatched_ts(df, time_periods, ordered_zone)
     return (rep_dat_dict,ndays_dict)
 end
 
+function pcm_clustered_uc_parameters(config_set::Dict, Gendata::DataFrame)
+	clustered_commitment = resource_aggregation_enabled(config_set) && clustered_thermal_commitment_enabled(config_set)
+	num_gen = nrow(Gendata)
+	num_units = ones(Int, num_gen)
+	unit_pmax = [to_float_agg(Gendata[g, Symbol("Pmax (MW)")], 0.0) for g in 1:num_gen]
+	unit_pmin = [to_float_agg(Gendata[g, Symbol("Pmin (MW)")], 0.0) for g in 1:num_gen]
+	if !clustered_commitment
+		return num_units, unit_pmax, unit_pmin
+	end
+	has_num_units = "NumUnits" in names(Gendata)
+	has_unit_pmax = Symbol("ClusteredUnitPmax (MW)") in names(Gendata)
+	has_unit_pmin = Symbol("ClusteredUnitPmin (MW)") in names(Gendata)
+	for g in 1:num_gen
+		is_uc = ("Flag_UC" in names(Gendata)) && to_float_agg(Gendata[g, :Flag_UC], 0.0) > 0
+		is_thermal = ("Flag_thermal" in names(Gendata)) && to_float_agg(Gendata[g, :Flag_thermal], 0.0) > 0
+		if is_uc && is_thermal
+			n_units = has_num_units ? max(1, round(Int, to_float_agg(Gendata[g, :NumUnits], 1.0))) : 1
+			num_units[g] = n_units
+			unit_pmax[g] = has_unit_pmax ? to_float_agg(Gendata[g, Symbol("ClusteredUnitPmax (MW)")], unit_pmax[g] / n_units) : unit_pmax[g] / n_units
+			unit_pmin[g] = has_unit_pmin ? to_float_agg(Gendata[g, Symbol("ClusteredUnitPmin (MW)")], unit_pmin[g] / n_units) : unit_pmin[g] / n_units
+		end
+	end
+	return num_units, unit_pmax, unit_pmin
+end
+
 function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	Gendata = input_data["Gendata"]
 	Num_gen=size(Gendata,1)
@@ -45,24 +70,25 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g			#Forced outage rate
 	P_max=[Gendata[:,"Pmax (MW)"];]							#Maximum power generation of unit g, MW
 	P_min=[Gendata[:,"Pmin (MW)"];]							#Maximum power generation of unit g, MW
+	NumUnits_g, P_max_unit, P_min_unit = pcm_clustered_uc_parameters(config_set, Gendata)
 	DT_g = Gendata[:,"Min_down_time"]					#Minimum down time
 	UT_g = Gendata[:,"Min_up_time"]						#Minimum up time
 	STC_g = [Gendata[:,Symbol("Start_up_cost (\$/MW)")];]	#Start up cost
 	#UC variables
 	if config_set["unit_commitment"] == 1
 		@variable(model, pmin[G_UC,H]>=0)						#Minimum-run capacity online  generator g into grid in hour h, MW
-		@variable(model, o[G_UC,H],Bin)						#Online state variable of g that is on-line in h, Bin
-		@variable(model, sd[G_UC,H],Bin)						#Shut-down action for g at the beginning of h, Bin
-		@variable(model, su[G_UC,H],Bin)						#Start-up action for g at the beginning of h, Bin
+		@variable(model, 0 <= o[g in G_UC,H] <= NumUnits_g[g], Int)		#Online unit count of g in h
+		@variable(model, 0 <= sd[g in G_UC,H] <= NumUnits_g[g], Int)		#Shut-down count for g at the beginning of h
+		@variable(model, 0 <= su[g in G_UC,H] <= NumUnits_g[g], Int)		#Start-up count for g at the beginning of h
 	elseif config_set["unit_commitment"] == 2
 		@variable(model, pmin[G_UC,H]>=0)						#Minimum-run capacity online  generator g into grid in hour h, MW
-		@variable(model, 0<= o[G_UC,H] <=1)					#Online state variable of g that is on-line in h, 0-1
-		@variable(model, 0<= sd[G_UC,H]<=1)					#Shut-down action for g at the beginning of h, 0-1
-		@variable(model, 0<= su[G_UC,H]<=1)					#Start-up action for g at the beginning of h, 0-1
+		@variable(model, 0<= o[g in G_UC,H] <= NumUnits_g[g])			#Online unit count of g that is on-line in h
+		@variable(model, 0<= sd[g in G_UC,H]<=NumUnits_g[g])			#Shut-down count for g at the beginning of h
+		@variable(model, 0<= su[g in G_UC,H]<=NumUnits_g[g])			#Start-up count for g at the beginning of h
 	end
 	# UC constraints (aligned with docs/src/PCM.md Section 3)
 	# [PCM-C3.UC1] Minimum run limit
-	MRL_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= (1-FOR_g[g])*P_min[g]*o[g,h],base_name = "MRL_con")
+	MRL_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= (1-FOR_g[g])*P_min_unit[g]*o[g,h],base_name = "MRL_con")
 		
 	# [PCM-C3.UC2] State transition
 	STT_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])], o[g,h] - o[g,h-1] == su[g,h] - sd[g,h],base_name = "STT_con")
@@ -71,7 +97,7 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	MUT_con = @constraint(model, [g in G_UC, h in Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
 		
 	# [PCM-C3.UC4] Minimum down time
-	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= 1-o[g,h],base_name = "MDT_con")
+	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= NumUnits_g[g]-o[g,h],base_name = "MDT_con")
 		
 	# [PCM-C3.UC5] pmin bound to dispatch
 	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
@@ -714,6 +740,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
 		P_max=[Gendata[:,"Pmax (MW)"];]#g						#Maximum power generation of unit g, MW
+		NumUnits_g, P_max_unit, P_min_unit = pcm_clustered_uc_parameters(config_set, Gendata)
 		RPS = Dict{Any,Float64}() #w							#Renewable portfolio standard in state w, unitless
 		for w in W
 			rps_vals = unique([to_float(v) for v in RPSdata[RPSdata[:, "From_state"] .== w, "RPS"]])
@@ -1056,11 +1083,12 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			# [PCM-C3.RD] Ramp-down (non-UC)
 			RP_DN_con = @constraint(model, [g in G_F, h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h]-p[g,h-1]>= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
 		else
+			ClusteredAvailableCapacity = Dict((g,h) => AF_gh[(g,h)] * (1-FOR_g[g]) * P_max_unit[g] * model[:o][g,h] for g in G_UC for h in H)
 			# [PCM-C3.B] Generator operating limits with UC
 			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g],base_name = "CLe_con")
-			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
+			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h], base_name = "CLe_MR_con")
 			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] ,base_name = "CLeL_con")
-			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "CLeU_con")
+			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= ClusteredAvailableCapacity[(g,h)],base_name = "CLeU_con")
 			if reserve_active
 				# [PCM-C3.HD] Downward headroom (UC-aware)
 				HeadroomDN_nonUC_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], P_min[g] <= p[g,h] - r_G_REG_DN[g,h], base_name = "HeadroomDN_nonUC_con")
@@ -1070,27 +1098,27 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				REG_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "REG_DN_con")
 				SPIN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "SPIN_con")
 				NSPIN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max[g],base_name = "NSPIN_con")
-				REG_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "REG_UP_UC_con")
-				REG_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "REG_DN_UC_con")
-				SPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "SPINUC_con")
-				NSPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "NSPINUC_con")
+				REG_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RM_REG_UP_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "REG_UP_UC_con")
+				REG_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RM_REG_DN_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "REG_DN_UC_con")
+				SPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RM_SPIN_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "SPINUC_con")
+				NSPINUC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RM_NSPIN_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "NSPINUC_con")
 				RegUPRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegUPRampResp_con")
 				SpinRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_spin, base_name = "SpinRampResp_con")
 				NSpinRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin, base_name = "NSpinRampResp_con")
 				RegDNRampResp_con = @constraint(model, [g in setdiff(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg, base_name = "RegDNRampResp_con")
-				RegUPRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg*model[:o][g,h], base_name = "RegUPRampResp_UC_con")
-				SpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_spin*model[:o][g,h], base_name = "SpinRampResp_UC_con")
-				NSpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max[g]*delta_nspin*model[:o][g,h], base_name = "NSpinRampResp_UC_con")
-				RegDNRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max[g]*delta_reg*model[:o][g,h], base_name = "RegDNRampResp_UC_con")
+				RegUPRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_UP[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max_unit[g]*delta_reg*model[:o][g,h], base_name = "RegUPRampResp_UC_con")
+				SpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_SPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max_unit[g]*delta_spin*model[:o][g,h], base_name = "SpinRampResp_UC_con")
+				NSpinRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_NSPIN[g,h] <= RU_g[g]*(1-FOR_g[g])*P_max_unit[g]*delta_nspin*model[:o][g,h], base_name = "NSpinRampResp_UC_con")
+				RegDNRampResp_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in H], r_G_REG_DN[g,h] <= RD_g[g]*(1-FOR_g[g])*P_max_unit[g]*delta_reg*model[:o][g,h], base_name = "RegDNRampResp_UC_con")
 			end
 	
 			# [PCM-C3.RU] Ramp-up (UC-aware and non-UC variants)
 			RP_UP_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h]-p[g,h-1] <= RU_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_UP_con" )
-			RP_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
+			RP_UP_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] + ReserveUpG[g,h] - model[:pmin][g,h] - (p[g,h-1]-model[:pmin][g,h-1]) <= RU_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "RP_UP_UC_con" )
 		
 			# [PCM-C3.RD] Ramp-down (UC-aware and non-UC variants)
 			RP_DN_con = @constraint(model, [g in setdiff(G_F,G_UC), h in setdiff(H, [1])],  p[g,h] - ReserveDnG[g,h] -p[g,h-1] >= -RD_g[g]*(1-FOR_g[g])*P_max[g],base_name = "RP_DN_con" )
-			RP_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
+			RP_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
 			
 		end
 
@@ -1252,7 +1280,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if config_set["unit_commitment"] == 0
 			@expression(model,STCost,0)	
 		else
-			@expression(model,STCost,sum(N[t]*sum(Gendata[g,Symbol("Start_up_cost (\$/MW)")]*model[:su][g,h]*P_max[g] for h in H_t[t] for g in G_UC) for t in T))
+			@expression(model,STCost,sum(N[t]*sum(Gendata[g,Symbol("Start_up_cost (\$/MW)")]*model[:su][g,h]*P_max_unit[g] for h in H_t[t] for g in G_UC) for t in T))
 		end
 		#Demand response operation cost
 		if flexible_demand == 0

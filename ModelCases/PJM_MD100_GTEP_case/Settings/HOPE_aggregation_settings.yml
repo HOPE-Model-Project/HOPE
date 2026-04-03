@@ -1,1 +1,13 @@
 write_aggregation_audit: 1        #Binary,1 write aggregation mapping/summary audit CSVs to output; 0 disable
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_RET
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
+clustered_thermal_commitment: 1   #Binary,used only in PCM with unit_commitment; aggregated thermal UC resources use unit-count clustered commitment
+aggregate_technologies: []
+keep_separate_technologies: []

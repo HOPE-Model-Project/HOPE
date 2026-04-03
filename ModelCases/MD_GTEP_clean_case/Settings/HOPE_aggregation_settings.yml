@@ -1,1 +1,13 @@
 write_aggregation_audit: 1        #Binary,1 write aggregation mapping/summary audit CSVs to output; 0 disable
+grouping_keys:                    #List, existing resources are grouped only when all listed fields match
+  - Zone
+  - Type
+  - Flag_RET
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:     #List, used only in PCM mode
+  - Flag_UC
+clustered_thermal_commitment: 1   #Binary,used only in PCM with unit_commitment; aggregated thermal UC resources use unit-count clustered commitment
+aggregate_technologies: []        #List, empty means all technologies are eligible for aggregation
+keep_separate_technologies: []    #List, technologies kept fully disaggregated even when resource_aggregation = 1
