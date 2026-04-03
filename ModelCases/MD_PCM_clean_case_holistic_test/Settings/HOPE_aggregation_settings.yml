@@ -1,0 +1,1 @@
+write_aggregation_audit: 1        #Binary,1 write aggregation mapping/summary audit CSVs to output; 0 disable

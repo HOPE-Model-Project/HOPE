@@ -167,6 +167,7 @@ function save_postprocess_snapshot_bundle(
     settings_src_dir = joinpath(case_path, "Settings")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_model_settings.yml")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_rep_day_settings.yml")
+    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_aggregation_settings.yml")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_erec_settings.yml")
     maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), string(config_set["solver"]) * "_settings.yml")
 

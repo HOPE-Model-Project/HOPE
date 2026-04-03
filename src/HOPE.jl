@@ -31,6 +31,7 @@ using GLPK
 include("constants.jl");            #shared constants and configuration
 include("utils.jl");                #utility functions
 include("rep_day.jl");              #representative-day utilities
+include("aggregation.jl");          #resource aggregation settings/utilities
 include("network_utils.jl");        #network/DCOPF helper utilities
 include("read_input_data.jl");		#read input data module
 include("GTEP.jl");					#capacity expansion model
@@ -51,6 +52,7 @@ export create_GTEP_model
 export create_PCM_model
 export calculate_erec
 export calculate_erec_from_output
+export default_aggregation_settings
 export default_erec_settings
 export default_rep_day_settings
 export initiate_solver
@@ -59,6 +61,7 @@ export build_endogenous_rep_periods
 export get_representative_ts
 export get_TPmatched_ts
 export load_data
+export load_aggregation_settings
 export load_erec_settings
 export load_rep_day_settings
 export load_postprocess_snapshot

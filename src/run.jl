@@ -77,6 +77,9 @@ function run_hope(case::AbstractString)
 		config_set = open(settings_file) do io
 			YAML.load(io)
 		end
+		if resource_aggregation_enabled(config_set)
+			config_set["aggregation_settings"] = load_aggregation_settings(path, config_set)
+		end
 		endogenous_rep_day, _, _ = resolve_rep_day_mode(config_set; context="run_hope")
 		if endogenous_rep_day == 1
 			config_set["rep_day_settings"] = load_rep_day_settings(path, config_set)
@@ -148,6 +151,9 @@ function write_hope(case::AbstractString, solved_case::Model)
 		# Set model configuration 
 		config_set = open(settings_file) do io
 			YAML.load(io)
+		end
+		if resource_aggregation_enabled(config_set)
+			config_set["aggregation_settings"] = load_aggregation_settings(path, config_set)
 		end
 		endogenous_rep_day, _, _ = resolve_rep_day_mode(config_set; context="write_hope")
 		if endogenous_rep_day == 1

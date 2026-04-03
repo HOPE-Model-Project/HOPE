@@ -120,6 +120,30 @@ function write_rep_day_audit_outputs(
     end
 end
 
+function write_resource_aggregation_audit_outputs(
+    outpath::AbstractString,
+    config_set::AbstractDict,
+    input_data::Dict,
+)
+    resource_aggregation_enabled(config_set) || return
+    write_aggregation_audit_enabled(config_set) || return
+    audit = get(input_data, "AggregationAudit", nothing)
+    audit === nothing && return
+
+    if haskey(audit, "mapping")
+        CSV.write(joinpath(outpath, "resource_aggregation_mapping.csv"), copy(audit["mapping"]), writeheader=true)
+    end
+    if haskey(audit, "summary")
+        CSV.write(joinpath(outpath, "resource_aggregation_summary.csv"), copy(audit["summary"]), writeheader=true)
+    end
+    if haskey(audit, "af_summary")
+        af_summary = copy(audit["af_summary"])
+        if nrow(af_summary) > 0
+            CSV.write(joinpath(outpath, "resource_aggregation_af_summary.csv"), af_summary, writeheader=true)
+        end
+    end
+end
+
 """
 Build nodal mapping metadata for PCM output post-processing.
 Returns bus labels, bus->zone index mapping, zone->bus index lists, and bus load-share weights.
@@ -337,6 +361,7 @@ end
 
 function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict, model::Model)
 	mkdir_overwrite(outpath)
+    write_resource_aggregation_audit_outputs(outpath, config_set, input_data)
     model_mode = config_set["model_mode"]
     flexible_demand_raw = get(config_set, "flexible_demand", 0)
     flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
