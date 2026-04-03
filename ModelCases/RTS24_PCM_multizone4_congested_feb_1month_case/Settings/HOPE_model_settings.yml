@@ -16,7 +16,7 @@ debug: 0
 DataCase: "Data_RTS24_PCM_full/"
 network_model: 3
 summary_table: 1
-aggregated!: 0
+resource_aggregation: 0
 representative_day!: 0
 operation_reserve_mode: 2
 flexible_demand: 1

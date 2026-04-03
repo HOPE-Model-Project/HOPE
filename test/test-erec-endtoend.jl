@@ -134,7 +134,7 @@ function write_tiny_erec_case(case_dir::AbstractString)
         write(io, """
 DataCase: Data/
 model_mode: GTEP
-aggregated!: 0
+resource_aggregation: 0
 representative_day!: 0
 flexible_demand: 0
 inv_dcs_bin: 0

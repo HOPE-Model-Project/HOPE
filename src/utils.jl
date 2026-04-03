@@ -162,6 +162,30 @@ function safe_remove_directory(path::AbstractString; max_retries::Int = 3)
 end
 
 """
+    resource_aggregation_enabled(config_set::Dict)
+
+Return `true` when resource aggregation is enabled in model settings.
+`resource_aggregation` is the canonical setting name. The legacy
+`aggregated!` key is accepted as a fallback while older cases transition.
+"""
+function resource_aggregation_enabled(config_set::Dict)
+    parse_binary(x, keyname) = begin
+        v = x isa Integer ? Int(x) : parse(Int, string(x))
+        if !(v in (0, 1))
+            throw(ArgumentError("Invalid $(keyname)=$(v). Expected 0 or 1."))
+        end
+        v
+    end
+    if haskey(config_set, "resource_aggregation")
+        return parse_binary(config_set["resource_aggregation"], "resource_aggregation") == 1
+    elseif haskey(config_set, "aggregated!")
+        return parse_binary(config_set["aggregated!"], "aggregated!") == 1
+    else
+        return false
+    end
+end
+
+"""
     normalize_timeseries_time_columns!(df::DataFrame; context::AbstractString = "timeseries")
 
 Normalize timeseries metadata columns to HOPE's standard:

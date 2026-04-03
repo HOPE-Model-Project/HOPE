@@ -12,7 +12,7 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 | :------------ | :-----------|:-----------|
 |`DataCase:` | `Data_100RPS/`| Input data folder under the case directory.|
 |`model_mode:`| `GTEP` | HOPE mode: `GTEP` or `PCM`.|
-|`aggregated!:`| `1` | `1` aggregate technology resource input; `0` full technology input.|
+|`resource_aggregation:`| `1` | `1` aggregate resources before model build; `0` use the full input resource list.|
 |`representative_day!:`| `1` | Legacy representative-day switch. `1` endogenous representative-day clustering; `0` full chronology. Prefer `endogenous_rep_day` and `external_rep_day` for new cases.|
 |`endogenous_rep_day:`| `1` | `1` let HOPE cluster representative days from full chronology; `0` disable endogenous representative-day clustering.|
 |`external_rep_day:`| `0` | `1` use user-provided representative periods and `rep_period_weights`; `0` disable external representative periods.|

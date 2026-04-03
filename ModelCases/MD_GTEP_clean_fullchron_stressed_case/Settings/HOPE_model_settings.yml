@@ -1,6 +1,6 @@
 DataCase: Data_100RPS/            #String, the folder name of data, default Data/ GTEP example: "Data_100RPS/"; PCM example: "Data_PCM2035/"
 model_mode: GTEP                  #String,"GTEP" or "PCM" or ...
-aggregated!: 1                    #Binary,1 aggregate technology resource; 0 Does Not
+resource_aggregation: 1           # 1 aggregate resources before model build; 0 use full input resources
 representative_day!: 0            #Binary,1 use representative days (need to set time_periods); 0 Does Not
 flexible_demand: 0                #Binary, 1 enable DR backlog formulation; 0 disable DR
 inv_dcs_bin: 0                    #Binary, 1 use integer variable for investment decisions; 0 Does Not

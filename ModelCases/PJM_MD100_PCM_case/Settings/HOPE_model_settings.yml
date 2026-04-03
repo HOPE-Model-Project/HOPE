@@ -1,6 +1,6 @@
 DataCase: Data_PJM_PCM_subzones/  # Input data folder under the case directory
 model_mode: PCM                   # Model type: GTEP or PCM
-aggregated!: 1                    # 1 use aggregated technology data; 0 use full input technologies
+resource_aggregation: 1           # 1 aggregate resources before model build; 0 use full input resources
 endogenous_rep_day: 0             # 1 build representative periods from full chronology using HOPE_rep_day_settings.yml; 0 otherwise
 external_rep_day: 0               # 1 use user-provided representative periods and weights; 0 otherwise
 flexible_demand: 0                # 1 enable demand response formulation; 0 disable

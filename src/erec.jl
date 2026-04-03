@@ -179,7 +179,7 @@ function save_postprocess_snapshot_bundle(
         "save_postprocess_snapshot" => mode,
         "solver" => snapshot_yaml_value(get(config_set, "solver", nothing)),
         "planning_reserve_mode" => snapshot_yaml_value(get(config_set, "planning_reserve_mode", nothing)),
-        "aggregated!" => snapshot_yaml_value(get(config_set, "aggregated!", nothing)),
+        "resource_aggregation" => snapshot_yaml_value(get(config_set, "resource_aggregation", get(config_set, "aggregated!", nothing))),
         "endogenous_rep_day" => snapshot_yaml_value(get(config_set, "endogenous_rep_day", nothing)),
         "external_rep_day" => snapshot_yaml_value(get(config_set, "external_rep_day", nothing)),
         "representative_day!" => snapshot_yaml_value(get(config_set, "representative_day!", nothing)),

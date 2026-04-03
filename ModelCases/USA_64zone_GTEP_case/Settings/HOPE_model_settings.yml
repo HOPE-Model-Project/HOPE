@@ -1,6 +1,6 @@
 DataCase: "Data_USA64_GTEP/"     # Input data folder under this case directory
 model_mode: "GTEP"               # "GTEP" or "PCM"
-aggregated!: 0                   # 1 aggregate resources by zone/type; 0 use full unit list
+resource_aggregation: 0          # 1 aggregate resources before model build; 0 use full unit list
 endogenous_rep_day: 0            # 1 let HOPE cluster representative days from full chronology
 external_rep_day: 1              # 1 use user-provided representative periods + rep_period_weights (mutually exclusive with endogenous_rep_day)
 flexible_demand: 0               # 1 enable DR backlog formulation; 0 disable

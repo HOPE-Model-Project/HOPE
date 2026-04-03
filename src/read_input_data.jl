@@ -247,7 +247,7 @@ function load_data(config_set::Dict,path::AbstractString)
             #technology
             println("Reading technology")
             gendata_raw = DataFrame(XLSX.readtable(xlsx_path,"gendata"))
-            if config_set["aggregated!"]==1
+            if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
             else
                 input_data["Gendata"]=gendata_raw
@@ -294,7 +294,7 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
                 normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
-                if config_set["aggregated!"] == 1
+                if resource_aggregation_enabled(config_set)
                     input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], input_data["AFdata"])
                 end
             else
@@ -317,7 +317,7 @@ function load_data(config_set::Dict,path::AbstractString)
             #technology
             println("Reading technology")
             gendata_raw = CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)
-            if config_set["aggregated!"]==1
+            if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw)
             else
                 input_data["Gendata"]=gendata_raw
@@ -355,7 +355,7 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AFdata"] = CSV.read(af_csv, DataFrame)
                 normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
                 validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "gen_availability_timeseries")
-                if config_set["aggregated!"] == 1
+                if resource_aggregation_enabled(config_set)
                     input_data["AFdata"] = aggregate_afdata_gtep(gendata_raw, input_data["Gendata"], input_data["Gendata_candidate"], input_data["AFdata"])
                 end
             else
@@ -412,7 +412,7 @@ function load_data(config_set::Dict,path::AbstractString)
             end
             #technology
             println("Reading technology")
-            if config_set["aggregated!"]==1
+            if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_pcm(DataFrame(XLSX.readtable(xlsx_path,"gendata")),config_set)
             else
                 input_data["Gendata"]=DataFrame(XLSX.readtable(xlsx_path,"gendata"))
@@ -522,7 +522,7 @@ function load_data(config_set::Dict,path::AbstractString)
             end
             #technology
             println("Reading technology")
-            if config_set["aggregated!"]==1
+            if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_pcm(CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame),config_set)
             else
                 input_data["Gendata"]=CSV.read(joinpath(folderpath,"gendata.csv"),DataFrame)

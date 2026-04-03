@@ -8,7 +8,7 @@ Data path: `ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones`
 | Setting | Value |
 | :-- | :-- |
 | `model_mode` | `GTEP` |
-| `aggregated!` | `1` |
+| `resource_aggregation` | `1` |
 | `endogenous_rep_day` | `1` |
 | `external_rep_day` | `0` |
 | `inv_dcs_bin` | `0` |

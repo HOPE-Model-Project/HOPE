@@ -81,7 +81,7 @@ end
             write(io, """
 DataCase: Data/
 model_mode: GTEP
-aggregated!: 0
+resource_aggregation: 0
 endogenous_rep_day: 0
 external_rep_day: 1
 flexible_demand: 0
@@ -107,7 +107,7 @@ resource_types:
         config = Dict{String,Any}(
             "DataCase" => "Data/",
             "model_mode" => "GTEP",
-            "aggregated!" => 0,
+            "resource_aggregation" => 0,
             "endogenous_rep_day" => 0,
             "external_rep_day" => 1,
             "flexible_demand" => 0,

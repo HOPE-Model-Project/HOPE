@@ -9,7 +9,7 @@ Data path: `ModelCases/USA_64zone_GTEP_case/Data_USA64_GTEP`
 | :-- | :-- |
 | `model_mode` | `GTEP` |
 | `solver` | `gurobi` |
-| `aggregated!` | `0` |
+| `resource_aggregation` | `0` |
 | `endogenous_rep_day` | `0` |
 | `external_rep_day` | `1` |
 | `planning_reserve_mode` | `0` |

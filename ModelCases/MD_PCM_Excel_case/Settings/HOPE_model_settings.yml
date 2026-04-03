@@ -1,6 +1,6 @@
 DataCase: Data_PCM2035/           # Input data folder under the case directory
 model_mode: PCM                   # Model type: GTEP or PCM
-aggregated!: 1                    # 1 use aggregated technology data; 0 use full input technologies
+resource_aggregation: 1           # 1 aggregate resources before model build; 0 use full input resources
 representative_day!: 0            # 1 representative-day formulation; 0 full chronological hours
 flexible_demand: 0                # 1 enable demand response formulation; 0 disable
 clean_energy_policy: 1            # 1 enforce RPS/clean-energy constraints; 0 disable
