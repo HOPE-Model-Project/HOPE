@@ -29,6 +29,7 @@ pages = OrderedDict(
     "Model Settings" => [
         "HOPE Settings" => "hope_model_settings.md",
         "Representative Days" => "rep_day.md",
+        "Resource Aggregation" => "resource_aggregation.md",
         "Solver Settings" => "solver_settings.md",
     ],
     "Postprocessing" => [
