@@ -41,7 +41,7 @@ Notes:
 - Full chronology corresponds to `endogenous_rep_day = 0` and `external_rep_day = 0`.
 - Representative-day mode corresponds to `endogenous_rep_day = 1` or `external_rep_day = 1`. These two settings are mutually exclusive.
 - Advanced endogenous representative-day controls are stored in `Settings/HOPE_rep_day_settings.yml`.
-- Advanced resource aggregation controls are stored in `Settings/HOPE_aggregation_settings.yml` when `resource_aggregation = 1`, including grouping keys, selective aggregation, audit outputs, and PCM clustered thermal commitment.
+- Advanced resource aggregation controls are stored in `Settings/HOPE_aggregation_settings.yml` when `resource_aggregation = 1`, including grouping keys, planning-oriented clustering, selective aggregation, audit outputs, and PCM clustered thermal commitment.
 - For PCM, representative-day mode is currently not the primary production workflow; nodal studies are typically run in full chronology.
 - For PCM, summary tables are controlled by `summary_table=1` across network modes; nodal-specific summary tables are generated only when `network_model` is `2` or `3`.
 - `save_postprocess_snapshot` is mainly useful for workflows that want to reuse a solved baseline later, such as `HOPE.calculate_erec_from_output(...)`.

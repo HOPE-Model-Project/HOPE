@@ -11,6 +11,20 @@ function default_aggregation_settings(config_set::AbstractDict=Dict{String,Any}(
         "grouping_keys" => ["Zone", "Type"],
         "pcm_additional_grouping_keys" => ["Flag_UC"],
         "clustered_thermal_commitment" => 1,
+        "planning_clustering" => 0,
+        "planning_feature_columns" => [
+            "Cost (\$/MWh)",
+            "FOR",
+            "CC",
+            "AF",
+            "RU",
+            "RD",
+            "Pmax (MW)",
+            "Pmin (MW)",
+        ],
+        "planning_target_cluster_size" => 4,
+        "planning_max_clusters_per_group" => 4,
+        "normalize_planning_features" => 1,
         "aggregate_technologies" => Any[],
         "keep_separate_technologies" => Any[],
     )
@@ -62,6 +76,38 @@ function clustered_thermal_commitment_enabled(config_set::AbstractDict)
         aggregation_settings_value(config_set, "clustered_thermal_commitment", 1),
         "aggregation_settings.clustered_thermal_commitment",
     ) == 1
+end
+
+function planning_clustering_enabled(config_set::AbstractDict)
+    return parse_aggregation_binary(
+        aggregation_settings_value(config_set, "planning_clustering", 0),
+        "aggregation_settings.planning_clustering",
+    ) == 1
+end
+
+function normalize_planning_features_enabled(config_set::AbstractDict)
+    return parse_aggregation_binary(
+        aggregation_settings_value(config_set, "normalize_planning_features", 1),
+        "aggregation_settings.normalize_planning_features",
+    ) == 1
+end
+
+function planning_target_cluster_size(config_set::AbstractDict)
+    raw = aggregation_settings_value(config_set, "planning_target_cluster_size", 4)
+    v = raw isa Integer ? Int(raw) : parse(Int, string(raw))
+    if v < 1
+        throw(ArgumentError("aggregation_settings.planning_target_cluster_size must be >= 1."))
+    end
+    return v
+end
+
+function planning_max_clusters_per_group(config_set::AbstractDict)
+    raw = aggregation_settings_value(config_set, "planning_max_clusters_per_group", 4)
+    v = raw isa Integer ? Int(raw) : parse(Int, string(raw))
+    if v < 0
+        throw(ArgumentError("aggregation_settings.planning_max_clusters_per_group must be >= 0."))
+    end
+    return v
 end
 
 function aggregation_setting_string_list(config_set::AbstractDict, key::AbstractString, default::Vector{String}=String[])

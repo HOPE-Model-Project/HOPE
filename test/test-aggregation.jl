@@ -6,6 +6,7 @@ using JuMP
     defaults = HOPE.default_aggregation_settings()
     @test defaults["write_aggregation_audit"] == 1
     @test defaults["clustered_thermal_commitment"] == 1
+    @test defaults["planning_clustering"] == 0
 
     mktempdir() do tmpdir
         case_dir = joinpath(tmpdir, "agg_case")
@@ -91,6 +92,42 @@ using JuMP
     )
     sep_agg = HOPE.aggregate_gendata_gtep(raw, sep_cfg)
     @test nrow(sep_agg) == 3
+
+    clustered_raw = DataFrame(
+        Zone = ["Z1", "Z1", "Z1", "Z1"],
+        Type = ["NGCT", "NGCT", "NGCT", "NGCT"],
+        EF = [0.5, 0.5, 0.5, 0.5],
+        CC = [0.95, 0.95, 0.80, 0.80],
+        AF = [1.0, 1.0, 1.0, 1.0],
+        FOR = [0.05, 0.05, 0.18, 0.18],
+        Flag_thermal = [1, 1, 1, 1],
+        Flag_VRE = [0, 0, 0, 0],
+        Flag_RET = [0, 0, 0, 0],
+        Flag_mustrun = [0, 0, 0, 0],
+        Flag_RPS = [0, 0, 0, 0],
+    )
+    clustered_raw[!, Symbol("Pmax (MW)")] = [100.0, 110.0, 95.0, 105.0]
+    clustered_raw[!, Symbol("Pmin (MW)")] = [20.0, 22.0, 18.0, 20.0]
+    clustered_raw[!, Symbol("Cost (\$/MWh)")] = [25.0, 27.0, 85.0, 87.0]
+    clustered_cfg = Dict{String,Any}(
+        "resource_aggregation" => 1,
+        "aggregation_settings" => Dict(
+            "grouping_keys" => ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
+            "pcm_additional_grouping_keys" => Any[],
+            "planning_clustering" => 1,
+            "planning_feature_columns" => ["Cost (\$/MWh)", "FOR", "CC"],
+            "planning_target_cluster_size" => 2,
+            "planning_max_clusters_per_group" => 2,
+            "normalize_planning_features" => 1,
+        ),
+    )
+    clustered_agg = HOPE.aggregate_gendata_gtep(clustered_raw, clustered_cfg)
+    @test nrow(clustered_agg) == 2
+    clustered_costs = sort(Float64.(clustered_agg[!, Symbol("Cost (\$/MWh)")]))
+    @test clustered_costs[1] ≈ 26.0 atol=0.1
+    @test clustered_costs[2] ≈ 86.0 atol=0.1
+    clustered_audit = HOPE.build_gtep_aggregation_audit(clustered_raw, clustered_agg; config_set=clustered_cfg)
+    @test any(occursin("PlanningCluster=", k) for k in clustered_audit["summary"][!, :GroupingKey])
 
     pcm_raw = DataFrame(
         Zone = ["Z1", "Z1"],

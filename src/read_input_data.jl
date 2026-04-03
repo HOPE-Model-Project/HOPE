@@ -21,23 +21,100 @@ end
 
 flag_any(gdf::AbstractDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
 
+function planning_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDict)
+    feature_names = aggregation_setting_string_list(
+        config_set,
+        "planning_feature_columns",
+        ["Cost (\$/MWh)", "FOR", "CC", "AF", "RU", "RD", "Pmax (MW)", "Pmin (MW)"],
+    )
+    available = [Symbol(col) for col in feature_names if col in names(gdf)]
+    if isempty(available)
+        return zeros(Float64, nrow(gdf), 0), String[]
+    end
+    mat = hcat([Float64[to_float_agg(gdf[i, col], 0.0) for i in 1:nrow(gdf)] for col in available]...)
+    if normalize_planning_features_enabled(config_set)
+        for j in 1:size(mat, 2)
+            colvals = mat[:, j]
+            μ = mean(colvals)
+            σ = std(colvals)
+            if σ > 0
+                mat[:, j] .= (colvals .- μ) ./ σ
+            else
+                mat[:, j] .= 0.0
+            end
+        end
+    end
+    return mat, string.(available)
+end
+
+function planning_cluster_assignments(gdf::AbstractDataFrame, config_set::AbstractDict)
+    n = nrow(gdf)
+    n <= 1 && return ones(Int, n), 1, String[]
+    if !planning_clustering_enabled(config_set)
+        return ones(Int, n), 1, String[]
+    end
+    target_size = planning_target_cluster_size(config_set)
+    n <= target_size && return ones(Int, n), 1, String[]
+    feature_matrix, feature_cols = planning_feature_matrix(gdf, config_set)
+    size(feature_matrix, 2) == 0 && return ones(Int, n), 1, String[]
+    if all(all(isapprox(feature_matrix[i, j], feature_matrix[1, j]; atol=1e-9) for j in 1:size(feature_matrix, 2)) for i in 2:n)
+        return ones(Int, n), 1, feature_cols
+    end
+    k = ceil(Int, n / target_size)
+    max_clusters = planning_max_clusters_per_group(config_set)
+    if max_clusters > 0
+        k = min(k, max_clusters)
+    end
+    k = clamp(k, 1, n)
+    k == 1 && return ones(Int, n), 1, feature_cols
+    result = kmeans(transpose(feature_matrix), k)
+    assignments = collect(Int.(result.assignments))
+    present_clusters = sort(unique(assignments))
+    cluster_map = Dict(old => new for (new, old) in enumerate(present_clusters))
+    return [cluster_map[a] for a in assignments], length(present_clusters), feature_cols
+end
+
 function grouped_row_indices_by_aggregation(df::DataFrame, config_set::AbstractDict=Dict{String,Any}(); model_mode::AbstractString="GTEP")
     key_cols = aggregation_grouping_keys(df, config_set, model_mode)
     groups = Dict{Tuple{Vararg{String}}, Vector{Int}}()
+    group_labels = Dict{Tuple{Vararg{String}}, String}()
     order = Tuple{Vararg{String}}[]
+    base_groups = Dict{Tuple{Vararg{String}}, Vector{Int}}()
+    base_order = Tuple{Vararg{String}}[]
     for (i, row) in enumerate(eachrow(df))
-        key = if aggregation_should_merge_type(string(row["Type"]), config_set)
+        base_key = if aggregation_should_merge_type(string(row["Type"]), config_set)
             Tuple(string(row[col]) for col in key_cols)
         else
             Tuple(vcat(["__separate__$(i)"], [string(row[col]) for col in key_cols]))
         end
-        if !haskey(groups, key)
-            groups[key] = Int[]
-            push!(order, key)
+        if !haskey(base_groups, base_key)
+            base_groups[base_key] = Int[]
+            push!(base_order, base_key)
         end
-        push!(groups[key], i)
+        push!(base_groups[base_key], i)
     end
-    return order, groups, key_cols
+
+    for base_key in base_order
+        rows = base_groups[base_key]
+        gdf = df[rows, :]
+        assignments, num_clusters, feature_cols = planning_cluster_assignments(gdf, config_set)
+        for cluster_idx in 1:num_clusters
+            member_positions = findall(==(cluster_idx), assignments)
+            isempty(member_positions) && continue
+            member_rows = rows[member_positions]
+            key = num_clusters == 1 ? base_key : Tuple(vcat(collect(base_key), ["__cluster__$(cluster_idx)"]))
+            groups[key] = member_rows
+            push!(order, key)
+            base_label = join(["$(key_cols[j])=$(base_key[j])" for j in eachindex(key_cols)], "; ")
+            if num_clusters == 1
+                group_labels[key] = base_label
+            else
+                feature_label = isempty(feature_cols) ? "" : " [features=" * join(feature_cols, ",") * "]"
+                group_labels[key] = base_label * "; PlanningCluster=$(cluster_idx)/$(num_clusters)" * feature_label
+            end
+        end
+    end
+    return order, groups, key_cols, group_labels
 end
 
 function aggregate_gendata_gtep(df::DataFrame, config_set::AbstractDict=Dict{String,Any}())
@@ -66,7 +143,7 @@ function aggregate_gendata_gtep(df::DataFrame, config_set::AbstractDict=Dict{Str
         out[!, :Flag_RPS] = Int[]
     end
 
-    order, groups, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="GTEP")
+    order, groups, _, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="GTEP")
     for key in order
         gdf = work[groups[key], :]
         w = agg_weights_from_pmax(gdf)
@@ -113,7 +190,7 @@ end
 function aggregate_afdata_gtep(raw_gendata::DataFrame, aggregated_gendata::DataFrame, gendata_candidate::DataFrame, raw_afdata::DataFrame, config_set::AbstractDict=Dict{String,Any}())
     time_cols = [col for col in ["Time Period", "Month", "Day", "Hours"] if col in names(raw_afdata)]
     out = copy(raw_afdata[:, time_cols])
-    order, groups, _ = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
+    order, groups, _, _ = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
 
     for (new_idx, key) in enumerate(order)
         rows = groups[key]
@@ -193,7 +270,7 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         out[!, :RM_NSPIN] = Float64[]
     end
 
-    order, groups, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="PCM")
+    order, groups, _, _ = grouped_row_indices_by_aggregation(work, config_set; model_mode="PCM")
     for key in order
         gdf = work[groups[key], :]
         w = agg_weights_from_pmax(gdf)
@@ -256,7 +333,7 @@ function build_gtep_aggregation_audit(
     raw_afdata::Union{Nothing,DataFrame}=nothing,
     aggregated_afdata::Union{Nothing,DataFrame}=nothing,
 )
-    order, groups, key_cols = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
+    order, groups, key_cols, group_labels = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="GTEP")
     mapping_df = DataFrame(
         AggregatedResource = String[],
         Zone = String[],
@@ -307,7 +384,7 @@ function build_gtep_aggregation_audit(
         weights = [max(to_float_agg(gdf[r, Symbol("Pmax (MW)")], 0.0), 0.0) for r in 1:nrow(gdf)]
         shares = normalized_agg_shares(weights)
         agg_nm = "G$(new_idx)"
-        grouping_key = join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; ")
+        grouping_key = get(group_labels, key, join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; "))
 
         for (local_idx, raw_idx) in enumerate(rows)
             push!(mapping_df, (
@@ -378,7 +455,7 @@ function build_gtep_aggregation_audit(
 end
 
 function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata::DataFrame; config_set::AbstractDict=Dict{String,Any}())
-    order, groups, key_cols = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="PCM")
+    order, groups, key_cols, group_labels = grouped_row_indices_by_aggregation(raw_gendata, config_set; model_mode="PCM")
     mapping_df = DataFrame(
         AggregatedResource = String[],
         Zone = String[],
@@ -398,7 +475,7 @@ function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata:
         weights = [max(to_float_agg(gdf[r, Symbol("Pmax (MW)")], 0.0), 0.0) for r in 1:nrow(gdf)]
         shares = normalized_agg_shares(weights)
         agg_nm = "G$(new_idx)"
-        grouping_key = join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; ")
+        grouping_key = get(group_labels, key, join(["$(key_cols[j])=$(key[j])" for j in eachindex(key_cols)], "; "))
 
         for (local_idx, raw_idx) in enumerate(rows)
             push!(mapping_df, (

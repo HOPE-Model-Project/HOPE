@@ -9,5 +9,18 @@ grouping_keys:                    #List, existing resources are grouped only whe
 pcm_additional_grouping_keys:     #List, used only in PCM mode
   - Flag_UC
 clustered_thermal_commitment: 1   #Binary,used only in PCM with unit_commitment; aggregated thermal UC resources use unit-count clustered commitment
+planning_clustering: 0            #Binary,1 split large keyed aggregation groups into planning-oriented sub-clusters using the feature list below
+planning_feature_columns:         #List, numeric columns used for planning-oriented clustering when planning_clustering = 1
+  - Cost ($/MWh)
+  - FOR
+  - CC
+  - AF
+  - RU
+  - RD
+  - Pmax (MW)
+  - Pmin (MW)
+planning_target_cluster_size: 4   #Int, approximate number of original resources per planning cluster
+planning_max_clusters_per_group: 4 #Int, 0 no cap; otherwise maximum planning clusters created inside one keyed group
+normalize_planning_features: 1    #Binary,1 z-score normalize planning features before clustering; 0 use raw values
 aggregate_technologies: []        #List, empty means all technologies are eligible for aggregation
 keep_separate_technologies: []    #List, technologies kept fully disaggregated even when resource_aggregation = 1
