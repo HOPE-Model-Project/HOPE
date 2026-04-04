@@ -1,0 +1,26 @@
+write_aggregation_audit: 1        #Binary,1 write aggregation mapping/summary audit CSVs to output; 0 disable
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
+clustered_thermal_commitment: 0   #Binary,1 in PCM with unit_commitment and resource_aggregation, aggregated thermal UC resources use unit-count clustered commitment; 0 keeps single-unit-style UC on aggregated rows
+aggregation_method: basic            # basic = keyed aggregation, feature_based = keyed groups split by clustering features
+clustering_feature_columns:
+  - Cost ($/MWh)
+  - FOR
+  - CC
+  - AF
+  - RU
+  - RD
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 4
+clustering_max_clusters_per_group: 4
+normalize_clustering_features: 1
+aggregate_technologies: []
+keep_separate_technologies: []
+

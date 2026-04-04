@@ -1,0 +1,23 @@
+write_aggregation_audit: 1        # 1 write aggregation mapping/summary audit CSVs into output/; 0 disable
+aggregation_method: basic     # basic = keyed aggregation, feature_based = keyed groups split by clustering features
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_RET
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
+clustered_thermal_commitment: 1   # used only in PCM with UC
+clustering_feature_columns:
+  - Cost (\$/MWh)
+  - FOR
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 4
+clustering_max_clusters_per_group: 6
+normalize_clustering_features: 1
+aggregate_technologies: []
+keep_separate_technologies: []
+

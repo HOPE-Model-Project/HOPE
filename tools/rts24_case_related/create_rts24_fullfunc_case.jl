@@ -211,7 +211,7 @@ function write_settings(path::AbstractString)
     txt = """
 DataCase: Data_RTS24_PCM_full/
 model_mode: PCM
-aggregated!: 0
+resource_aggregation: 0
 endogenous_rep_day: 0
 external_rep_day: 0
 flexible_demand: 1

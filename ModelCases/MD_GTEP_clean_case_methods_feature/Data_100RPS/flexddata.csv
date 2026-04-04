@@ -1,0 +1,7 @@
+Zone,Type,Max Power (MW),Cost ($/MW),CC,Shift_Efficiency,Max_Defer_Hours
+BGE,Loadshifting,1000,500,1,1,24
+APS,Loadshifting,1000,500,1,1,24
+PEPCO,Loadshifting,1000,500,1,1,24
+DPL,Loadshifting,1000,500,1,1,24
+DPL_MD,Loadshifting,0,500,1,1,24
+APS_MD,Loadshifting,0,500,1,1,24

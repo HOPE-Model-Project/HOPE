@@ -4,29 +4,32 @@ CurrentModule = HOPE
 
 # Resource Aggregation
 
-HOPE keeps the main resource-aggregation mode switch in `HOPE_model_settings.yml`:
+HOPE keeps the high-level aggregation switch in `HOPE_model_settings.yml`:
 
 ```yaml
 resource_aggregation: 1
 ```
 
-When `resource_aggregation = 1`, HOPE reads the advanced aggregation controls from:
+When `resource_aggregation = 1`, HOPE reads the advanced controls from:
 
 ```text
 Settings/HOPE_aggregation_settings.yml
 ```
 
-This keeps `HOPE_model_settings.yml` high-level while leaving the detailed aggregation behavior in a separate advanced settings file.
+This keeps `HOPE_model_settings.yml` short while moving the method details into a separate advanced settings file.
 
 ## Aggregation Design
 
-The current user-facing resource-aggregation design has three main features:
+HOPE now treats resource aggregation as **two aggregation methods**:
 
-- `Feature 1: Basic Structured Aggregation`
-- `Feature 2: Clustered Thermal Commitment for PCM`
-- `Feature 3: Planning-Oriented Generator Clustering`
+- `basic`
+- `feature_based`
 
-In addition, HOPE writes aggregation audit outputs so users can see exactly how original resources were merged.
+For PCM with unit commitment, there is one additional **internal UC treatment**:
+
+- `clustered_thermal_commitment: 0/1`
+
+That PCM switch is not a separate aggregation method. It only changes how aggregated thermal UC resources behave after the grouping step.
 
 ## Common Settings
 
@@ -34,6 +37,10 @@ A typical `HOPE_aggregation_settings.yml` starts from:
 
 ```yaml
 write_aggregation_audit: 1        # 1 write aggregation audit CSVs into output/; 0 disable
+
+# basic = keyed aggregation only
+# feature_based = keyed aggregation, then split large groups using clustering features
+aggregation_method: basic
 
 # Existing resources are only grouped when all listed fields match.
 grouping_keys:
@@ -48,18 +55,13 @@ grouping_keys:
 pcm_additional_grouping_keys:
   - Flag_UC
 
-# Feature 2: clustered thermal commitment for aggregated PCM UC resources.
-# 1 = aggregated thermal UC resources use unit-count clustered commitment
-# 0 = aggregated thermal UC resources keep single-unit-style UC behavior
+# PCM internal UC treatment for aggregated thermal resources.
+# 1 = aggregated thermal UC rows track unit counts
+# 0 = aggregated thermal UC rows behave like single averaged units
 clustered_thermal_commitment: 1
 
-# Feature 3: planning-oriented clustering inside each keyed aggregation group.
-# 1 = split large keyed aggregation groups into planning-oriented sub-clusters
-# 0 = use keyed grouping only
-planning_clustering: 0
-
-# Numeric columns used when planning_clustering: 1
-planning_feature_columns:
+# Numeric columns used only when aggregation_method: feature_based
+clustering_feature_columns:
   - Cost ($/MWh)
   - FOR
   - CC
@@ -69,16 +71,16 @@ planning_feature_columns:
   - Pmax (MW)
   - Pmin (MW)
 
-# Approximate number of original resources per planning cluster.
-planning_target_cluster_size: 4
+# Approximate number of original resources per feature-based cluster.
+clustering_target_cluster_size: 4
 
-# Maximum number of planning clusters created inside one keyed group.
+# Maximum number of feature-based clusters created inside one keyed group.
 # 0 = no cap
-planning_max_clusters_per_group: 4
+clustering_max_clusters_per_group: 4
 
-# 1 = z-score normalize planning features before clustering
+# 1 = z-score normalize clustering features before clustering
 # 0 = use raw feature values
-normalize_planning_features: 1
+normalize_clustering_features: 1
 
 # If empty, all technologies are eligible for aggregation.
 aggregate_technologies: []
@@ -89,76 +91,121 @@ keep_separate_technologies: []
 
 ## Audit Outputs
 
-When `write_aggregation_audit: 1`, HOPE writes the following CSV files into the case `output/` folder:
+When `write_aggregation_audit: 1`, HOPE writes:
 
 - `resource_aggregation_mapping.csv`
 - `resource_aggregation_summary.csv`
 - `resource_aggregation_af_summary.csv` in GTEP when generator AF aggregation is available
 
-These outputs are meant to answer three questions:
+These outputs let users check:
 
-1. which original resources were merged into each aggregated resource?
-2. what weights were used in the aggregation?
-3. what did the aggregated parameters become after the merge?
+1. which original resources were merged into each aggregated resource
+2. how large each aggregated group is
+3. how the aggregated parameters changed after merging
 
-## Feature 1: Basic Structured Aggregation
+## Method 1: Basic Aggregation
 
 ### Focus
 
-Feature 1 makes aggregation safer than the old `Zone x Type` merge by using a structured grouping key and selective technology controls.
+`basic` aggregation is the default structured aggregation method.
 
 ### Mechanism
 
-HOPE first builds keyed aggregation groups from:
+HOPE forms groups using:
 
 - `grouping_keys`
 - `pcm_additional_grouping_keys` in PCM
 - `aggregate_technologies`
 - `keep_separate_technologies`
 
-Resources are merged only when:
-
-- they are eligible for aggregation, and
-- all required grouping-key fields match
-
-Within each merged group, HOPE currently:
-
-- sums `Pmax` and `Pmin`
-- uses capacity-weighted averages for parameters such as cost, `FOR`, `CC`, `AF`, `RU`, and `RD`
-- uses `any = 1` logic for flags such as `Flag_thermal`, `Flag_VRE`, `Flag_RET`, and `Flag_mustrun`
+Then HOPE merges each keyed group using technology-family-aware averaging rules already implemented in the input readers.
 
 ### Interpretation
 
-Feature 1 should be interpreted as:
+`basic` aggregation is:
 
-- a safer keyed merge than the old hardcoded `Zone x Type` rule
-- still a rule-based aggregation method, not a similarity-based clustering method
-- the main default aggregation workflow for both GTEP and PCM
+- transparent
+- fast
+- easy to audit
+
+But it can blur important within-group heterogeneity if many different resources share the same keyed group.
 
 ### Recommendation
 
-Use Feature 1 when:
+Use `basic` aggregation when:
 
-- you want a simpler model than the full resource list
-- you still want important operational differences like retirement, must-run, VRE, and thermal flags to stay visible
-- you want a clear and auditable aggregation mapping
+- the fleet is already fairly template-driven
+- you mainly want a smaller model
+- you want the most stable and fastest aggregated run
 
-This is the best starting point for most aggregated cases.
+## Method 2: Feature-Based Aggregation
 
-### Example
+### Focus
 
-Suppose a case has four existing generators in the same zone:
+`feature_based` aggregation is designed for cases where keyed groups are still too heterogeneous.
 
-| Original Resource | Zone | Type | Flag_RET | Flag_mustrun | Flag_VRE | Flag_thermal |
-| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| `G1` | `APS_MD` | `NGCT` | `0` | `0` | `0` | `1` |
-| `G2` | `APS_MD` | `NGCT` | `0` | `0` | `0` | `1` |
-| `G3` | `APS_MD` | `NGCT` | `1` | `0` | `0` | `1` |
-| `G4` | `APS_MD` | `SolarPV` | `0` | `0` | `1` | `0` |
+### Mechanism
 
-With:
+HOPE first forms the same keyed groups used by `basic` aggregation. Then, inside each sufficiently large keyed group, it:
+
+1. builds a numeric feature matrix from `clustering_feature_columns`
+2. optionally normalizes those features
+3. splits the keyed group into smaller sub-clusters
+4. aggregates each sub-cluster separately
+
+So the final aggregated fleet stays smaller than the original model, but it keeps more operational and planning structure than `basic`.
+
+### Interpretation
+
+`feature_based` aggregation is best thought of as:
+
+- still an aggregation method
+- but a **similarity-aware** one instead of a pure keyed merge
+
+Its quality depends on the feature list. If an important hidden driver is omitted from `clustering_feature_columns`, the result can still differ from the original model.
+
+### Recommendation
+
+Use `feature_based` aggregation when:
+
+- keyed groups contain clear internal heterogeneity
+- you want a better accuracy/runtime tradeoff than `basic`
+- you know which numeric features are most important for the study
+
+## PCM Internal Option: Clustered Thermal Commitment
+
+`clustered_thermal_commitment` only matters in PCM when:
+
+- `resource_aggregation = 1`
+- `unit_commitment != 0`
+- aggregated thermal UC rows exist
+
+When it is on, aggregated thermal UC resources keep:
+
+- `NumUnits`
+- `ClusteredUnitPmax (MW)`
+- `ClusteredUnitPmin (MW)`
+
+and the PCM UC variables count online/startup/shutdown units instead of using a single on/off unit for the aggregated row.
+
+This can improve fidelity for thermal UC behavior, but it does **not** change how resources are grouped. The grouping method is still chosen by `aggregation_method`.
+
+## Comparison Example: GTEP
+
+Saved comparison cases:
+
+- `ModelCases/MD_GTEP_clean_case_methods_original`
+- `ModelCases/MD_GTEP_clean_case_methods_basic`
+- `ModelCases/MD_GTEP_clean_case_methods_feature`
+
+Settings used in this example:
+
+- `original`
+  - `resource_aggregation: 0`
+- `basic`
 
 ```yaml
+aggregation_method: basic
 grouping_keys:
   - Zone
   - Type
@@ -166,194 +213,241 @@ grouping_keys:
   - Flag_mustrun
   - Flag_VRE
   - Flag_thermal
+clustering_feature_columns:
+  - Cost ($/MWh)
+  - FOR
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 4
+clustering_max_clusters_per_group: 6
 ```
 
-HOPE maps them into:
-
-```math
-\{G1, G2\} \rightarrow A_1, \qquad
-\{G3\} \rightarrow A_2, \qquad
-\{G4\} \rightarrow A_3
-```
-
-Meaning:
-
-- `G1` and `G2` are merged because all grouping-key fields match
-- `G3` stays separate because `Flag_RET = 1`
-- `G4` stays separate because it is a different `Type` and resource family
-
-So Feature 1 is really a controlled keyed merge, not a blanket compression of everything in one zone.
-
-## Feature 2: Clustered Thermal Commitment for PCM
-
-### Focus
-
-Feature 2 fixes the biggest PCM weakness of simple thermal aggregation: an aggregated thermal UC row should not behave like one fictional averaged plant.
-
-### Mechanism
-
-When:
+- `feature`
 
 ```yaml
+aggregation_method: feature_based
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_RET
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+clustering_feature_columns:
+  - Cost ($/MWh)
+  - FOR
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 4
+clustering_max_clusters_per_group: 6
+```
+
+These cases were built to create:
+
+- within-group cost and outage heterogeneity that `feature_based` can partially preserve
+- hidden capacity-credit heterogeneity that is **not** in the feature list
+
+So all three methods differ:
+
+| Case | Aggregation | Aggregated Resources | Total Cost ($) | Solve Time (s) |
+| :-- | :-- | --: | --: | --: |
+| `original` | none | `231` | `5.299e9` | `9.01` |
+| `basic` | keyed merge | `21` | `5.212e9` | `3.49` |
+| `feature` | keyed + feature-based split | `40` | `5.273e9` | `3.11` |
+
+![GTEP aggregation comparison](assets/resource_aggregation_gtep_comparison.png)
+
+Useful files:
+
+- `ModelCases/MD_GTEP_clean_case_methods_original/output/system_cost.csv`
+- `ModelCases/MD_GTEP_clean_case_methods_basic/output/system_cost.csv`
+- `ModelCases/MD_GTEP_clean_case_methods_feature/output/system_cost.csv`
+- `ModelCases/MD_GTEP_clean_case_methods_basic/output/resource_aggregation_summary.csv`
+- `ModelCases/MD_GTEP_clean_case_methods_feature/output/resource_aggregation_summary.csv`
+
+Interpretation:
+
+- `basic` is the most compressed and gives the lowest cost in this benchmark
+- `feature` keeps more structure than `basic`, so it lands between `basic` and `original`
+- both aggregated methods remain much smaller than the original case
+
+## Comparison Example: PCM
+
+Saved comparison cases:
+
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_original`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_basic`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_feature`
+
+Settings used in this example:
+
+- `original`
+  - `resource_aggregation: 0`
+- `basic`
+
+```yaml
+aggregation_method: basic
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
 clustered_thermal_commitment: 1
+clustering_feature_columns:
+  - Cost ($/MWh)
+  - FOR
+  - RU
+  - RD
+  - RM_SPIN
+  - Start_up_cost ($/MW)
+  - Min_down_time
+  - Min_up_time
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 2
+clustering_max_clusters_per_group: 6
 ```
 
-and PCM has:
-
-- `resource_aggregation: 1`
-- `unit_commitment != 0`
-
-HOPE carries extra thermal-cluster metadata into the aggregated `Gendata`:
-
-- `NumUnits`
-- `ClusteredUnitPmax (MW)`
-- `ClusteredUnitPmin (MW)`
-
-The PCM UC formulation then uses:
-
-- `o[g,h]` as the number of online units in the aggregated cluster
-- `su[g,h]` as the number of startup actions
-- `sd[g,h]` as the number of shutdown actions
-
-instead of treating the aggregated resource as one single unit.
-
-### Interpretation
-
-Feature 2 should be interpreted as:
-
-- a unit-count clustered commitment approximation for aggregated thermal UC resources
-- more realistic than single-unit-style UC on an aggregated row
-- especially important for startup costs, minimum-run levels, UC upper bounds, and reserve/ramp response
-
-### Recommendation
-
-Use Feature 2 when:
-
-- you run PCM with unit commitment on aggregated thermal fleets
-- startup behavior, minimum output, and reserve deliverability matter
-- you want aggregation but do not want to collapse a multi-unit cluster into one fake plant
-
-This should usually stay on for aggregated PCM UC studies.
-
-### Example
-
-Suppose two similar thermal UC units are merged:
-
-| Original Resource | `Pmax (MW)` | `Pmin (MW)` | `Flag_UC` |
-| :-- | --: | --: | --: |
-| `G1` | `100` | `20` | `1` |
-| `G2` | `200` | `40` | `1` |
-
-HOPE aggregates them into one clustered thermal resource with:
-
-```math
-\text{NumUnits} = 2, \qquad
-\text{ClusteredUnitPmax} = 150, \qquad
-\text{ClusteredUnitPmin} = 30
-```
-
-Meaning:
-
-- the aggregated row still has total `Pmax = 300`
-- but UC decisions now see a 2-unit cluster
-- `o[g,h]` can move between `0`, `1`, and `2`
-- startup cost and UC headroom scale with the number of units actually online
-
-That is a much better approximation than pretending the merged row is one 300 MW unit.
-
-## Feature 3: Planning-Oriented Generator Clustering
-
-### Focus
-
-Feature 3 moves beyond exact-key grouping and lets HOPE split large keyed groups into planning-oriented sub-clusters.
-
-### Mechanism
-
-When:
+- `feature`
 
 ```yaml
-planning_clustering: 1
+aggregation_method: feature_based
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
+clustered_thermal_commitment: 1
+clustering_feature_columns:
+  - Cost ($/MWh)
+  - EF
+  - FOR
+  - RU
+  - RD
+  - RM_SPIN
+  - Start_up_cost ($/MW)
+  - Min_down_time
+  - Min_up_time
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 2
+clustering_max_clusters_per_group: 6
 ```
 
-HOPE still starts with the keyed groups from Feature 1. Then, inside each large eligible group, it:
+This one-month benchmark was built to combine:
 
-1. builds a numeric feature matrix from `planning_feature_columns`
-2. optionally normalizes the feature columns
-3. chooses a number of sub-clusters based on:
-   - `planning_target_cluster_size`
-   - `planning_max_clusters_per_group`
-4. runs `kmeans` on that feature matrix
-5. creates one aggregated resource per planning sub-cluster
+- operational heterogeneity that `feature_based` can see
+- emissions heterogeneity that becomes important under a binding carbon cap
+- a binding carbon cap
+- network and reserve constraints
+- enough capacity that load shedding is effectively eliminated, so the comparison is driven by operating economics rather than scarcity penalties
 
-The audit files record these splits in the `GroupingKey` column using a `PlanningCluster=` tag.
+So all three methods differ:
 
-### Interpretation
+| Case | Aggregation | Aggregated Resources | Total Cost ($) | Solve Time (s) |
+| :-- | :-- | --: | --: | --: |
+| `original` | none | `285` | `7.4425e7` | `77.49` |
+| `basic` | keyed merge | `33` | `7.7976e7` | `16.29` |
+| `feature` | keyed + feature-based split | `92` | `7.4525e7` | `34.70` |
 
-Feature 3 should be interpreted as:
+![PCM aggregation comparison](assets/resource_aggregation_pcm_comparison.png)
 
-- a second-stage refinement inside the safer keyed groups
-- a behavior-oriented split, not just a label-based split
-- most useful when one keyed group still contains a wide spread of costs, outages, capacity credits, or ramping behavior
+Useful files:
 
-It does not replace Feature 1. It builds on top of it.
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_original/output/system_cost.csv`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_basic/output/system_cost.csv`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_feature/output/system_cost.csv`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_basic/output/resource_aggregation_summary.csv`
+- `ModelCases/MD_PCM_Excel_case_aggmethods_1month_feature/output/resource_aggregation_summary.csv`
 
-### Recommendation
+Interpretation:
 
-Use Feature 3 when:
+- `basic` and `feature_based` are both much faster than the original PCM case
+- `basic` is the fastest PCM option here, but it is also the farthest from the original result
+- after adding `EF` to `clustering_feature_columns`, `feature_based` becomes clearly closer to the original than `basic`
+- `feature_based` is still not exact, which is useful: it shows that aggregation quality improves when the feature set includes the true binding drivers, but it still depends on how much structure is compressed
 
-- one keyed group still looks too heterogeneous in the audit outputs
-- you want more fidelity without going back to the full resource list
-- you want HOPE to preserve meaningful cost / `FOR` / `CC` / ramp differences inside large technology fleets
+For this revised PCM example:
 
-I recommend turning this on selectively after first inspecting the Feature 1 audit outputs.
+- all three cases have `0` load shedding
+- original MD emissions are about `2.059e6` ton
+- `basic` shifts that to about `1.978e6` ton
+- `feature_based` lands at about `2.062e6` ton
 
-### Example
+So the comparison now shows the intended message more clearly:
 
-Suppose a keyed `Zone x Type x flags` group contains four thermal resources:
+- `basic` is the strongest size reduction and the fastest solve
+- `feature_based` is a better fidelity/runtime compromise when the feature set is chosen well
+- because scarcity is removed, the differences now reflect dispatch and carbon-constraint behavior rather than emergency unmet load
 
-| Original Resource | Cost ($/MWh) | FOR | CC |
-| :-- | --: | --: | --: |
-| `G1` | `25` | `0.05` | `0.95` |
-| `G2` | `27` | `0.05` | `0.95` |
-| `G3` | `85` | `0.18` | `0.80` |
-| `G4` | `87` | `0.18` | `0.80` |
+## Default Aggregation Setting
 
-With:
+For most users, the recommended default is:
 
 ```yaml
-planning_clustering: 1
-planning_feature_columns:
+resource_aggregation: 1
+```
+
+in `HOPE_model_settings.yml`, together with:
+
+```yaml
+write_aggregation_audit: 1
+aggregation_method: basic
+grouping_keys:
+  - Zone
+  - Type
+  - Flag_RET
+  - Flag_mustrun
+  - Flag_VRE
+  - Flag_thermal
+pcm_additional_grouping_keys:
+  - Flag_UC
+clustered_thermal_commitment: 1
+clustering_feature_columns:
   - Cost ($/MWh)
   - FOR
   - CC
-planning_target_cluster_size: 2
-planning_max_clusters_per_group: 2
-normalize_planning_features: 1
+  - AF
+  - RU
+  - RD
+  - Pmax (MW)
+  - Pmin (MW)
+clustering_target_cluster_size: 4
+clustering_max_clusters_per_group: 4
+normalize_clustering_features: 1
+aggregate_technologies: []
+keep_separate_technologies: []
 ```
 
-HOPE maps them into two planning clusters:
+Interpretation:
 
-```math
-\{G1, G2\} \rightarrow A_1, \qquad
-\{G3, G4\} \rightarrow A_2
-```
+- start from `aggregation_method: basic`
+- stay with `basic` when the keyed groups already look fairly homogeneous in the parameters that matter for the study
+- use the keyed grouping first
+- keep audit outputs on
+- in PCM, keep `clustered_thermal_commitment: 1` as the default internal UC treatment for aggregated thermal rows
+- add `EF` to `clustering_feature_columns` when emissions are likely to be a binding driver
+- only switch to `feature_based` after checking whether the keyed groups are still too heterogeneous for the study objective
 
-Meaning:
+## Practical Workflow
 
-- the keyed group was still too heterogeneous
-- planning clustering split it into a lower-cost / lower-FOR cluster and a higher-cost / higher-FOR cluster
-- the final aggregated fleet keeps more planning structure than a single weighted average would
+1. Start with `resource_aggregation: 1` and `aggregation_method: basic`.
+2. Check the audit outputs to see which keyed groups are large or heterogeneous.
+3. If needed, switch to `aggregation_method: feature_based`.
+4. Tune `clustering_feature_columns` so they reflect the study objective.
+5. In PCM with UC, decide separately whether `clustered_thermal_commitment` should stay on.
 
-## Recommended Workflow
+## References
 
-My recommended workflow for aggregation is:
-
-1. start with `resource_aggregation: 1` and `planning_clustering: 0`
-2. inspect:
-   - `resource_aggregation_mapping.csv`
-   - `resource_aggregation_summary.csv`
-   - `resource_aggregation_af_summary.csv` when relevant
-3. if some keyed groups still look too heterogeneous, turn on `planning_clustering: 1`
-4. for PCM with UC, keep `clustered_thermal_commitment: 1`
-
-That sequence keeps the model understandable and makes it easier to see when additional clustering is actually helping.
+- PyPSA clustering documentation: https://docs.pypsa.org/v1.1.1/user-guide/clustering/
+- GenX model configuration: https://genxproject.github.io/GenX.jl/stable/User_Guide/model_configuration/
+- GenX workflow: https://genxproject.github.io/GenX.jl/stable/User_Guide/workflow/
+- Knueven, Ostrowski, Watson (2018): https://www.osti.gov/pages/biblio/1421648
+- Koller and Hofmann (2019): https://doi.org/10.1016/j.compchemeng.2019.03.032
+- Morales-España and Tejada clustered UC note: https://www.iit.comillas.edu/publicacion/revista/en/1399/Modeling_the_hidden_flexibility_of_clustered_unit_commitment

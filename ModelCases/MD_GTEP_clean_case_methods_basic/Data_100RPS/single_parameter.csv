@@ -1,0 +1,2 @@
+VOLL,planning_reserve_margin,BigM,PT_RPS,PT_emis,Inv_bugt_gen,Inv_bugt_line,Inv_bugt_storage,alpha_storage_anchor,spin_requirement,delta_spin
+100000,0.02,1.00E+13,1.00E+10,1.00E+10,1.00E+16,1.00E+16,1.00E+16,0.5,0.03,0.1666666667

@@ -1,6 +1,14 @@
 using DataFrames
 
 @testset "EREC Core Helpers" begin
+    basic_cfg = Dict(
+        "resource_aggregation" => 1,
+        "aggregation_settings" => Dict(
+            "grouping_keys" => ["Zone", "Type"],
+            "pcm_additional_grouping_keys" => Any[],
+        ),
+    )
+
     aggregated = HOPE.aggregate_gendata_gtep(DataFrame(
         :Zone => ["APS_MD", "APS_MD"],
         :Type => ["NGCT_CCS", "NGCT_CCS"],
@@ -16,7 +24,7 @@ using DataFrames
         :Flag_RET => [0, 1],
         :Flag_mustrun => [0, 0],
         :Flag_RPS => [0, 0],
-    ))
+    ), basic_cfg)
     @test nrow(aggregated) == 1
     @test aggregated[1, "FOR"] ≈ 0.25
     @test aggregated[1, "AF"] ≈ 0.9
@@ -44,6 +52,7 @@ using DataFrames
             :G2 => [0.6, 0.8],
             :G3 => [0.1, 0.3],
         ),
+        basic_cfg,
     )
     @test string.(names(aggregated_af)) == ["Time Period", "Hours", "G1", "G2"]
     @test aggregated_af[!, "G1"] ≈ [0.5, 0.7]

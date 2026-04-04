@@ -166,7 +166,7 @@ function write_settings(case_dir::String, data_folder::String, reference_bus::In
     hope_settings = """
 DataCase: $(data_folder)/
 model_mode: PCM
-aggregated!: 0
+resource_aggregation: 0
 endogenous_rep_day: 0
 external_rep_day: 0
 flexible_demand: 0

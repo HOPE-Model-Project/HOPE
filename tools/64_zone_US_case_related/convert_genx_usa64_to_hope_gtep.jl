@@ -580,7 +580,7 @@ function main()
     settings = Dict(
         "DataCase" => "Data_USA64_GTEP/",
         "model_mode" => "GTEP",
-        "aggregated!" => 1,
+        "resource_aggregation" => 1,
         "endogenous_rep_day" => 0,
         "external_rep_day" => 1,
         "flexible_demand" => 0,
@@ -620,3 +620,4 @@ function main()
 end
 
 main()
+

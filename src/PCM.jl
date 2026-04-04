@@ -71,8 +71,8 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	P_max=[Gendata[:,"Pmax (MW)"];]							#Maximum power generation of unit g, MW
 	P_min=[Gendata[:,"Pmin (MW)"];]							#Maximum power generation of unit g, MW
 	NumUnits_g, P_max_unit, P_min_unit = pcm_clustered_uc_parameters(config_set, Gendata)
-	DT_g = Gendata[:,"Min_down_time"]					#Minimum down time
-	UT_g = Gendata[:,"Min_up_time"]						#Minimum up time
+	DT_g = Int.(round.(Float64.(Gendata[:,"Min_down_time"])))	#Minimum down time
+	UT_g = Int.(round.(Float64.(Gendata[:,"Min_up_time"])))	#Minimum up time
 	STC_g = [Gendata[:,Symbol("Start_up_cost (\$/MW)")];]	#Start up cost
 	#UC variables
 	if config_set["unit_commitment"] == 1
@@ -94,10 +94,10 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	STT_con = @constraint(model, [g in G_UC, h in setdiff(H, [1])], o[g,h] - o[g,h-1] == su[g,h] - sd[g,h],base_name = "STT_con")
 		
 	# [PCM-C3.UC3] Minimum up time
-	MUT_con = @constraint(model, [g in G_UC, h in Int.(UT_g[g]+1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
+	MUT_con = @constraint(model, [g in G_UC, h in (UT_g[g] + 1):H[end]], sum(su[g,hr] for hr in (h-UT_g[g]+1):h) <= o[g,h],base_name = "MUT_con")
 		
 	# [PCM-C3.UC4] Minimum down time
-	MDT_con = @constraint(model, [g in G_UC, h in Int(DT_g[g]+1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= NumUnits_g[g]-o[g,h],base_name = "MDT_con")
+	MDT_con = @constraint(model, [g in G_UC, h in (DT_g[g] + 1):H[end]], sum(sd[g,hr] for hr in (h-DT_g[g]+1):h) <= NumUnits_g[g]-o[g,h],base_name = "MDT_con")
 		
 	# [PCM-C3.UC5] pmin bound to dispatch
 	PMINB_con = @constraint(model, [g in G_UC, h in H], pmin[g,h] <= model[:p][g,h],base_name = "PMINB_con")
@@ -785,7 +785,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Winddata_ordered[:,Idx_zone_dict[i]][h] for h in H_t[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)#[t,g][h,i]
 		
-		AF_g_static = [Float64(coalesce(v, 1.0)) for v in Gendata[:,"AF"]]
+		AF_g_static = if "AF" in names(Gendata)
+			[Float64(coalesce(v, 1.0)) for v in Gendata[:,"AF"]]
+		else
+			ones(Float64, size(Gendata, 1))
+		end
 		provided_af_cols = Set{String}()
 		if AFdata !== nothing
 			required_af_time_cols = ["Time Period", "Hours"]

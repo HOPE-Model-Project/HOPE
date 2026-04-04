@@ -6,7 +6,8 @@ using JuMP
     defaults = HOPE.default_aggregation_settings()
     @test defaults["write_aggregation_audit"] == 1
     @test defaults["clustered_thermal_commitment"] == 1
-    @test defaults["planning_clustering"] == 0
+    @test defaults["aggregation_method"] == "basic"
+    @test defaults["grouping_keys"] == ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"]
 
     mktempdir() do tmpdir
         case_dir = joinpath(tmpdir, "agg_case")
@@ -114,11 +115,11 @@ using JuMP
         "aggregation_settings" => Dict(
             "grouping_keys" => ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
             "pcm_additional_grouping_keys" => Any[],
-            "planning_clustering" => 1,
-            "planning_feature_columns" => ["Cost (\$/MWh)", "FOR", "CC"],
-            "planning_target_cluster_size" => 2,
-            "planning_max_clusters_per_group" => 2,
-            "normalize_planning_features" => 1,
+            "aggregation_method" => "feature_based",
+            "clustering_feature_columns" => ["Cost (\$/MWh)", "FOR", "CC"],
+            "clustering_target_cluster_size" => 2,
+            "clustering_max_clusters_per_group" => 2,
+            "normalize_clustering_features" => 1,
         ),
     )
     clustered_agg = HOPE.aggregate_gendata_gtep(clustered_raw, clustered_cfg)
@@ -127,7 +128,7 @@ using JuMP
     @test clustered_costs[1] ≈ 26.0 atol=0.1
     @test clustered_costs[2] ≈ 86.0 atol=0.1
     clustered_audit = HOPE.build_gtep_aggregation_audit(clustered_raw, clustered_agg; config_set=clustered_cfg)
-    @test any(occursin("PlanningCluster=", k) for k in clustered_audit["summary"][!, :GroupingKey])
+    @test any(occursin("FeatureCluster=", k) for k in clustered_audit["summary"][!, :GroupingKey])
 
     pcm_raw = DataFrame(
         Zone = ["Z1", "Z1"],

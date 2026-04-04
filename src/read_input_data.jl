@@ -21,10 +21,10 @@ end
 
 flag_any(gdf::AbstractDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
 
-function planning_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDict)
+function clustering_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDict)
     feature_names = aggregation_setting_string_list(
         config_set,
-        "planning_feature_columns",
+        "clustering_feature_columns",
         ["Cost (\$/MWh)", "FOR", "CC", "AF", "RU", "RD", "Pmax (MW)", "Pmin (MW)"],
     )
     available = [Symbol(col) for col in feature_names if col in names(gdf)]
@@ -32,7 +32,7 @@ function planning_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDic
         return zeros(Float64, nrow(gdf), 0), String[]
     end
     mat = hcat([Float64[to_float_agg(gdf[i, col], 0.0) for i in 1:nrow(gdf)] for col in available]...)
-    if normalize_planning_features_enabled(config_set)
+    if normalize_clustering_features_enabled(config_set)
         for j in 1:size(mat, 2)
             colvals = mat[:, j]
             μ = mean(colvals)
@@ -47,21 +47,21 @@ function planning_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDic
     return mat, string.(available)
 end
 
-function planning_cluster_assignments(gdf::AbstractDataFrame, config_set::AbstractDict)
+function feature_cluster_assignments(gdf::AbstractDataFrame, config_set::AbstractDict)
     n = nrow(gdf)
     n <= 1 && return ones(Int, n), 1, String[]
-    if !planning_clustering_enabled(config_set)
+    if !feature_based_clustering_enabled(config_set)
         return ones(Int, n), 1, String[]
     end
-    target_size = planning_target_cluster_size(config_set)
+    target_size = clustering_target_cluster_size(config_set)
     n <= target_size && return ones(Int, n), 1, String[]
-    feature_matrix, feature_cols = planning_feature_matrix(gdf, config_set)
+    feature_matrix, feature_cols = clustering_feature_matrix(gdf, config_set)
     size(feature_matrix, 2) == 0 && return ones(Int, n), 1, String[]
     if all(all(isapprox(feature_matrix[i, j], feature_matrix[1, j]; atol=1e-9) for j in 1:size(feature_matrix, 2)) for i in 2:n)
         return ones(Int, n), 1, feature_cols
     end
     k = ceil(Int, n / target_size)
-    max_clusters = planning_max_clusters_per_group(config_set)
+    max_clusters = clustering_max_clusters_per_group(config_set)
     if max_clusters > 0
         k = min(k, max_clusters)
     end
@@ -97,7 +97,7 @@ function grouped_row_indices_by_aggregation(df::DataFrame, config_set::AbstractD
     for base_key in base_order
         rows = base_groups[base_key]
         gdf = df[rows, :]
-        assignments, num_clusters, feature_cols = planning_cluster_assignments(gdf, config_set)
+        assignments, num_clusters, feature_cols = feature_cluster_assignments(gdf, config_set)
         for cluster_idx in 1:num_clusters
             member_positions = findall(==(cluster_idx), assignments)
             isempty(member_positions) && continue
@@ -110,7 +110,7 @@ function grouped_row_indices_by_aggregation(df::DataFrame, config_set::AbstractD
                 group_labels[key] = base_label
             else
                 feature_label = isempty(feature_cols) ? "" : " [features=" * join(feature_cols, ",") * "]"
-                group_labels[key] = base_label * "; PlanningCluster=$(cluster_idx)/$(num_clusters)" * feature_label
+                group_labels[key] = base_label * "; FeatureCluster=$(cluster_idx)/$(num_clusters)" * feature_label
             end
         end
     end
@@ -413,7 +413,7 @@ function build_gtep_aggregation_audit(
             to_float_agg(agg_row[Symbol("Cost (\$/MWh)")], 0.0),
             to_float_agg(agg_row[:CC], 0.0),
             to_float_agg(agg_row[:AF], 1.0),
-            (:FOR in names(aggregated_gendata)) ? to_float_agg(agg_row[:FOR], 0.0) : 0.0,
+            ("FOR" in names(aggregated_gendata)) ? to_float_agg(agg_row[:FOR], 0.0) : 0.0,
             Int(to_float_agg(agg_row[:Flag_thermal], 0.0)),
             Int(to_float_agg(agg_row[:Flag_VRE], 0.0)),
             Int(to_float_agg(agg_row[:Flag_RET], 0.0)),
@@ -502,37 +502,37 @@ function build_pcm_aggregation_audit(raw_gendata::DataFrame, aggregated_gendata:
             :AggregatedPmaxMW => to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
             :AggregatedPminMW => to_float_agg(agg_row[Symbol("Pmin (MW)")], 0.0),
             :NumUnits => ("NumUnits" in names(aggregated_gendata)) ? Int(round(to_float_agg(agg_row[:NumUnits], 1.0))) : 1,
-            :ClusteredUnitPmaxMW => (Symbol("ClusteredUnitPmax (MW)") in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmax (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
-            :ClusteredUnitPminMW => (Symbol("ClusteredUnitPmin (MW)") in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmin (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmin (MW)")], 0.0),
+            :ClusteredUnitPmaxMW => ("ClusteredUnitPmax (MW)" in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmax (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmax (MW)")], 0.0),
+            :ClusteredUnitPminMW => ("ClusteredUnitPmin (MW)" in names(aggregated_gendata)) ? to_float_agg(agg_row[Symbol("ClusteredUnitPmin (MW)")], 0.0) : to_float_agg(agg_row[Symbol("Pmin (MW)")], 0.0),
             Symbol("AggregatedCostPerMWh") => to_float_agg(agg_row[Symbol("Cost (\$/MWh)")], 0.0),
             :AggregatedCC => to_float_agg(agg_row[:CC], 0.0),
             :AggregatedFOR => to_float_agg(agg_row[:FOR], 0.0),
-            :AggregatedRM_SPIN => (:RM_SPIN in names(aggregated_gendata)) ? to_float_agg(agg_row[:RM_SPIN], 0.0) : 0.0,
-            :AggregatedRU => (:RU in names(aggregated_gendata)) ? to_float_agg(agg_row[:RU], 0.0) : 0.0,
-            :AggregatedRD => (:RD in names(aggregated_gendata)) ? to_float_agg(agg_row[:RD], 0.0) : 0.0,
+            :AggregatedRM_SPIN => ("RM_SPIN" in names(aggregated_gendata)) ? to_float_agg(agg_row[:RM_SPIN], 0.0) : 0.0,
+            :AggregatedRU => ("RU" in names(aggregated_gendata)) ? to_float_agg(agg_row[:RU], 0.0) : 0.0,
+            :AggregatedRD => ("RD" in names(aggregated_gendata)) ? to_float_agg(agg_row[:RD], 0.0) : 0.0,
             :Flag_thermal => Int(to_float_agg(agg_row[:Flag_thermal], 0.0)),
             :Flag_VRE => Int(to_float_agg(agg_row[:Flag_VRE], 0.0)),
             :Flag_mustrun => Int(to_float_agg(agg_row[:Flag_mustrun], 0.0)),
         )
-        if :Flag_UC in names(aggregated_gendata)
+        if "Flag_UC" in names(aggregated_gendata)
             row[:Flag_UC] = Int(to_float_agg(agg_row[:Flag_UC], 0.0))
         end
-        if Symbol("Start_up_cost (\$/MW)") in names(aggregated_gendata)
+        if "Start_up_cost (\$/MW)" in names(aggregated_gendata)
             row[Symbol("AggregatedStartUpCostPerMW")] = to_float_agg(agg_row[Symbol("Start_up_cost (\$/MW)")], 0.0)
         end
-        if :Min_down_time in names(aggregated_gendata)
+        if "Min_down_time" in names(aggregated_gendata)
             row[:AggregatedMinDownTime] = to_float_agg(agg_row[:Min_down_time], 0.0)
         end
-        if :Min_up_time in names(aggregated_gendata)
+        if "Min_up_time" in names(aggregated_gendata)
             row[:AggregatedMinUpTime] = to_float_agg(agg_row[:Min_up_time], 0.0)
         end
-        if :RM_REG_UP in names(aggregated_gendata)
+        if "RM_REG_UP" in names(aggregated_gendata)
             row[:AggregatedRM_REG_UP] = to_float_agg(agg_row[:RM_REG_UP], 0.0)
         end
-        if :RM_REG_DN in names(aggregated_gendata)
+        if "RM_REG_DN" in names(aggregated_gendata)
             row[:AggregatedRM_REG_DN] = to_float_agg(agg_row[:RM_REG_DN], 0.0)
         end
-        if :RM_NSPIN in names(aggregated_gendata)
+        if "RM_NSPIN" in names(aggregated_gendata)
             row[:AggregatedRM_NSPIN] = to_float_agg(agg_row[:RM_NSPIN], 0.0)
         end
         push!(summary_rows, row)
@@ -611,7 +611,7 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path,"single_parameter"))
-            sheets = XLSX.sheetnames(xlsx_path)
+            sheets = XLSX.sheetnames(XLSX.readxlsx(xlsx_path))
             if "gen_availability_timeseries" in sheets
                 input_data["AFdata"] = DataFrame(XLSX.readtable(xlsx_path, "gen_availability_timeseries"))
                 normalize_timeseries_time_columns!(input_data["AFdata"]; context="gen_availability_timeseries")
@@ -827,7 +827,7 @@ function load_data(config_set::Dict,path::AbstractString)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
             input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path,"single_parameter"))
-            sheets = XLSX.sheetnames(xlsx_path)
+            sheets = XLSX.sheetnames(XLSX.readxlsx(xlsx_path))
             if "rep_period_weights" in sheets
                 input_data["RepWeightData"] = DataFrame(XLSX.readtable(xlsx_path, "rep_period_weights"))
             end
