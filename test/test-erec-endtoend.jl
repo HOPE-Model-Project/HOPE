@@ -1,5 +1,6 @@
 using DataFrames
 using CSV
+using YAML
 
 function build_tiny_erec_case_tables()
     gendata = DataFrame(
@@ -246,5 +247,23 @@ end
 
         @test isfile(erec_from_results["output_paths"]["erec_results"])
         @test isfile(erec_from_output["output_paths"]["erec_results"])
+
+        snapshot_settings = joinpath(run_res["output_path"], "postprocess_snapshot", "Settings", "HOPE_erec_settings.yml")
+        open(snapshot_settings, "w") do io
+            YAML.write(io, Dict(
+                "enabled" => 1,
+                "resource_types" => ["generator", "storage"],
+                "resource_scope" => "built_only",
+                "write_outputs" => 0,
+            ))
+        end
+        erec_preserve_voll = HOPE.calculate_erec_from_output(
+            run_res["output_path"];
+            resource_types=["generator", "storage"],
+            output_dir_name="output_erec_preserve_voll",
+            write_cc_to_tables=0,
+            write_outputs=0,
+        )
+        @test isapprox(erec_preserve_voll["baseline_eue"], erec_from_output["baseline_eue"]; atol=1.0e-6, rtol=0.0)
     end
 end

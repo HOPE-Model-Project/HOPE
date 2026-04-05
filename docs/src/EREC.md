@@ -29,7 +29,7 @@ Recommended default `HOPE_erec_settings.yml`:
 
 ```yaml
 enabled: 1
-voll_override: 15000
+voll_override: null
 resource_types:
   - generator
   - storage
@@ -40,11 +40,19 @@ output_dir_name: output_erec
 ```
 
 Recommended interpretation:
+- `voll_override: null`
+  preserve the `VOLL` already used by the baseline case or solved output; this is the recommended default, especially for `calculate_erec(results)` and `calculate_erec_from_output(...)`
 - `resource_types: [generator, storage]`
   run generators and storage together by default
 - `resource_scope: built_only`
   report `EREC` for the solved fleet: existing resources plus any newly built candidate resources
 - use `resource_scope: all` if you also want unbuilt candidates
+
+Important note on `voll_override`:
+- `EREC` is sensitive to the `VOLL` used in the baseline energy-limited redispatch.
+- When you reuse a solved case with `calculate_erec(results)` or `calculate_erec_from_output(output_path)`, the safest default is to keep the same `VOLL` used in the original solved baseline.
+- HOPE now preserves that baseline `VOLL` by default when `voll_override` is omitted or set to `null`.
+- If you explicitly set `voll_override` to a different value, HOPE warns because the resulting `EREC` values may no longer be directly comparable to the original solved case.
 
 ## Main Functions
 
@@ -125,7 +133,7 @@ Recommended defaults for normal studies are:
 
 ```yaml
 enabled: 1
-voll_override: 15000
+voll_override: null
 resource_types:
   - generator
   - storage

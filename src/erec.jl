@@ -7,7 +7,7 @@ Return the default settings dictionary for the Equivalent Reliability Enhancemen
 function default_erec_settings()
     return Dict{String,Any}(
         "enabled" => 1,
-        "voll_override" => 100000.0,
+        "voll_override" => nothing,
         "delta_mw" => 1.0,
         "perturbation_mode" => "forward",
         "reference_resource_mode" => "same_zone",
@@ -415,9 +415,38 @@ function build_erec_config(base_config::Dict, erec_settings::Dict)
     return config
 end
 
-function apply_erec_overrides!(input_data::Dict, erec_settings::Dict)
+function baseline_voll_for_erec(input_data::Dict)
     singlepar = input_data["Singlepar"]
-    voll = to_float_erec(get(erec_settings, "voll_override", singlepar[1, "VOLL"]))
+    if "VOLL" in names(singlepar)
+        return to_float_erec(singlepar[1, "VOLL"], 100000.0)
+    end
+    return 100000.0
+end
+
+function resolve_erec_voll(singlepar::DataFrame, erec_settings::Dict)
+    baseline_voll = ("VOLL" in names(singlepar)) ? to_float_erec(singlepar[1, "VOLL"], 100000.0) : 100000.0
+    raw_override = get(erec_settings, "voll_override", nothing)
+    override_active = !(raw_override === nothing || ismissing(raw_override) || strip(string(raw_override)) == "" || lowercase(strip(string(raw_override))) == "baseline")
+    voll = override_active ? to_float_erec(raw_override, baseline_voll) : baseline_voll
+    return voll, baseline_voll, override_active
+end
+
+function maybe_warn_erec_voll_mismatch(context::Symbol, baseline_voll::Float64, erec_voll::Float64, override_active::Bool)
+    if !override_active || isapprox(erec_voll, baseline_voll; atol=1.0e-9, rtol=0.0)
+        return nothing
+    end
+    if context == :solved_baseline
+        @warn "EREC voll_override=$(erec_voll) differs from the baseline solved-case VOLL=$(baseline_voll). This changes the EREC redispatch objective relative to the solved baseline fleet. To preserve consistency, omit voll_override or set it equal to the original baseline VOLL."
+    elseif context == :case_input
+        @warn "EREC voll_override=$(erec_voll) differs from the case-input VOLL=$(baseline_voll). HOPE will solve the EREC baseline with the override value instead of the VOLL stored in single_parameter.csv."
+    end
+    return nothing
+end
+
+function apply_erec_overrides!(input_data::Dict, erec_settings::Dict; voll_warning_context::Symbol=:none)
+    singlepar = input_data["Singlepar"]
+    voll, baseline_voll, override_active = resolve_erec_voll(singlepar, erec_settings)
+    maybe_warn_erec_voll_mismatch(voll_warning_context, baseline_voll, voll, override_active)
     if "VOLL" in names(singlepar)
         singlepar[1, "VOLL"] = voll
     else
@@ -1181,7 +1210,7 @@ function calculate_erec(case::AbstractString; kwargs...)
 
     baseline_config = build_erec_config(base_config, erec_settings)
     base_input = load_data(baseline_config, case_path)
-    apply_erec_overrides!(base_input, erec_settings)
+    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:case_input)
 
     expansion_input = deepcopy(base_input)
     baseline_solved_model = solve_gtep_for_erec(case_path, baseline_config, expansion_input)
@@ -1236,7 +1265,7 @@ function calculate_erec(results::Dict; kwargs...)
     end
 
     base_input = deepcopy(results["input"])
-    apply_erec_overrides!(base_input, erec_settings)
+    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:solved_baseline)
     fixed_input = build_fixed_fleet_input(base_input, results["solved_model"])
     output_root = get(results, "output_path", case_path)
 
@@ -1286,7 +1315,7 @@ function calculate_erec_from_output(output_path::AbstractString; kwargs...)
     end
 
     base_input = snapshot["base_input"]
-    apply_erec_overrides!(base_input, erec_settings)
+    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:solved_baseline)
 
     return run_erec_from_prepared_inputs(
         case_path,
