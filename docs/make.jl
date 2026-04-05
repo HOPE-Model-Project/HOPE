@@ -3,6 +3,18 @@ using Documenter
 import DataStructures: OrderedDict
 
 DocMeta.setdocmeta!(HOPE, :DocTestSetup, :(using HOPE); recursive=true)
+
+function normalize_ascii_page_titles(build_dir::AbstractString)
+    for file in readdir(build_dir; join=true)
+        if isfile(file) && endswith(file, ".html")
+            text = read(file, String)
+            text = replace(text, " · HOPE.jl" => " - HOPE.jl")
+            write(file, text)
+        end
+    end
+    return nothing
+end
+
 pages = OrderedDict(
     "Home Page" => [
         "Introduction" => "index.md",
@@ -51,6 +63,8 @@ makedocs(;
     ),
     pages=[p for p in pages]
 )
+
+normalize_ascii_page_titles(joinpath(@__DIR__, "build"))
 
 deploydocs(;
     repo="github.com/swang22/HOPE.git",

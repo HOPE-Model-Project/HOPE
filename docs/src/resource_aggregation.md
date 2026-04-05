@@ -1,8 +1,8 @@
-```@meta
-CurrentModule = HOPE
-```
-
 # Resource Aggregation
+
+Resource aggregation is a **fleet simplification** option in HOPE. It is used when a case contains many generators or storage resources that are similar enough to be grouped, and solving the fully disaggregated model would be unnecessarily slow or memory-intensive. In high-level terms, resource aggregation reduces model size by combining similar resources into a smaller set of representative rows, while trying to preserve the characteristics that matter for planning and operations.
+
+This functionality is most useful when users want to accelerate large `GTEP` or `PCM` cases, compare alternative aggregation strategies, or study how much model fidelity is lost when detailed fleets are simplified. It is especially relevant when the original fleet contains many same-zone, same-technology resources, but some of those resources still differ in costs, flexibility, outages, emissions, or commitment behavior. The aggregation methods below are designed to let users control how aggressively HOPE simplifies those fleets and which features should be preserved.
 
 HOPE keeps the high-level aggregation switch in `HOPE_model_settings.yml`:
 
@@ -62,7 +62,7 @@ clustered_thermal_commitment: 1
 
 # Numeric columns used only when aggregation_method: feature_based
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - FOR
   - CC
   - AF
@@ -214,7 +214,7 @@ grouping_keys:
   - Flag_VRE
   - Flag_thermal
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - FOR
   - Pmax (MW)
   - Pmin (MW)
@@ -234,7 +234,7 @@ grouping_keys:
   - Flag_VRE
   - Flag_thermal
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - FOR
   - Pmax (MW)
   - Pmin (MW)
@@ -249,7 +249,7 @@ These cases were built to create:
 
 So all three methods differ:
 
-| Case | Aggregation | Aggregated Resources | Total Cost ($) | Solve Time (s) |
+| Case | Aggregation | Aggregated Resources | Total Cost (\$) | Solve Time (s) |
 | :-- | :-- | --: | --: | --: |
 | `original` | none | `231` | `5.299e9` | `9.01` |
 | `basic` | keyed merge | `21` | `5.212e9` | `3.49` |
@@ -297,12 +297,12 @@ pcm_additional_grouping_keys:
   - Flag_UC
 clustered_thermal_commitment: 1
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - FOR
   - RU
   - RD
   - RM_SPIN
-  - Start_up_cost ($/MW)
+  - Start_up_cost (\$/MW)
   - Min_down_time
   - Min_up_time
   - Pmax (MW)
@@ -325,13 +325,13 @@ pcm_additional_grouping_keys:
   - Flag_UC
 clustered_thermal_commitment: 1
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - EF
   - FOR
   - RU
   - RD
   - RM_SPIN
-  - Start_up_cost ($/MW)
+  - Start_up_cost (\$/MW)
   - Min_down_time
   - Min_up_time
   - Pmax (MW)
@@ -350,7 +350,7 @@ This one-month benchmark was built to combine:
 
 So all three methods differ:
 
-| Case | Aggregation | Aggregated Resources | Total Cost ($) | Solve Time (s) |
+| Case | Aggregation | Aggregated Resources | Total Cost (\$) | Solve Time (s) |
 | :-- | :-- | --: | --: | --: |
 | `original` | none | `285` | `7.4425e7` | `77.49` |
 | `basic` | keyed merge | `33` | `7.7976e7` | `16.29` |
@@ -410,7 +410,7 @@ pcm_additional_grouping_keys:
   - Flag_UC
 clustered_thermal_commitment: 1
 clustering_feature_columns:
-  - Cost ($/MWh)
+  - Cost (\$/MWh)
   - FOR
   - CC
   - AF
@@ -445,9 +445,16 @@ Interpretation:
 
 ## References
 
-- PyPSA clustering documentation: https://docs.pypsa.org/v1.1.1/user-guide/clustering/
-- GenX model configuration: https://genxproject.github.io/GenX.jl/stable/User_Guide/model_configuration/
-- GenX workflow: https://genxproject.github.io/GenX.jl/stable/User_Guide/workflow/
-- Knueven, Ostrowski, Watson (2018): https://www.osti.gov/pages/biblio/1421648
-- Koller and Hofmann (2019): https://doi.org/10.1016/j.compchemeng.2019.03.032
-- Morales-España and Tejada clustered UC note: https://www.iit.comillas.edu/publicacion/revista/en/1399/Modeling_the_hidden_flexibility_of_clustered_unit_commitment
+The current HOPE resource aggregation design was informed by the following literature and software documentation.
+
+1. PyPSA documentation, "Network Clustering." [https://docs.pypsa.org/v1.1.1/user-guide/clustering/](https://docs.pypsa.org/v1.1.1/user-guide/clustering/)
+
+2. GenX.jl documentation, "Model Configuration." [https://genxproject.github.io/GenX.jl/stable/User_Guide/model_configuration/](https://genxproject.github.io/GenX.jl/stable/User_Guide/model_configuration/)
+
+3. GenX.jl documentation, "Workflow." [https://genxproject.github.io/GenX.jl/stable/User_Guide/workflow/](https://genxproject.github.io/GenX.jl/stable/User_Guide/workflow/)
+
+4. Bernardo A. Knueven, James Ostrowski, and Jean-Paul Watson, "On mixed-integer programming formulations for the unit commitment problem," *INFORMS Journal on Computing*, 2020. [https://www.osti.gov/pages/biblio/1421648](https://www.osti.gov/pages/biblio/1421648)
+
+5. Michael Koller and Johannes Hofmann, "Efficient clustering of identical generating units for the MILP unit commitment problem," *Computers & Chemical Engineering*, 2019. DOI: [10.1016/j.compchemeng.2019.03.032](https://doi.org/10.1016/j.compchemeng.2019.03.032)
+
+6. Germán Morales-España and Sergio Tejada-Arango, "Modeling the hidden flexibility of clustered unit commitment," IIT Comillas technical note. [https://www.iit.comillas.edu/publicacion/revista/en/1399/Modeling_the_hidden_flexibility_of_clustered_unit_commitment](https://www.iit.comillas.edu/publicacion/revista/en/1399/Modeling_the_hidden_flexibility_of_clustered_unit_commitment)

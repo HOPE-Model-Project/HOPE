@@ -39,8 +39,8 @@ Both `GTEP` and `PCM` support:
   - `0`: off
   - `1`: SPIN reserve only
 - Storage chronology:
-  - Full-year mode (`representative_day! = 0`): cyclic SOC wrap across hour 8760 -> hour 1
-  - Representative-day mode: short-duration storage uses day anchors; long-duration storage links across representative periods
+  - Full-year mode (`endogenous_rep_day = 0` and `external_rep_day = 0`): cyclic SOC wrap across hour 8760 -> hour 1
+  - Representative-day mode (`endogenous_rep_day = 1` or `external_rep_day = 1`): short-duration storage uses day anchors; long-duration storage links across representative periods
 
 ## PCM-Specific Modes
 

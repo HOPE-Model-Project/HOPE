@@ -4,6 +4,10 @@ CurrentModule = HOPE
 
 # Representative Days
 
+Representative-day modeling is a **time aggregation** option in HOPE. It is used when a full chronological model, such as all 8760 hours of a year, is too computationally expensive but the study still needs to preserve the main seasonal, diurnal, and stress-event patterns that drive planning or operations. In high-level terms, representative days let HOPE replace many similar original days with a smaller set of selected periods plus weights, so the model solves faster while still approximating the behavior of the full chronology.
+
+This functionality is most useful when users want to speed up `GTEP` or representative-period `PCM` studies without fully giving up chronology. It is especially helpful for cases with strong renewable variability, net-load ramps, extreme weather days, or storage decisions, because those are exactly the situations where a naive time reduction can lose important information. The representative-day features below are designed to make that time reduction more planning-aware and more transparent.
+
 HOPE keeps the representative-day mode switch in `HOPE_model_settings.yml`:
 
 ```yaml

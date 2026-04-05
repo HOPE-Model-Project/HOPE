@@ -3,61 +3,87 @@ CurrentModule = HOPE
 ```
 
 # Run a Case in HOPE
-## Using VScode to Run a Case (Recommended)
-Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VScode and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
+## Using VS Code to Run a Case (Recommended)
+Install Visual Studio Code: download [VS Code](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VS Code and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` (The `home` directory in the examples below is named `Maryland-Electric-Sector-Transition`).  
+**(1)** Open VS Code, click `File -> Open Folder...`, and navigate to your local `HOPE` repository directory.
 
-**(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
+**(2)** In the VS Code terminal, type `julia` and press Enter. Julia will open as below:
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
    
-**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Type `]` to enter Julia package mode, then run `activate .` from the repository root. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
    
-**(4)** Type `instantiate` in the (HOPE) pkg prompt (make sure you are in your `home` directory, not the `home/HOPE` directory!).
+**(4)** Type `instantiate` at the `(HOPE) pkg>` prompt.
 
-**(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
+**(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed! Then, press `Backspace` button to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been installed successfully. Then press `Backspace` to return to the Julia prompt. To run an example case (for example, the default Maryland PCM case), type `using HOPE`, then run:
+
+```julia
+HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")
+```
+
+You will see **HOPE** start running:
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
 
-The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
+The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
 
-**(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1, 2, 3, 6.   
+Note:
+- `HOPE.run_hope(...)` accepts normalized case paths. For example, these are all valid:
+  - `HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")`
+  - `HOPE.run_hope("MD_PCM_Excel_case/")`
+  - `HOPE.run_hope("HOPE/ModelCases/MD_PCM_Excel_case/")`
+- Some older screenshots in this page still show the historical `HOPE/ModelCases/...` style. The newer shorter form is recommended.
+
+**(7)** For future runs, you can usually skip steps 4 and 5 and just follow steps 1, 2, 3, and 6.
 
 ## Using System Terminal to Run a Case
-You can use a system terminal either with a "Windows system" or a "Mac system" to run a test case. See details below.
+You can use a system terminal either on Windows or macOS to run a test case. See details below.
 ### Windows users
-**(1)** Open **Command Prompt** from Windows **Start** and navigate to your home path:`/yourpath/home`.
+**(1)** Open **Command Prompt** from Windows **Start** and navigate to your local `HOPE` repository directory.
 
 **(2)** Type `julia`. Julia will be opened as below:
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6c61bed1-bf8e-4186-bea2-22413fd1328e)
 
-**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Type `]` to enter Julia package mode, then run `activate .`. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
-**(4)** Type `instantiate` in the (HOPE) pkg prompt. ( After the HOPE is successfully installed, you can skip this step)
+**(4)** Type `instantiate` in the `(HOPE) pkg>` prompt. (After HOPE is installed successfully, you can skip this step.)
 
-**(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
+**(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
-![image](https://github.com/swan,g22/HOPE/assets/125523842/66ce1ea1-1b06-43d0-9f2b-542c473797aa)
+![image](https://github.com/swang22/HOPE/assets/125523842/66ce1ea1-1b06-43d0-9f2b-542c473797aa)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 case in `PCM` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_Excel_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been installed successfully. Then click `Backspace` to return to the Julia prompt. To run an example case (for example, the default Maryland PCM case), type `using HOPE`, then run:
+
+```julia
+HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")
+```
+
+You will see **HOPE** start running:
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/c36c6384-7e04-450d-921a-784c3b13f8bd)
 
-The results will be saved in `yourpath/home/HOPE/ModelCases/MD_Excel_case/output`. 
+The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
-**(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1, 2, 3, 6.  
+Note:
+- `HOPE.run_hope(...)` accepts normalized case paths. For example, these are all valid:
+  - `HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")`
+  - `HOPE.run_hope("MD_PCM_Excel_case/")`
+  - `HOPE.run_hope("HOPE/ModelCases/MD_PCM_Excel_case/")`
+- Some older screenshots in this page still show the historical `HOPE/ModelCases/...` style. The newer shorter form is recommended.
+
+**(7)** For future runs, you can usually skip steps 4 and 5 and just follow steps 1, 2, 3, and 6.
 
 ## Reuse a Saved Baseline for EREC
 
@@ -71,27 +97,27 @@ Then run the case normally:
 
 ```julia
 using HOPE
-res = HOPE.run_hope("HOPE/ModelCases/my_case/")
+res = HOPE.run_hope("ModelCases/my_case/")
 ```
 
 HOPE will save the snapshot under:
 
 ```text
-HOPE/ModelCases/my_case/output/postprocess_snapshot/
+ModelCases/my_case/output/postprocess_snapshot/
 ```
 
 Later, you can calculate `EREC` from the saved output without re-solving the baseline expansion model:
 
 ```julia
 using HOPE
-erec = HOPE.calculate_erec_from_output("HOPE/ModelCases/my_case/output")
+erec = HOPE.calculate_erec_from_output("ModelCases/my_case/output")
 ```
 
 If you already have the solved results in memory from the current Julia session, you can also reuse them directly:
 
 ```julia
 using HOPE
-res = HOPE.run_hope("HOPE/ModelCases/my_case/")
+res = HOPE.run_hope("ModelCases/my_case/")
 erec = HOPE.calculate_erec(res)
 ```
 
