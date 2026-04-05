@@ -1,38 +1,35 @@
-#Read input data from .csv sheets
-#Loading required packages
-using DataFrames, CSV, XLSX, YAML, Clustering, Statistics, JuMP
-using Gurobi
-using Cbc
+"""
+Legacy script entrypoint for running a single HOPE case from the command line.
 
+Preferred usage:
+    julia --project=. src/main.jl ModelCases/<case_name>
 
-#load jl scripts
+This file is intentionally kept as a thin wrapper around `HOPE.run_hope` so
+older workflows still have a simple script entrypoint.
+"""
 
-include("read_input_data.jl");		#read input data module
-include("GTEP.jl");					#capacity expansion model
-include("PCM.jl");					#production cost model
-include("write_output.jl");			#write output module
-include("solver_config.jl");		#setting solver parameters
+include("HOPE.jl")
+using .HOPE
 
-#Set model configuration 
-config_set = YAML.load(open("Settings/model_settings.yml"))
-
-#Set solver configuration
-optimizer =  initiate_solver(config_set["solver"])
-
-#read in data
-input_data = load_data(config_set,path)
-
-#create model
-if config_set["model_mode"] == "GTEP"
-	my_model = create_GTEP_model(config_set,input_data,optimizer)
-elseif config_set["model_mode"] == "PCM"
-	my_model = create_PCM_model(config_set,input_data,optimizer)
-else
-	println("ModeError: Please check the model mode to be 'GTEP' or 'PCM' !" ) 
+function print_main_usage_and_exit()
+    println("Usage: julia --project=. src/main.jl <case_path>")
+    println("Example: julia --project=. src/main.jl ModelCases/MD_GTEP_clean_case")
+    exit(1)
 end
-#solve model
-my_sovled_model = solve_model(config_set, input_data, my_model)
 
-#write outputs
-my_output = write_output(outpath, config_set, input_data, my_sovled_model)
+function main(args::Vector{String})
+    isempty(args) && print_main_usage_and_exit()
+    case = args[1]
+    results = HOPE.run_hope(case)
+    case_path = results["case_path"]
+    output_path = results["output_path"]
+    println("HOPE run completed successfully.")
+    println("Case: $case_path")
+    println("Output: $output_path")
+    return results
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    main(ARGS)
+end
 
