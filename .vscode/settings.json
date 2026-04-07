@@ -1,3 +1,6 @@
 {
-    "julia.environmentPath": "e:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project"
+    "julia.environmentPath": "e:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project",
+    "chat.tools.terminal.autoApprove": {
+        "julia": true
+    }
 }

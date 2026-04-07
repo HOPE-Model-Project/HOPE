@@ -367,6 +367,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
     flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
     summary_table_raw = get(config_set, "summary_table", get(config_set, "summary_tables", 0))
     summary_table = summary_table_raw isa Integer ? Int(summary_table_raw) : parse(Int, string(summary_table_raw))
+    require_feasible_primal_solution(model; context="write_output for $(model_mode)")
     println() 
     println("HOPE model ($model_mode mode) is successfully solved!")
     if model_mode == "GTEP"

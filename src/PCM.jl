@@ -1,3 +1,14 @@
+function pcm_debug_stage_log(config_set::Dict, stage::AbstractString)
+	debug_stage_file = get(config_set, "debug_stage_file", nothing)
+	if debug_stage_file === nothing
+		return nothing
+	end
+	open(String(debug_stage_file), "a") do io
+		println(io, "time=", time(), ", stage=", stage)
+	end
+	return nothing
+end
+
 function get_TPmatched_ts(df, time_periods, ordered_zone)
     #k = 1# Cluster the time series data to find a representative day
     # Function to filter rows based on the season's start and end dates
@@ -37,8 +48,8 @@ function pcm_clustered_uc_parameters(config_set::Dict, Gendata::DataFrame)
 	clustered_commitment = resource_aggregation_enabled(config_set) && clustered_thermal_commitment_enabled(config_set)
 	num_gen = nrow(Gendata)
 	num_units = ones(Int, num_gen)
-	unit_pmax = [to_float_agg(Gendata[g, Symbol("Pmax (MW)")], 0.0) for g in 1:num_gen]
-	unit_pmin = [to_float_agg(Gendata[g, Symbol("Pmin (MW)")], 0.0) for g in 1:num_gen]
+	unit_pmax = [to_float_agg(v, 0.0) for v in Gendata[:,Symbol("Pmax (MW)")]]
+	unit_pmin = [to_float_agg(v, 0.0) for v in Gendata[:,Symbol("Pmin (MW)")]]
 	if !clustered_commitment
 		return num_units, unit_pmax, unit_pmin
 	end
@@ -68,8 +79,8 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	H=[h for h=1:Num_hour]									#Set of hours, index h
 	#UC parameters
 	FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g			#Forced outage rate
-	P_max=[Gendata[:,"Pmax (MW)"];]							#Maximum power generation of unit g, MW
-	P_min=[Gendata[:,"Pmin (MW)"];]							#Maximum power generation of unit g, MW
+	P_max=[Gendata[:,"Pmax (MW)"];]									#Maximum power generation of unit g, MW
+	P_min=[Gendata[:,"Pmin (MW)"];]									#Maximum power generation of unit g, MW
 	NumUnits_g, P_max_unit, P_min_unit = pcm_clustered_uc_parameters(config_set, Gendata)
 	DT_g = Int.(round.(Float64.(Gendata[:,"Min_down_time"])))	#Minimum down time
 	UT_g = Int.(round.(Float64.(Gendata[:,"Min_up_time"])))	#Minimum up time
@@ -104,11 +115,14 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
 	# Startup-cost objective term is assembled in create_PCM_model to avoid duplicate model names.
 end
 
+pcm_clamp_availability_factor(x::Float64) = isfinite(x) ? clamp(x, 0.0, 1.0) : 0.0
+
 function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.OptimizerWithAttributes)
 	model_mode = config_set["model_mode"]
 	if model_mode == "GTEP"
 		return "ModeError: Please use function 'create_GTEP_model' or set model mode to be 'PCM'!" 
 	elseif model_mode == "PCM" 
+		pcm_debug_stage_log(config_set, "create_pcm_model_start")
 		# Policy switches (aligned with GTEP):
 		# carbon_policy: 0 off; 1 emissions cap; 2 cap-and-trade
 		carbon_policy_raw = get(config_set, "carbon_policy", 1)
@@ -222,6 +236,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		if representative_day_mode == 1
 			println("PCM currently runs with user-provided time-period mapping; endogenous representative-day clustering will be expanded in a future update.")
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_time_mapping_ready")
 		Loaddata_ordered = select(Loaddata, Ordered_zone_nm)
 		Solardata_ordered = select(Solardata, Ordered_zone_nm)
 		Winddata_ordered = select(Winddata, Ordered_zone_nm)
@@ -611,10 +626,10 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		#AFREW_tg = Dict([(t,g) => Dict([(h, i) => Wind_rep[t][:,Idx_zone_dict[i]][h] for h in H[t] for i in I]) for t in T for g in G_W])
 		#AFRE_tg = merge(+, AFRES_tg, AFREW_tg)
 		BM = get_singlepar("BigM", 1.0e10);												#big M penalty
-		CC_g = [Gendata[:,"CC"];]#g       		#Capacity credit of generating units, unitless
-		CC_s = [Storagedata[:,"CC"];]#s  #Capacity credit of storage units, unitless
+		CC_g = [Gendata[:,"CC"];]#g					#Capacity credit of generating units, unitless
+		CC_s = [Storagedata[:,"CC"];]#s	#Capacity credit of storage units, unitless
 		CP=29#g $/ton													#Carbon price of generation g〖∈G〗^F, M$/t (∑_(g∈G^F,t∈T)〖〖CP〗_g  .N_t.∑_(h∈H_t)p_(g,h) 〗)
-		EF=[Gendata[:,"EF"];]#g				#Carbon emission factor of generator g, t/MWh
+		EF=[Gendata[:,"EF"];]#g					#Carbon emission factor of generator g, t/MWh
 		ELMT=Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"]))#w							#Carbon emission limits at state w, t
 		ALW_state = Dict(zip(CBP_state_data[!,"State"],CBP_state_data[!,"Allowance (tons)_sum"])) #w			#Total annual carbon allowances by state
 		F_max=[to_float(v) for v in Linedata[!,"Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
@@ -629,7 +644,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			end
 			B_l = Dict(l => 1.0 for l in L)
 		end
-		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g					#Forced outage rate
+		FOR_g = Dict(zip(G,Gendata[:,Symbol("FOR")]))#g				#Forced outage rate
 		NIdata_eff = [to_float(v) for v in NIdata]
 		if network_model in [2, 3] && flexible_nodal_ni_active
 			target_nodal_ni_system = [sum(NodeNITarget_h[(h,n)] for n in N_bus) for h in H]
@@ -738,8 +753,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				throw(ArgumentError("Invalid $(nm)=$(v). Expected non-negative value."))
 			end
 		end
-		P_min=[Gendata[:,"Pmin (MW)"];]#g						#Minimum power generation of unit g, MW
-		P_max=[Gendata[:,"Pmax (MW)"];]#g						#Maximum power generation of unit g, MW
+		P_min=[Gendata[:,"Pmin (MW)"];]#g							#Minimum power generation of unit g, MW
+		P_max=[Gendata[:,"Pmax (MW)"];]#g							#Maximum power generation of unit g, MW
 		NumUnits_g, P_max_unit, P_min_unit = pcm_clustered_uc_parameters(config_set, Gendata)
 		RPS = Dict{Any,Float64}() #w							#Renewable portfolio standard in state w, unitless
 		for w in W
@@ -759,15 +774,15 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		RM_NSPIN_g = "RM_NSPIN" in gendata_cols ? Dict(zip(G, [to_float(v) for v in Gendata[:, "RM_NSPIN"]])) : Dict(g => RM_SPIN_g[g] for g in G)
 		RU_g = Dict(zip(G,Gendata[:,Symbol("RU")]))
 		RD_g = Dict(zip(G,Gendata[:,Symbol("RD")]))
-		SECAP=[Storagedata[:,"Capacity (MWh)"];]#s		#Maximum energy capacity of storage unit s, MWh
-		SCAP=[Storagedata[:,"Max Power (MW)"];]#s		#Maximum capacity of storage unit s, MWh
-		SC=[Storagedata[:,"Charging Rate"];]#s									#The maximum rates of charging, unitless
-		SD=[Storagedata[:,"Discharging Rate"];]#s									#The maximum rates of discharging, unitless
-		VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s					#Variable (degradation) cost of storage unit s, $/MWh
+		SECAP=[Storagedata[:,"Capacity (MWh)"];]#s			#Maximum energy capacity of storage unit s, MWh
+		SCAP=[Storagedata[:,"Max Power (MW)"];]#s			#Maximum capacity of storage unit s, MWh
+		SC=[Storagedata[:,"Charging Rate"];]#s							#The maximum rates of charging, unitless
+		SD=[Storagedata[:,"Discharging Rate"];]#s						#The maximum rates of discharging, unitless
+		VCG=[Gencostdata;]#g									#Variable cost of generation unit g, $/MWh
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s				#Variable (degradation) cost of storage unit s, $/MWh
 		VOLL = get_singlepar("VOLL", 100000.0)										#Value of loss of load d, $/MWh
 		e_ch=[Storagedata[:,"Charging efficiency"];]#s				#Charging efficiency of storage unit s, unitless
-		e_dis=[Storagedata[:,"Discharging efficiency"];]#s		#Discharging efficiency of storage unit s, unitless
+		e_dis=[Storagedata[:,"Discharging efficiency"];]#s			#Discharging efficiency of storage unit s, unitless
 			
 		#for multiple time period, we need to use following TS parameters
 		#NI_t = Dict([t => Dict([(h,i) =>-Loaddata[!,"NI"][h]*(Zonedata[:,"Demand (MW)"][i]/sum(Zonedata[:,"Demand (MW)"])) for i in I for h in H_t[t]]) for t in T]) #tih
@@ -829,9 +844,9 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 		function generator_af_at(g, h)
 			if AFdata !== nothing && (Ordered_gen_nm[g] in provided_af_cols)
-				return to_float_or_default(AFdata[h, Ordered_gen_nm[g]], generator_af_fallback(g, h))
+				return pcm_clamp_availability_factor(to_float_or_default(AFdata[h, Ordered_gen_nm[g]], generator_af_fallback(g, h)))
 			end
-			return generator_af_fallback(g, h)
+			return pcm_clamp_availability_factor(generator_af_fallback(g, h))
 		end
 		AF_gh = Dict((g,h) => generator_af_at(g, h) for g in G for h in H)
 		if flexible_demand == 1
@@ -839,16 +854,25 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			DR_PB_max = Dict((h, r) => DR_hd[h, r] * DR_MAX[r] for r in R for h in H_T)
 			DR_DF_peak = Dict(r => maximum(DR_DF_max[h, r] for h in H_T) for r in R)
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_parameters_ready")
 			
 		unit_converter = 10^6
 
 
 
 		reserve_active = operation_reserve_mode != 0
-		model=Model(OPTIMIZER)
-		# Large nodal PCM cases can spend substantial memory on JuMP string names alone.
-		if network_model in [2, 3] && length(H) * (length(L) + length(N_bus)) >= 1_000_000
+		large_model_score = length(H) * (length(L) + length(N_bus) + length(G) + length(S))
+		solver_name = lowercase(string(get(config_set, "solver", "")))
+		unit_commitment_raw = get(config_set, "unit_commitment", 0)
+		unit_commitment_mode = unit_commitment_raw isa Integer ? Int(unit_commitment_raw) : parse(Int, string(unit_commitment_raw))
+		use_direct_mode = solver_name == "gurobi" && unit_commitment_mode == 0 && large_model_score >= 1_000_000
+		model = use_direct_mode ? direct_model(OPTIMIZER) : Model(OPTIMIZER)
+		# Large PCM cases can hit solver-side naming limits and spend substantial memory on JuMP string names.
+		if large_model_score >= 1_000_000
 			set_string_names_on_creation(model, false)
+		end
+		if use_direct_mode
+			pcm_debug_stage_log(config_set, "create_pcm_model_direct_mode_enabled")
 		end
 		#Variables---------------------------------------------
 		if carbon_policy == 2
@@ -896,6 +920,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@variable(model, dr_PB[R,H]>=0)						#Payback demand (load shifted back) by DR resource r, MW
 			@variable(model, b_DR[R,H]>=0)						#Backlog state variable of DR resource r, MWh
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_variables_ready")
 		#@variable(model, slack_pos[H,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[H,I]>=0)					#Slack varbale for debuging
 		#unregister(model, :p)
@@ -911,6 +936,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			uc_set = config_set["unit_commitment"]
 			print("Invalid settings $uc_set for unit_commitment! Please set it tobe '0' or '1' or '2'!")
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_uc_ready")
 		# Constraints --------------------------------------------
 		# Constraint-ID map (aligned with docs/src/PCM.md and Word formulation):
 		# [PCM-C1.0] Copper-plate power balance
@@ -953,17 +979,20 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			NoNetworkFlow_con = @constraint(model, [l in L, h in H], f[l,h] == 0, base_name = "NoNetworkFlow_con")
 		elseif network_model == 1
 			# [PCM-C1.1] Zonal transport
+			pcm_debug_stage_log(config_set, "create_pcm_model_network_zonal_start")
 			if transmission_loss == 1
 				@expression(model, ZoneLineLoss[i in I, h in H], 0.5 * sum(model[:LineLoss][l,h] for l in vcat(LS_i[i], LR_i[i])))
 			else
 				@expression(model, ZoneLineLoss[i in I, h in H], 0.0)
 			end
+			pcm_debug_stage_log(config_set, "create_pcm_model_network_zonal_loss_ready")
 			@constraint(model, PB_con[i in I, h in H], sum(p[g,h] for g in G_i[i])
 				+ sum(dc[s,h] - c[s,h] for s in S_i[i])
 				- sum(f[l,h] for l in LS_i[i])
 				+ sum(f[l,h] for l in LR_i[i])
 				+ NI_h[h,i]
 				== sum(P_t[h,d]*PK[d] for d in D_i[i]) + DR_OPT[i,h] - p_LS[i,h] + model[:ZoneLineLoss][i,h],base_name = "PB_con")
+			pcm_debug_stage_log(config_set, "create_pcm_model_network_zonal_balance_ready")
 		elseif network_model == 2
 			# [PCM-C1.2] Nodal DCOPF angle-based
 			if transmission_loss == 1
@@ -979,9 +1008,11 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 				== NodeLoad[n,h] + model[:NodeLineLoss][n,h], base_name = "PBNode_con")
 			FAngle_con = @constraint(model, [l in L, h in H], f[l,h] == B_l[l] * (model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h]), base_name = "FAngle_con")
 			RefAngle_con = @constraint(model, [h in H], model[:theta][reference_bus,h] == 0, base_name = "RefAngle_con")
-			ThetaBound_con = @constraint(model, [n in N_bus, h in H], -theta_max <= model[:theta][n,h] <= theta_max, base_name = "ThetaBound_con")
+			@constraint(model, [n in N_bus, h in H], model[:theta][n,h] >= -theta_max, base_name = "ThetaBoundLb_con")
+			@constraint(model, [n in N_bus, h in H], model[:theta][n,h] <= theta_max, base_name = "ThetaBoundUb_con")
 			if !isempty(L_theta_diff)
-				ThetaDiffLine_con = @constraint(model, [l in L_theta_diff, h in H], -delta_theta_max_l[l] <= model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] <= delta_theta_max_l[l], base_name = "ThetaDiffLine_con")
+				@constraint(model, [l in L_theta_diff, h in H], model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] >= -delta_theta_max_l[l], base_name = "ThetaDiffLineLb_con")
+				@constraint(model, [l in L_theta_diff, h in H], model[:theta][L_from_n[l],h] - model[:theta][L_to_n[l],h] <= delta_theta_max_l[l], base_name = "ThetaDiffLineUb_con")
 			end
 		else
 			# [PCM-C1.3] Nodal DCOPF PTDF-based
@@ -994,17 +1025,23 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			@constraint(model, FPTDF_con[l in L, h in H], f[l,h] == sum(PTDF_l_n[(l,n)] * model[:inj][n,h] for n in N_bus), base_name = "FPTDF_con")
 		end
 		# [PCM-C1.NI] NI upper bound
+		pcm_debug_stage_log(config_set, "create_pcm_model_network_ni_start")
 		if network_model in [2, 3] && flexible_nodal_ni_active
 			NodeNIActualTargetLink_con = @constraint(model, [n in N_bus, h in H],
 				model[:node_ni_actual][n,h] - model[:NodeNITarget][n,h] == model[:node_ni_dev_pos][n,h] - model[:node_ni_dev_neg][n,h],
 				base_name = "NodeNIActualTargetLink_con")
-			NodeNIActualCap_con = @constraint(model, [n in N_bus, h in H],
-				min(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]) <= model[:node_ni_actual][n,h] <= max(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]),
-				base_name = "NodeNIActualCap_con")
+			@constraint(model, [n in N_bus, h in H],
+				model[:node_ni_actual][n,h] >= min(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]),
+				base_name = "NodeNIActualCapLb_con")
+			@constraint(model, [n in N_bus, h in H],
+				model[:node_ni_actual][n,h] <= max(NodeNITarget_h[(h,n)], NodeNICap_h[(h,n)]),
+				base_name = "NodeNIActualCapUb_con")
 			NI_con = @constraint(model, [h in H, i in I], model[:ni][h,i] == sum(model[:node_ni_actual][n,h] for n in N_i[i]), base_name = "NI_con")
 		else
 			NI_con = @constraint(model, [h in H, i in I], ni[h,i] <= NI_h[h,i],base_name = "NI_con")
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_network_ni_ready")
+		pcm_debug_stage_log(config_set, "create_pcm_model_network_constraints_ready")
 		if operation_reserve_mode == 2
 			@expression(model, ReserveUpG[g in G, h in H], r_G_REG_UP[g,h] + r_G_SPIN[g,h] + r_G_NSPIN[g,h])
 			@expression(model, ReserveDnG[g in G, h in H], r_G_REG_DN[g,h])
@@ -1056,7 +1093,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		end
 		
 		# [PCM-C1] Existing line flow limits (active for network models 1/2/3)
-		@constraint(model, TLe_con[l in L_exist,h in H], -F_max_eff[l] <= f[l,h] <= F_max_eff[l],base_name = "TLe_con")
+		@constraint(model, [l in L_exist, h in H], f[l,h] >= -F_max_eff[l], base_name = "TLeLb_con")
+		@constraint(model, [l in L_exist, h in H], f[l,h] <= F_max_eff[l], base_name = "TLeUb_con")
 		if transmission_loss == 1 && network_model in [1, 2]
 			@constraint(model, TLAbsPos_con[l in L, h in H], model[:f_abs][l,h] >= f[l,h], base_name = "TLAbsPos_con")
 			@constraint(model, TLAbsNeg_con[l in L, h in H], model[:f_abs][l,h] >= -f[l,h], base_name = "TLAbsNeg_con")
@@ -1065,7 +1103,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		AvailableCapacity = Dict((g,h) => AF_gh[(g,h)] * P_max[g] for g in G for h in H)
 		if config_set["unit_commitment"] == 0
 			# [PCM-C3.A] Generator operating limits without UC
-			CLe_con = @constraint(model, [g in G_exist, h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			@constraint(model, [g in G_exist, h in H], p[g,h] + ReserveUpG[g,h] >= P_min[g], base_name = "CLeLb_con")
+			@constraint(model, [g in G_exist, h in H], p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLeUb_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLe_MR_con")
 			if reserve_active
 				# [PCM-C3.HD] Downward headroom (non-UC)
@@ -1089,7 +1128,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		else
 			ClusteredAvailableCapacity = Dict((g,h) => AF_gh[(g,h)] * (1-FOR_g[g]) * P_max_unit[g] * model[:o][g,h] for g in G_UC for h in H)
 			# [PCM-C3.B] Generator operating limits with UC
-			CLe_con = @constraint(model, [g in setdiff(G_exist,G_UC), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g],base_name = "CLe_con")
+			@constraint(model, [g in setdiff(G_exist,G_UC), h in H], p[g,h] + ReserveUpG[g,h] >= P_min[g], base_name = "CLeNonUCLb_con")
+			@constraint(model, [g in setdiff(G_exist,G_UC), h in H], p[g,h] + ReserveUpG[g,h] <= AF_gh[(g,h)]*(1-FOR_g[g])*P_max[g], base_name = "CLeNonUCUb_con")
 			CLe_MR_con =  @constraint(model, [g in intersect(G_exist,G_MR,G_UC), h in H],  p[g,h] == AF_gh[(g,h)]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h], base_name = "CLe_MR_con")
 			CLeL_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], P_min[g] <= p[g,h] + ReserveUpG[g,h] ,base_name = "CLeL_con")
 			CLeU_con = @constraint(model, [g in setdiff(G_UC,G_MR), h in H], p[g,h] + ReserveUpG[g,h] <= ClusteredAvailableCapacity[(g,h)],base_name = "CLeU_con")
@@ -1125,22 +1165,29 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			RP_DN_UC_con = @constraint(model, [g in intersect(G_F,G_UC), h in setdiff(H, [1])],  (p[g,h]-ReserveDnG[g,h]-model[:pmin][g,h]) - (p[g,h-1] - model[:pmin][g,h-1]) >= -RD_g[g]*(1-FOR_g[g])*P_max_unit[g]*model[:o][g,h],base_name = "RP_DN_UC_con" )
 			
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_generator_constraints_ready")
 
 		# [PCM-C1/C3] Load shedding bound
+		pcm_debug_stage_log(config_set, "create_pcm_model_load_shedding_start")
 		if network_model in [2, 3]
-			LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h] <= sum(model[:NodeNativeLoad][n,h] for n in N_i[i]), base_name = "LS_con")
+			@constraint(model, [i in I, h in H], p_LS[i,h] >= 0, base_name = "LSLb_con")
+			@constraint(model, [i in I, h in H], p_LS[i,h] <= sum(model[:NodeNativeLoad][n,h] for n in N_i[i]), base_name = "LSUb_con")
 		else
-			LS_con = @constraint(model, [i in I, h in H], 0 <= p_LS[i,h]<= sum(P_t[h,d]*PK[d] for d in D_i[i]),base_name = "LS_con")
+			@constraint(model, [i in I, h in H], p_LS[i,h] >= 0, base_name = "LSLb_con")
+			@constraint(model, [i in I, h in H], p_LS[i,h] <= sum(P_t[h,d]*PK[d] for d in D_i[i]), base_name = "LSUb_con")
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_load_shedding_ready")
 		
 		
 		##############
 		##Renewbales##
 		##############
+		pcm_debug_stage_log(config_set, "create_pcm_model_renewables_start")
 		# [PCM-C3] Renewable availability for existing VRE
 		ReAe_con=@constraint(model, [i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], p[g,h] <= AvailableCapacity[(g,h)],base_name = "ReAe_con")
 		ReAe_MR_con=@constraint(model, [i in I, g in intersect(intersect(G_exist,G_MR),G_i[i],union(G_PV,G_W)), h in H], p[g,h] == AvailableCapacity[(g,h)],base_name = "ReAe_MR_con")
 		@expression(model, RenewableCurtailExist[i in I, g in intersect(G_exist,G_i[i],union(G_PV,G_W)), h in H], AvailableCapacity[(g,h)]-p[g,h])
+		pcm_debug_stage_log(config_set, "create_pcm_model_renewables_ready")
 		
 		
 		
@@ -1148,6 +1195,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		##############
 		###Storages###
 		##############
+		pcm_debug_stage_log(config_set, "create_pcm_model_storage_start")
 		# [PCM-C4] Storage charge limit with downward reserve coupling
 		ChLe_con=@constraint(model, [ h in H, s in S_exist], c[s,h] + ReserveDnS[s,h] <= SC[s]*SCAP[s],base_name = "ChLe_con")
 		
@@ -1155,7 +1203,8 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		DChLe_con=@constraint(model, [ h in H,  s in S_exist], dc[s,h] + ReserveUpS[s,h] <= SD[s]*SCAP[s],base_name = "DChLe_con")
 		
 		# [PCM-C4] Storage SOC bound
-		SoCLe_con=@constraint(model, [ h in H, s in S_exist], 0 <= soc[s,h] <= SECAP[s], base_name = "SoCLe_con")
+		@constraint(model, [h in H, s in S_exist], soc[s,h] >= 0, base_name = "SoCLeLb_con")
+		@constraint(model, [h in H, s in S_exist], soc[s,h] <= SECAP[s], base_name = "SoCLeUb_con")
 		# [PCM-C4] Storage reserve deliverability over response windows
 		if operation_reserve_mode == 2
 			SR_DELIVER_REGUP_con = @constraint(model, [h in H, s in S_exist], r_S_REG_UP[s,h]*delta_reg <= soc[s,h],base_name = "SR_DELIVER_REGUP_con")
@@ -1176,6 +1225,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 		SDBe_st_con=@constraint(model, [s in S_exist], soc[s,1] == soc[s,H[end]],base_name = "SDBe_st_con")
 		#SDBe_ps_con=@constraint(model, [s in S_exist, h in setdiff(H_D, [0,Num_hour])],soc[s,1]==soc[s,h],base_name="SDBe_ps_con")
 		SDBe_ed_con=@constraint(model, [s in S_exist], soc[s,H[end]] == 0.5 * SECAP[s],base_name = "SDBe_ed_con")
+		pcm_debug_stage_log(config_set, "create_pcm_model_storage_constraints_ready")
 		
 		
 
@@ -1241,6 +1291,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 			DR_pb_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_PB[r,h] <= DR_PB_max[h,r], base_name="DR_pb_con")
 			DR_backlog_cap_con = @constraint(model, [r in R, h in H_T], b_DR[r,h] <= DR_max_defer_hours[r] * DR_DF_peak[r], base_name="DR_backlog_cap_con")
 		end
+		pcm_debug_stage_log(config_set, "create_pcm_model_policy_constraints_ready")
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
 		#@expression(model, INVCost, sum(INV_g[g]*unit_converter*x[g] for g in G_new)+sum(INV_l[l]*unit_converter*y[l] for l in L_new)+sum(INV_s[s]*unit_converter*z[s] for s in S_new))			
@@ -1295,6 +1346,7 @@ function create_PCM_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Optim
 
 		#Minmize objective fuction: STCost + DR_OPCost + OPCost + RPSPenalty + CarbonCapPenalty + SlackPenalty
 		@objective(model,Min, STCost + DR_OPcost + OPCost + LoadShedding + NIDeviationPenalty + RPSPenalty + CarbonCapPenalty)
+		pcm_debug_stage_log(config_set, "create_pcm_model_objective_ready")
 		return model
 	end
 end 

@@ -23,6 +23,7 @@ pages = OrderedDict(
     ],
     "Example Cases" => [
         "PJM MD100 GTEP Case" => "case_pjm_md100_gtep.md",
+        "Maryland Full-Year Holistic Case" => "case_md_holistic_full8760.md",
         "USA 64-Zone GTEP Case" => "case_usa64_gtep.md",
         "RTS24 PCM Multizone4 Congested 1-Month Case" => "case_rts24_pcm_multizone4.md",
         "ISO-NE 250-Bus PCM Case" => "case_isone_pcm_250bus.md",

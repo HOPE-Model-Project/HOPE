@@ -14,6 +14,21 @@ Solve the HOPE optimization model and print results.
 # Throws
 - Optimization errors if model fails to solve
 """
+function has_feasible_primal_solution(model::Model)
+	pr_status = primal_status(model)
+	return result_count(model) > 0 && pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+end
+
+function require_feasible_primal_solution(model::Model; context::AbstractString="Model solve")
+	term_status = termination_status(model)
+	pr_status = primal_status(model)
+	n_results = result_count(model)
+	if !has_feasible_primal_solution(model)
+		throw(ArgumentError("$(context) did not find a feasible primal solution. termination_status=$(term_status), primal_status=$(pr_status), result_count=$(n_results)"))
+	end
+	return nothing
+end
+
 function solve_model(config_set::Dict, input_data::Dict, model::Model)
     model_mode = config_set["model_mode"]
 	## Start solve timer
@@ -21,7 +36,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	optimize!(model)
 	term_status = termination_status(model)
 	pr_status = primal_status(model)
-	has_primal_solution = pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+	has_primal_solution = has_feasible_primal_solution(model)
 
 	# Optional second pass for MILP: fix discrete vars and re-solve LP for dual prices.
 	# Applies to:

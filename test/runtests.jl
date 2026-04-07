@@ -10,5 +10,6 @@ using Test
     include("test-erec-integration.jl")
     include("test-erec-settings.jl")
     include("test-erec-snapshot.jl")
+    include("test-holistic.jl")
     include("test-lmp-sign-regression.jl")
 end

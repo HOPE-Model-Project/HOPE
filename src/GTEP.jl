@@ -1,8 +1,20 @@
+function gtep_debug_stage_log(config_set::Dict, stage::AbstractString)
+	debug_stage_file = get(config_set, "debug_stage_file", nothing)
+	if debug_stage_file === nothing
+		return nothing
+	end
+	open(String(debug_stage_file), "a") do io
+		println(io, "time=", time(), ", stage=", stage)
+	end
+	return nothing
+end
+
 function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.OptimizerWithAttributes)
 	model_mode = config_set["model_mode"]
 	if model_mode == "PCM"
 		return "ModeError: Please use function 'create_PCM_model' or set model mode to be 'GTEP'!" 
 	elseif model_mode == "GTEP" 
+		gtep_debug_stage_log(config_set, "create_gtep_model_start")
 		#network
 		Zonedata = input_data["Zonedata"]
 		Linedata = input_data["Linedata"]
@@ -258,6 +270,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 				DR_rep = select(DRtsdata, Ordered_zone_nm)
 			end
 		end
+		gtep_debug_stage_log(config_set, "create_gtep_model_rep_periods_ready")
 
 		#Sets--------------------------------------------------
 		D=[d for d=1:Num_load] 									#Set of demand, index d
@@ -373,6 +386,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		end
 
 		G_L = Dict(zip([l for l in L], [G_i[i] for l in L for i in IL_l[l]]))			#Set of generation units that linked to line l, index g, subset of G
+		gtep_debug_stage_log(config_set, "create_gtep_model_sets_ready")
 
 		#Parameters--------------------------------------------
 		ALW = Dict((Int(row["Time Period"]), row["State"]) => Float64(row["Allowance (tons)"]) for row in eachrow(CBPdata))#(t,w)														#Total carbon allowance in time period t in state w, ton
@@ -518,6 +532,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		PK_i = Dict(i => maximum(sum(P_hd[h,d]*PK[d] for d in D_i[i]) for h in H_T) for i in I)
 		PK_system = maximum(sum(sum(P_hd[h,d]*PK[d] for d in D_i[i]) for i in I) for h in H_T)
 		unit_converter = 10^6
+		gtep_debug_stage_log(config_set, "create_gtep_model_parameters_ready")
 
 		#Relax of integer variable:
 		inv_dcs_bin = config_set["inv_dcs_bin"]
@@ -560,6 +575,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 		@variable(model, soc[S,H_T]>=0)							#State of charge level of storage s in hour h, MWh
 		@variable(model, c[S,H_T]>=0)							#Charging power of storage s from grid in hour h, MW
 		@variable(model, dc[S,H_T]>=0)							#Discharging power of storage s into grid in hour h, MW
+		gtep_debug_stage_log(config_set, "create_gtep_model_variables_ready")
 		#@variable(model, slack_pos[T,H_T,I]>=0)					#Slack varbale for debuging
 		#@variable(model, slack_neg[T,H_T,I]>=0)					#Slack varbale for debuging
 		#unregister(model, :p)
@@ -821,6 +837,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			DR_pb_con = @constraint(model, [r in R, t in T, h in H_t[t]], dr_PB[r,h] <= DR_PB_max[h,r], base_name="DR_pb_con")
 			DR_backlog_cap_con = @constraint(model, [r in R, h in H_T], b_DR[r,h] <= DR_max_defer_hours[r] * DR_DF_peak[r], base_name="DR_backlog_cap_con")
 		end
+		gtep_debug_stage_log(config_set, "create_gtep_model_constraints_ready")
 		#Objective function and solve--------------------------
 		#Investment cost of generator, lines, and storages
 		@expression(model, INVCost, sum(INV_g[g]*x[g]*P_max[g] for g in G_new)+sum(unit_converter*INV_l[l]*y[l] for l in L_new)+sum(INV_s[s]*z[s]*SCAP[s] for s in S_new))			
@@ -861,6 +878,7 @@ function create_GTEP_model(config_set::Dict,input_data::Dict,OPTIMIZER::MOI.Opti
 			@expression(model,DR_OPcost,0)		
 		end
 		@objective(model,Min,INVCost + OPCost +DR_OPcost + LoadShedding + RPSPenalty + CarbonCapPenalty)#+ SlackPenalty
+		gtep_debug_stage_log(config_set, "create_gtep_model_objective_ready")
 		return model
 	end
 end 

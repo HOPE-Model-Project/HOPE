@@ -1,0 +1,65 @@
+# Seasonal windows for endogenous representative-day construction.
+# Format: period_id: [start_month, start_day, end_month, end_day]
+# Important: the full chronology must be covered exactly once.
+# Do not create overlaps or gaps across time_periods.
+time_periods:
+  1: [3, 20, 6, 20]
+  2: [6, 21, 9, 21]
+  3: [9, 22, 12, 20]
+  4: [12, 21, 3, 19]
+
+# Clustering method for representative-day selection.
+# kmedoids = actual observed representative day
+# kmeans = synthetic centroid representative period
+clustering_method: kmedoids
+
+# How HOPE builds the daily feature vector before clustering.
+# joint_daily = use aligned hourly load/AF/DR profiles directly
+# planning_features = use compact planning-oriented signals such as net load and ramps
+feature_mode: planning_features
+
+# Planning-oriented features used when feature_mode: planning_features
+planning_feature_set:
+  - zonal_load
+  - zonal_net_load
+  - zonal_wind_cf
+  - zonal_solar_cf
+  - system_net_load
+  - system_ramp
+
+# Number of representative periods selected in each seasonal window.
+representative_days_per_period: 2
+
+# Feature 3: add explicit extreme days after medoid selection.
+# 0 = off, 1 = on
+add_extreme_days: 1
+
+# Extreme-day metrics used when add_extreme_days: 1
+extreme_day_metrics:
+  - peak_load
+  - peak_net_load
+  - max_ramp
+
+# Feature 5: add refinement days after medoid/extreme selection.
+# 0 = off, 1 = on
+iterative_refinement: 1
+
+# Number of refinement days added in each seasonal window when iterative_refinement: 1
+iterative_refinement_days_per_period: 1
+
+# Feature 6: build chronology-aware linkage metadata for long-duration storage.
+# 0 = off, 1 = on
+link_storage_rep_days: 1
+
+# Include load series in joint_daily feature construction.
+include_load: 1
+
+# Include generator availability-factor series in joint_daily feature construction.
+include_af: 1
+
+# Include demand-response series in joint_daily feature construction.
+include_dr: 1
+
+# Standardize feature dimensions before distance calculations.
+# Recommended to keep on unless you intentionally want large-magnitude features to dominate.
+normalize_features: 1

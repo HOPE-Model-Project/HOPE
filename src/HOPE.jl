@@ -69,6 +69,7 @@ export resolve_rep_day_time_periods
 export run_debug
 export run_hope
 export run_hope_holistic
+export run_hope_holistic_fresh
 export solve_model
 export write_output
 

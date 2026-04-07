@@ -123,3 +123,12 @@ erec = HOPE.calculate_erec(res)
 
 See [EREC Postprocessing](EREC.md) for the recommended `HOPE_erec_settings.yml` workflow.
 
+## Holistic GTEP -> PCM Runs
+
+HOPE also supports a two-stage `GTEP -> PCM` workflow through `run_hope_holistic(gtep_case, pcm_case)`.
+
+- The `GTEP` and `PCM` cases must use the same topology. In practice that means the same `zonedata.Zone_id` set, the same transmission corridors in `linedata`, and internally consistent zone labels across `zonedata`, `gendata`, `storagedata`, and the zonal time-series inputs.
+- `GTEP` is the expansion stage and `PCM` is the dispatch stage. HOPE first solves `GTEP`, then updates the paired `PCM` system with the `GTEP` decisions on new builds, retirements, storage additions, and transmission expansion before running chronological dispatch.
+
+If the pair is not topology-matched, HOPE stops before the `GTEP` solve and reports the mismatch directly. This is preferable to an implicit zone remap because the holistic workflow is intended to dispatch the same system that the expansion model planned.
+
