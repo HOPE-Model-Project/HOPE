@@ -65,7 +65,7 @@ makedocs(;
     sitename="HOPE.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="github.com/swang22/HOPE.git",
+        canonical="https://hope-model-project.github.io/HOPE/",
         edit_link="master-dev",
         assets = ["assets/favicon.ico", "assets/hope-docs-brand.css"]
     ),
@@ -75,6 +75,6 @@ makedocs(;
 normalize_ascii_page_titles(joinpath(@__DIR__, "build"))
 
 deploydocs(;
-    repo="github.com/swang22/HOPE.git",
+    repo="github.com/hope-model-project/HOPE.git",
     devbranch="master-dev",
 )
