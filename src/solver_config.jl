@@ -42,9 +42,9 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
         Mymethod = 5
             if(haskey(solver_settings, "Method")) Mymethod = solver_settings["Method"] end
         MyDualObjectiveLimit = 1e308
-            if(haskey(solver_settings, "DualObjectiveLimit")) MymaxNodes = solver_settings["DualObjectiveLimit"] end
+            if(haskey(solver_settings, "DualObjectiveLimit")) MyDualObjectiveLimit = solver_settings["DualObjectiveLimit"] end
         MyMaximumIterations = 2147483647
-            if(haskey(solver_settings, "MaximumIterations")) MyallowableGap = solver_settings["MaximumIterations"] end
+            if(haskey(solver_settings, "MaximumIterations")) MyMaximumIterations = solver_settings["MaximumIterations"] end
         MyLogLevel= 1 
             if(haskey(solver_settings, "LogLevel")) MyLogLevel = solver_settings["LogLevel"] end
         MyInfeasibleReturn = 0
@@ -104,6 +104,13 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
     end
 
     if solver == "cplex"
+        if !isdefined(@__MODULE__, :CPLEX)
+            try
+                @eval using CPLEX
+            catch e
+                error("solver='cplex' requested, but CPLEX.jl is unavailable in this environment. Install/activate CPLEX.jl and a valid CPLEX license. Original error: $(e)")
+            end
+        end
         # Optional solver parameters ############################################
         Myfeasib_Tol = 1e-7 #https://www.ibm.com/docs/en/cofz/12.9.0?topic=parameters-solution-type-lp-qp
             if(haskey(solver_settings, "Feasib_Tol")) Myfeasib_Tol = solver_settings["Feasib_Tol"] end

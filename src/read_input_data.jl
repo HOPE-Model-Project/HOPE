@@ -21,6 +21,13 @@ end
 
 flag_any(gdf::AbstractDataFrame, col::Symbol) = any(to_float_agg(v, 0.0) > 0 for v in gdf[!, col]) ? 1 : 0
 
+function aggregated_num_units(gdf::AbstractDataFrame)
+    if :NumUnits in Symbol.(names(gdf))
+        return max(sum(max(1, round(Int, to_float_agg(v, 1.0))) for v in gdf[!, :NumUnits]), 1)
+    end
+    return max(nrow(gdf), 1)
+end
+
 function clustering_feature_matrix(gdf::AbstractDataFrame, config_set::AbstractDict)
     feature_names = aggregation_setting_string_list(
         config_set,
@@ -276,7 +283,7 @@ function aggregate_gendata_pcm(df::DataFrame, config_set::Dict)
         w = agg_weights_from_pmax(gdf)
         total_pmax = sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmax (MW)")])
         total_pmin = sum(to_float_agg(v, 0.0) for v in gdf[!, Symbol("Pmin (MW)")])
-        cluster_units = max(length(groups[key]), 1)
+        cluster_units = aggregated_num_units(gdf)
         cluster_unit_pmax = cluster_units > 0 ? total_pmax / cluster_units : total_pmax
         cluster_unit_pmin = cluster_units > 0 ? total_pmin / cluster_units : total_pmin
         row = Dict{Symbol,Any}(

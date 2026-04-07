@@ -165,6 +165,16 @@ using JuMP
     @test pcm_agg[1, Symbol("ClusteredUnitPmax (MW)")] ≈ 150.0
     @test pcm_agg[1, Symbol("ClusteredUnitPmin (MW)")] ≈ 30.0
 
+    preagg_pcm_raw = deepcopy(pcm_raw)
+    preagg_pcm_raw[!, :NumUnits] = [3, 2]
+    preagg_pcm_raw[!, Symbol("ClusteredUnitPmax (MW)")] = [100.0, 100.0]
+    preagg_pcm_raw[!, Symbol("ClusteredUnitPmin (MW)")] = [20.0, 20.0]
+    preagg_pcm_agg = HOPE.aggregate_gendata_pcm(preagg_pcm_raw, pcm_cfg)
+    @test nrow(preagg_pcm_agg) == 1
+    @test preagg_pcm_agg[1, :NumUnits] == 5
+    @test preagg_pcm_agg[1, Symbol("ClusteredUnitPmax (MW)")] ≈ 60.0
+    @test preagg_pcm_agg[1, Symbol("ClusteredUnitPmin (MW)")] ≈ 12.0
+
     uc_model = Model()
     input_data = Dict(
         "Gendata" => pcm_agg,
