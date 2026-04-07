@@ -33,11 +33,11 @@ Current HOPE model is also maintaining by researchers at MIT, including Shen Wan
 Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP". 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose **"Clone"** (recommended) or **"Download ZIP"**. 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
-Then save the `HOPE-master` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`). 
+Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`).
 >[!NOTE]
->Remember to change the folder name `HOPE-master` to `HOPE` after you decompress the zip file.
+>If you downloaded the ZIP, rename the extracted folder to `HOPE` (the zip extracts to a folder named after the branch, e.g., `HOPE-master-dev`).
 
 In your `HOPE` project, the files should be something like below:
 ![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
