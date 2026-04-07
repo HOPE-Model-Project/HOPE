@@ -125,10 +125,34 @@ See [EREC Postprocessing](EREC.md) for the recommended `HOPE_erec_settings.yml` 
 
 ## Holistic GTEP -> PCM Runs
 
-HOPE also supports a two-stage `GTEP -> PCM` workflow through `run_hope_holistic(gtep_case, pcm_case)`.
+HOPE supports a two-stage `GTEP -> PCM` workflow through two related entry points:
+
+- `HOPE.run_hope_holistic(gtep_case, pcm_case)` runs the paired cases directly in place.
+- `HOPE.run_hope_holistic_fresh(gtep_case, pcm_case)` first creates fresh case clones, skips old `output/` trees, and then runs the same two-stage workflow on those clones.
+
+For most repeatable workflows, `HOPE.run_hope_holistic_fresh(...)` is the preferred option because it avoids stale outputs from earlier runs and preserves the original source cases as reusable baselines.
+
+Example:
+
+```julia
+using HOPE
+
+result = HOPE.run_hope_holistic_fresh(
+  "ModelCases/MD_GTEP_holistic_full8760_case_v20260406g",
+  "ModelCases/MD_PCM_holistic_full8760_case_v20260406g",
+)
+```
+
+Key requirements:
 
 - The `GTEP` and `PCM` cases must use the same topology. In practice that means the same `zonedata.Zone_id` set, the same transmission corridors in `linedata`, and internally consistent zone labels across `zonedata`, `gendata`, `storagedata`, and the zonal time-series inputs.
 - `GTEP` is the expansion stage and `PCM` is the dispatch stage. HOPE first solves `GTEP`, then updates the paired `PCM` system with the `GTEP` decisions on new builds, retirements, storage additions, and transmission expansion before running chronological dispatch.
 
 If the pair is not topology-matched, HOPE stops before the `GTEP` solve and reports the mismatch directly. This is preferable to an implicit zone remap because the holistic workflow is intended to dispatch the same system that the expansion model planned.
+
+If you want to validate a pair before solving, you can also use the generic audit helper:
+
+```powershell
+julia --project=. tools/repo_utils/audit_holistic_case_pair.jl <GTEP_case> <PCM_case>
+```
 
