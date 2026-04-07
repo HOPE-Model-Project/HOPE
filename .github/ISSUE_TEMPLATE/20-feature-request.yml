@@ -8,9 +8,9 @@ body:
 
         Please, before submitting, make sure that:
 
-        - There is not an [existing issue](https://github.com/SW/HOPE.jl/issues) with the same question
-        - You have read the [contributing guide](https://SW.github.io/HOPE.jl/dev/90-contributing/)
-        - You are following the [code of conduct](https://github.com/SW/HOPE.jl/blob/main/CODE_OF_CONDUCT.md)
+        - There is not an [existing issue](https://github.com/HOPE-Model-Project/HOPE/issues) with the same question
+        - You have read the [contributing guide](https://hope-model-project.github.io/HOPE/dev/90-contributing/)
+        - You are following the [code of conduct](https://github.com/HOPE-Model-Project/HOPE/blob/master-dev/CODE_OF_CONDUCT.md)
         The form below should help you in filling out this issue.
   - type: textarea
     id: description

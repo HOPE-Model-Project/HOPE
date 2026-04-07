@@ -21,7 +21,7 @@ There is no related issue.
 
 <!-- mark true if NA -->
 <!-- leave PR as draft until all is checked -->
-- [ ] I am following the [contributing guidelines](https://github.com/SW/HOPE.jl/blob/main/docs/src/90-contributing.md)
+- [ ] I am following the [contributing guidelines](https://hope-model-project.github.io/HOPE/dev/90-contributing/)
 - [ ] Tests are passing
 - [ ] Lint workflow is passing
 - [ ] Docs were updated and workflow is passing

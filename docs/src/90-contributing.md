@@ -8,7 +8,7 @@ Be polite and respectful, and follow the code of conduct.
 
 ## Bug reports and discussions
 
-If you think you found a bug, feel free to open an [issue](https://github.com/swang22/HOPE/issues).
+If you think you found a bug, feel free to open an [issue](https://github.com/HOPE-Model-Project/HOPE/issues).
 Focused suggestions and requests can also be opened as issues.
 Before opening a pull request, start an issue or a discussion on the topic, please.
 
