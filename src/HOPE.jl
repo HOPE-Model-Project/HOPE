@@ -47,7 +47,6 @@ include("run_holistic.jl");         #Holistic assessment: GTEP-PCM two stage
 #export HOPE functions
 export aggregate_gendata_gtep
 export aggregate_gendata_pcm
-export configure_settings
 export create_GTEP_model
 export create_PCM_model
 export calculate_erec
@@ -56,29 +55,19 @@ export default_aggregation_settings
 export default_erec_settings
 export default_rep_day_settings
 export initiate_solver
-export debug
 export build_endogenous_rep_periods
-export get_representative_ts
-export get_TPmatched_ts
 export load_data
 export load_aggregation_settings
 export load_erec_settings
 export load_rep_day_settings
 export load_postprocess_snapshot
 export resolve_rep_day_time_periods
-export run_debug
 export run_hope
 export run_hope_holistic
 export run_hope_holistic_fresh
 export solve_model
 export write_output
 
-# Export constants for plotting and utilities
-export COLOR_MAP, TECH_ACRONYM_MAP, ORDERED_TECH_POWER, ORDERED_TECH_CAPACITY, ORDERED_ES_TECH
-export VALID_MODEL_MODES, HOURS_PER_YEAR, REQUIRED_FILES
-export get_project_root, get_case_paths, get_paths
-export validate_case_directory, validate_model_mode, safe_file_read, safe_remove_directory
-export ensure_output_directory, apply_technology_mapping, aggregate_capacity_data
 export marginal_load_price_from_dual
 
 end

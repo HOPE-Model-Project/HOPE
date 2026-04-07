@@ -5,23 +5,42 @@
 
 If you want to make contributions to this package that involves code, then this guide is for you.
 
+## Current branch plan
+
+This repository is currently in a transition period:
+
+1. `master-dev` is the active development branch.
+2. `master` is the legacy v1 branch.
+3. The planned end state is to promote the current `master-dev` line to become the primary branch, while the old `master` line is renamed to `master-v1`.
+
+Until that branch transition is complete, contributors should branch from and open pull requests into `master-dev`.
+
 ## First time clone
 
-!!! tip "If you have writing rights"
-    If you have writing rights, you don't have to fork. Instead, simply clone and skip ahead. Whenever **upstream** is mentioned, use **origin** instead.
+!!! tip "If you have write access"
+    If you have write access to the main repository, you can clone it directly and skip the fork workflow.
 
-If this is the first time you work with this repository, follow the instructions below to clone the repository.
+If this is the first time you work with this repository, the safest setup is:
 
-1. Fork this repo
-2. Clone your repo (this will create a `git remote` called `origin`)
-3. Add this repo as a remote:
+1. Fork the repository if you do not have write access.
+2. Clone your fork, which creates a git remote called `origin`.
+3. Add the main repository as `upstream`:
 
    ```bash
-   git remote add upstream https://github.com/SW/HOPE.jl
+   git remote add upstream https://github.com/swang22/HOPE.git
    ```
 
-This will ensure that you have two remotes in your git: `origin` and `upstream`.
-You will create branches and push to `origin`, and you will fetch and update your local `main` branch from `upstream`.
+4. Fetch the latest branches:
+
+   ```bash
+   git fetch upstream
+   ```
+
+5. Create your working branch from `upstream/master-dev`:
+
+   ```bash
+   git switch -c my-change upstream/master-dev
+   ```
 
 ## Linting and formatting
 
@@ -60,7 +79,7 @@ pre-commit run -a
 
 ## Testing
 
-As with most Julia packages, you can just open Julia in the repository folder, activate the environment, and run `test`:
+For standard validation, open Julia in the repository folder, activate the environment, and run `test`:
 
 ```julia-repl
 julia> # press ]
@@ -68,19 +87,27 @@ pkg> activate .
 pkg> test
 ```
 
+For documentation changes, also validate the docs environment when practical:
+
+```bash
+julia --project=docs docs/make.jl
+```
+
+If your change touches workflow files, verify the target branch names and trigger conditions at the same time.
+
 ## Working on a new issue
 
 We try to keep a linear history in this repo, so it is important to keep your branches up-to-date.
 
-1. Fetch from the remote and fast-forward your local main
+1. Fetch from the remote and fast-forward your local `master-dev`
 
    ```bash
    git fetch upstream
-   git switch main
-   git merge --ff-only upstream/main
+   git switch master-dev
+   git merge --ff-only upstream/master-dev
    ```
 
-2. Branch from `main` to address the issue (see below for naming)
+2. Branch from `master-dev` to address the issue (see below for naming)
 
    ```bash
    git switch -c 42-add-answer-universe
@@ -92,7 +119,7 @@ We try to keep a linear history in this repo, so it is important to keep your br
    git push -u origin 42-add-answer-universe
    ```
 
-4. Create a pull request to merge your remote branch into the org main.
+4. Create a pull request targeting `master-dev`.
 
 ### Branch naming
 
@@ -115,11 +142,11 @@ We try to keep a linear history in this repo, so it is important to keep your br
 
 - Make sure the tests pass.
 - Make sure the pre-commit tests pass.
-- Fetch any `main` updates from upstream and rebase your branch, if necessary:
+- Fetch any `master-dev` updates from upstream and rebase your branch, if necessary:
 
   ```bash
   git fetch upstream
-  git rebase upstream/main BRANCH_NAME
+   git rebase upstream/master-dev BRANCH_NAME
   ```
 
 - Then you can open a pull request and work with the reviewer to address any issues.
@@ -139,25 +166,14 @@ Here is how you do it:
 
 ## Making a new release
 
-To create a new release, you can follow these simple steps:
+The release workflow should be updated together with the planned branch transition.
+Until then, treat these steps as a checklist to adapt rather than a locked process:
 
 - Create a branch `release-x.y.z`
 - Update `version` in `Project.toml`
-- Update the `CHANGELOG.md`:
-  - Rename the section "Unreleased" to "[x.y.z] - yyyy-mm-dd" (i.e., version under brackets, dash, and date in ISO format)
-  - Add a new section on top of it named "Unreleased"
-  - Add a new link in the bottom for version "x.y.z"
-  - Change the "[unreleased]" link to use the latest version - end of line, `vx.y.z ... HEAD`.
-- Create a commit "Release vx.y.z", push, create a PR, wait for it to pass, merge the PR.
-- Go back to main screen and click on the latest commit (link: <https://github.com/SW/HOPE.jl/commit/main>)
-- At the bottom, write `@JuliaRegistrator register`
+- Update release notes or changelog material if you are maintaining one for the release.
+- Create a release PR against the active primary branch.
+- Verify test, lint, and docs workflows on that PR.
+- Merge only after the release branch strategy, docs deployment branch, and badges all agree.
 
-After that, you only need to wait and verify:
-
-- Wait for the bot to comment (should take < 1m) with a link to a RP to the registry
-- Follow the link and wait for a comment on the auto-merge
-- The comment should said all is well and auto-merge should occur shortly
-- After the merge happens, TagBot will trigger and create a new GitHub tag. Check on <https://github.com/SW/HOPE.jl/releases>
-- After the release is create, a "docs" GitHub action will start for the tag.
-- After it passes, a deploy action will run.
-- After that runs, the [stable docs](https://SW.github.io/HOPE.jl/stable) should be updated. Check them and look for the version number.
+When the `master-dev` promotion is executed, update this page, the workflow branch filters, `docs/make.jl`, and the README badges in the same pull request.

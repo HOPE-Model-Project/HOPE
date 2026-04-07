@@ -1,7 +1,7 @@
 # HOPE - Holistic Optimization Program for Electricity 
 
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://hope-model-project.github.io/HOPE/dev/)
-[![Build Status](https://github.com/swang22/HOPE/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/swang22/HOPE/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Build Status](https://github.com/swang22/HOPE/actions/workflows/Test.yml/badge.svg?branch=master-dev)](https://github.com/swang22/HOPE/actions/workflows/Test.yml?query=branch%3Amaster-dev)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 
@@ -133,6 +133,8 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
 
 For a brief guide to how the newer `master-dev` branch differs from the older `master` branch, see [VERSION_DIFFERENCES.md](VERSION_DIFFERENCES.md).
+
+Current active development is tracked on `master-dev`. The legacy `master` branch is being retained during the transition and is planned to be archived later as `master-v1`.
 
 # Research & Publication
 

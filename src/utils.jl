@@ -111,25 +111,25 @@ end
 """
     get_case_paths(case_name::String)
 
-Get the case directory and input directory paths for a given case.
+Get the case directory and default `output/` directory paths for a given case.
 """
 function get_case_paths(case_name::String)
     project_root = get_project_root()
     case_dir = joinpath(project_root, "ModelCases", case_name)
-    input_dir = joinpath(case_dir, "Output")
-    return case_dir, input_dir
+    output_dir = joinpath(case_dir, "output")
+    return case_dir, output_dir
 end
 
 """
     get_paths(case_name::String = "MD_clean_case0RPS")
 
-Get input and output paths for a given case.
+Get the default `output/` directory path and case directory path for a given case.
 """
 function get_paths(case_name::String = "MD_clean_case0RPS")
     project_root = get_project_root()
-    input_dir = joinpath(project_root, "ModelCases", case_name, "Output")
-    outpath = joinpath(project_root, "ModelCases", case_name)
-    return input_dir, outpath
+    output_dir = joinpath(project_root, "ModelCases", case_name, "output")
+    case_dir = joinpath(project_root, "ModelCases", case_name)
+    return output_dir, case_dir
 end
 
 """

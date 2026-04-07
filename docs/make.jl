@@ -47,6 +47,13 @@ pages = OrderedDict(
     ],
     "Postprocessing" => [
         "EREC" => "EREC.md",
+    ],
+    "Reference" => [
+        "API Reference" => "95-reference.md",
+    ],
+    "Project" => [
+        "Contributing" => "90-contributing.md",
+        "Developer Guide" => "91-developer.md",
     ]
 )  
 
@@ -59,7 +66,7 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="github.com/swang22/HOPE.git",
-        edit_link="master",
+        edit_link="master-dev",
         assets = ["assets/favicon.ico", "assets/hope-docs-brand.css"]
     ),
     pages=[p for p in pages]
@@ -69,5 +76,5 @@ normalize_ascii_page_titles(joinpath(@__DIR__, "build"))
 
 deploydocs(;
     repo="github.com/swang22/HOPE.git",
-    devbranch="master",
+    devbranch="master-dev",
 )

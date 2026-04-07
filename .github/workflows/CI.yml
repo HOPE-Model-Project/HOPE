@@ -5,6 +5,8 @@ on:
       - master
     tags: ['*']
   pull_request:
+    branches:
+      - master
   workflow_dispatch:
 concurrency:
   # Skip intermediate builds: always.
