@@ -7,13 +7,12 @@ If you want to make contributions to this package that involves code, then this 
 
 ## Current branch plan
 
-This repository is currently in a transition period:
+The repository branch transition is complete:
 
-1. `master-dev` is the active development branch.
-2. `master` is the legacy v1 branch.
-3. The planned end state is to promote the current `master-dev` line to become the primary branch, while the old `master` line is renamed to `master-v1`.
+1. `main` is the active development branch. All contributions go here.
+2. The legacy `master` (pre-v2, Maryland-focused) is archived as a separate repository: [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
 
-Until that branch transition is complete, contributors should branch from and open pull requests into `master-dev`.
+Contributors should branch from and open pull requests into `main`.
 
 ## First time clone
 
@@ -36,10 +35,10 @@ If this is the first time you work with this repository, the safest setup is:
    git fetch upstream
    ```
 
-5. Create your working branch from `upstream/master-dev`:
+5. Create your working branch from `upstream/main`:
 
    ```bash
-   git switch -c my-change upstream/master-dev
+   git switch -c my-change upstream/main
    ```
 
 ## Linting and formatting
@@ -99,15 +98,15 @@ If your change touches workflow files, verify the target branch names and trigge
 
 We try to keep a linear history in this repo, so it is important to keep your branches up-to-date.
 
-1. Fetch from the remote and fast-forward your local `master-dev`
+1. Fetch from the remote and fast-forward your local `main`
 
    ```bash
    git fetch upstream
-   git switch master-dev
-   git merge --ff-only upstream/master-dev
+   git switch main
+   git merge --ff-only upstream/main
    ```
 
-2. Branch from `master-dev` to address the issue (see below for naming)
+2. Branch from `main` to address the issue (see below for naming)
 
    ```bash
    git switch -c 42-add-answer-universe
@@ -119,7 +118,7 @@ We try to keep a linear history in this repo, so it is important to keep your br
    git push -u origin 42-add-answer-universe
    ```
 
-4. Create a pull request targeting `master-dev`.
+4. Create a pull request targeting `main`.
 
 ### Branch naming
 
@@ -142,11 +141,11 @@ We try to keep a linear history in this repo, so it is important to keep your br
 
 - Make sure the tests pass.
 - Make sure the pre-commit tests pass.
-- Fetch any `master-dev` updates from upstream and rebase your branch, if necessary:
+- Fetch any `main` updates from upstream and rebase your branch, if necessary:
 
   ```bash
   git fetch upstream
-   git rebase upstream/master-dev BRANCH_NAME
+  git rebase upstream/main BRANCH_NAME
   ```
 
 - Then you can open a pull request and work with the reviewer to address any issues.
@@ -166,14 +165,9 @@ Here is how you do it:
 
 ## Making a new release
 
-The release workflow should be updated together with the planned branch transition.
-Until then, treat these steps as a checklist to adapt rather than a locked process:
-
-- Create a branch `release-x.y.z`
+- Create a branch `release-x.y.z` from `main`
 - Update `version` in `Project.toml`
 - Update release notes or changelog material if you are maintaining one for the release.
-- Create a release PR against the active primary branch.
+- Create a release PR targeting `main`.
 - Verify test, lint, and docs workflows on that PR.
 - Merge only after the release branch strategy, docs deployment branch, and badges all agree.
-
-When the `master-dev` promotion is executed, update this page, the workflow branch filters, `docs/make.jl`, and the README badges in the same pull request.

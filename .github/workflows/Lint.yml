@@ -3,11 +3,11 @@ name: Lint
 on:
   push:
     branches:
-      - master-dev
+      - main
     tags: ["*"]
   pull_request:
     branches:
-      - master-dev
+      - main
 
 concurrency:
   # Skip intermediate builds: always.
