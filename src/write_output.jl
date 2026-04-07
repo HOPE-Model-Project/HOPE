@@ -69,7 +69,7 @@ function write_rep_day_audit_outputs(
         RepresentativePeriod = rep_ids,
         WeightDays = [Float64(N[t]) for t in rep_ids],
     )
-    CSV.write(joinpath(outpath, "representative_period_weights.csv"), weights_df, writeheader=true)
+    CSV.write(joinpath(outpath, "representative_period_weights.csv"), weights_df, header=true)
 
     if external_rep_day == 1
         metadata_df = DataFrame(
@@ -77,7 +77,7 @@ function write_rep_day_audit_outputs(
             WeightDays = [Float64(N[t]) for t in rep_ids],
             Method = fill("external_input", length(rep_ids)),
         )
-        CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, writeheader=true)
+        CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, header=true)
         summary_df = DataFrame(
             Metric = ["NumRepresentativePeriods", "TotalWeightDays", "AverageWeightDays"],
             Value = Float64[
@@ -86,9 +86,9 @@ function write_rep_day_audit_outputs(
                 isempty(rep_ids) ? 0.0 : sum(Float64(N[t]) for t in rep_ids) / length(rep_ids),
             ],
         )
-        CSV.write(joinpath(outpath, "representative_period_weight_summary.csv"), summary_df, writeheader=true)
+        CSV.write(joinpath(outpath, "representative_period_weight_summary.csv"), summary_df, header=true)
         if rep_weight_df !== nothing
-            CSV.write(joinpath(outpath, "representative_period_weights_input.csv"), copy(rep_weight_df), writeheader=true)
+            CSV.write(joinpath(outpath, "representative_period_weights_input.csv"), copy(rep_weight_df), header=true)
         end
         return
     end
@@ -96,26 +96,26 @@ function write_rep_day_audit_outputs(
     rep_period_data === nothing && return
 
     metadata_df = sort(copy(rep_period_data["metadata"]), :RepresentativePeriod)
-    CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, writeheader=true)
+    CSV.write(joinpath(outpath, "representative_period_metadata.csv"), metadata_df, header=true)
 
     if haskey(rep_period_data, "day_assignments")
         assignments_df = sort(copy(rep_period_data["day_assignments"]), [:DayOfYear, :RepresentativePeriod])
-        CSV.write(joinpath(outpath, "representative_period_assignments.csv"), assignments_df, writeheader=true)
+        CSV.write(joinpath(outpath, "representative_period_assignments.csv"), assignments_df, header=true)
 
         original_days_df = combine(groupby(assignments_df, :TimePeriod), nrow => :OriginalDays)
         represented_days_df = combine(groupby(metadata_df, :TimePeriod), :WeightDays => sum => :RepresentativeWeightDays, nrow => :NumRepresentativePeriods)
         weight_check_df = leftjoin(original_days_df, represented_days_df, on=:TimePeriod)
         weight_check_df[!, :WeightDifferenceDays] = Float64.(weight_check_df[!, :RepresentativeWeightDays] .- weight_check_df[!, :OriginalDays])
-        CSV.write(joinpath(outpath, "representative_period_weight_check.csv"), sort(weight_check_df, :TimePeriod), writeheader=true)
+        CSV.write(joinpath(outpath, "representative_period_weight_check.csv"), sort(weight_check_df, :TimePeriod), header=true)
     end
 
     storage_linkage = get(rep_period_data, "storage_linkage", nothing)
     if storage_linkage !== nothing
         if haskey(storage_linkage, "transition_table")
-            CSV.write(joinpath(outpath, "representative_period_transition_weights.csv"), copy(storage_linkage["transition_table"]), writeheader=true)
+            CSV.write(joinpath(outpath, "representative_period_transition_weights.csv"), copy(storage_linkage["transition_table"]), header=true)
         end
         if haskey(storage_linkage, "run_stats")
-            CSV.write(joinpath(outpath, "representative_period_run_stats.csv"), copy(storage_linkage["run_stats"]), writeheader=true)
+            CSV.write(joinpath(outpath, "representative_period_run_stats.csv"), copy(storage_linkage["run_stats"]), header=true)
         end
     end
 end
@@ -131,15 +131,15 @@ function write_resource_aggregation_audit_outputs(
     audit === nothing && return
 
     if haskey(audit, "mapping")
-        CSV.write(joinpath(outpath, "resource_aggregation_mapping.csv"), copy(audit["mapping"]), writeheader=true)
+        CSV.write(joinpath(outpath, "resource_aggregation_mapping.csv"), copy(audit["mapping"]), header=true)
     end
     if haskey(audit, "summary")
-        CSV.write(joinpath(outpath, "resource_aggregation_summary.csv"), copy(audit["summary"]), writeheader=true)
+        CSV.write(joinpath(outpath, "resource_aggregation_summary.csv"), copy(audit["summary"]), header=true)
     end
     if haskey(audit, "af_summary")
         af_summary = copy(audit["af_summary"])
         if nrow(af_summary) > 0
-            CSV.write(joinpath(outpath, "resource_aggregation_af_summary.csv"), af_summary, writeheader=true)
+            CSV.write(joinpath(outpath, "resource_aggregation_af_summary.csv"), af_summary, header=true)
         end
     end
 end
@@ -544,7 +544,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_t_h_df = DataFrame(power_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_gen_df = hcat(P_gen_df, power_t_h_df )
         
-        CSV.write(joinpath(outpath, "power.csv"), P_gen_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power.csv"), P_gen_df, header=true)
         
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
@@ -562,7 +562,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dual_t_h = transpose(hcat(dual_t_h...))
             dual_t_h_df = DataFrame(dual_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
             P_price_df = hcat(P_price_df,dual_t_h_df)
-            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
         end
         
         ##Renewable curtailments
@@ -589,7 +589,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_ls_t_h_df = DataFrame(power_ls_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_ls_df = hcat(P_ls_df, power_ls_t_h_df)
 
-        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, header=true)
         
         ##Renewable curtailments
         G_vre_exist_rps = intersect(intersect(G_exist, union(G_PV, G_W)), G_RPS)
@@ -622,7 +622,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         end
         #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_ct_df = hcat(P_ct_df, power_h_df )
-        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , writeheader=true)
+        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , header=true)
         
         #Capacity OutputDF
         C_gen_df = DataFrame(
@@ -652,7 +652,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(C_gen_df, :Capacity_RET => Symbol("Capacity_RET (MW)"))
         rename!(C_gen_df, :Capacity => Symbol("Capacity_FIN (MW)"))
 
-        CSV.write(joinpath(outpath, "capacity.csv"), C_gen_df, writeheader=true)
+        CSV.write(joinpath(outpath, "capacity.csv"), C_gen_df, header=true)
         ##Transmission line-----------------------------------------------------------------------------------------------------------
         C_line_df = DataFrame(
             From_zone = String[to_string_output(v) for v in Linedata_candidate[:,"From_zone"]],
@@ -664,7 +664,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         C_line_df[!,:New_Build] .=0
         C_line_df[New_built_line_idx,:New_Build] .=1
         rename!(C_line_df, :Capacity => Symbol("Capacity (MW)"))
-        CSV.write(joinpath(outpath, "line.csv"), C_line_df, writeheader=true)
+        CSV.write(joinpath(outpath, "line.csv"), C_line_df, header=true)
         
         #Power flow OutputDF
         P_flow_df = DataFrame(
@@ -685,7 +685,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         flow_t_h = hcat([Array(flow[:,h]) for t in T for h in H_t[t]]...)
         flow_t_h_df = DataFrame(flow_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_flow_df = hcat(P_flow_df, flow_t_h_df )
-        CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, header=true)
         
 
         ##Storage---------------------------------------------------------------------------------------------------------------------
@@ -709,7 +709,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_c_t_h_df = DataFrame(power_c_t_h, [Symbol("c_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_c_df = hcat(P_es_c_df, power_c_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, header=true)
         #dc
         P_es_dc_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
@@ -730,7 +730,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_dc_t_h_df = DataFrame(power_dc_t_h, [Symbol("dc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_dc_df = hcat(P_es_dc_df,  power_dc_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, header=true)
         #soc
         P_es_soc_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"]),
@@ -749,7 +749,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"t$t"*"h$h") for t in T for h in H_t[t]])
 
         P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, header=true)
         #Storage Capacity OutputDF
         C_es_df = DataFrame(
             Technology = String[to_string_output(v) for v in vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"])],
@@ -764,7 +764,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(C_es_df, :Capacity => Symbol("Capacity (MW)"))
         rename!(C_es_df, :EnergyCapacity => Symbol("EnergyCapacity (MWh)"))
         
-        CSV.write(joinpath(outpath, "es_capacity.csv"), C_es_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_capacity.csv"), C_es_df, header=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
         if flexible_demand == 1
             # Backlog load-shifting DR outputs
@@ -783,7 +783,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dr_net_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> power_pb[r,h] - power_df[r,h]) for r in R]
             dr_net_t_h = hcat([Array(power_pb[:,h] .- power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_net_df = hcat(dr_net_df, DataFrame(dr_net_t_h, dr_cols))
-            CSV.write(joinpath(outpath, "dr_power.csv"), dr_net_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_power.csv"), dr_net_df, header=true)
 
             dr_pb_df = DataFrame(
                 Resource = vcat(R),
@@ -794,7 +794,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dr_pb_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dr_PB][r,h])) for r in R]
             dr_pb_t_h = hcat([Array(power_pb[:,h]) for t in T for h in H_t[t]]...)
             dr_pb_df = hcat(dr_pb_df, DataFrame(dr_pb_t_h, dr_cols))
-            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_pb_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_pb_df, header=true)
 
             dr_df_df = DataFrame(
                 Resource = vcat(R),
@@ -805,7 +805,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dr_df_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dr_DF][r,h])) for r in R]
             dr_df_t_h = hcat([Array(power_df[:,h]) for t in T for h in H_t[t]]...)
             dr_df_df = hcat(dr_df_df, DataFrame(dr_df_t_h, dr_cols))
-            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_df_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_df_df, header=true)
 
             dr_backlog_df = DataFrame(
                 Resource = vcat(R),
@@ -816,7 +816,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dr_backlog_df.DRAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:b_DR][r,h])) for r in R]
             dr_backlog_t_h = hcat([Array(power_backlog[:,h]) for t in T for h in H_t[t]]...)
             dr_backlog_df = hcat(dr_backlog_df, DataFrame(dr_backlog_t_h, dr_cols))
-            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, header=true)
         end
         ##System Cost-----------------------------------------------------------------------------------------------------------
         Cost_df = DataFrame(
@@ -849,7 +849,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(Cost_df, :Opr_cost => Symbol("Opr_cost (\$)"))
         rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
         rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
-        CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
+        CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, header=true)
         Results_dict = Dict(
             "power" => P_gen_df,
             "power_loadshedding" => P_ls_df,
@@ -1005,7 +1005,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_ls_h_df = DataFrame(power_ls_h, [Symbol("h$h") for h in H])
         P_ls_df = hcat(P_ls_df, power_ls_h_df)
 
-        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, header=true)
 
         P_ni_df = DataFrame()
         P_ni_nodal_df = DataFrame()
@@ -1021,7 +1021,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 AnnSum = [sum(node_ni_h[n, :]) for n in N]
             )
             P_ni_nodal_df = hcat(P_ni_nodal_df, DataFrame(node_ni_h, [Symbol("h$h") for h in H]))
-            CSV.write(joinpath(outpath, "power_ni_nodal.csv"), P_ni_nodal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_ni_nodal.csv"), P_ni_nodal_df, header=true)
 
             zone_ni_h = [sum(node_ni_h[n, h_idx] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h_idx in 1:length(H)]
             P_ni_df = DataFrame(
@@ -1029,7 +1029,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 AnnSum = [sum(zone_ni_h[i, :]) for i in I]
             )
             P_ni_df = hcat(P_ni_df, DataFrame(zone_ni_h, [Symbol("h$h") for h in H]))
-            CSV.write(joinpath(outpath, "power_ni_zonal.csv"), P_ni_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_ni_zonal.csv"), P_ni_df, header=true)
 
             if haskey(model, :NodeNITarget) && haskey(model, :node_ni_dev_pos) && haskey(model, :node_ni_dev_neg)
                 node_ni_target_values = value.(model[:NodeNITarget])
@@ -1046,7 +1046,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                     AbsDevAnnSum = [sum(node_ni_abs_dev_h[n, :]) for n in N]
                 )
                 P_ni_dev_nodal_df = hcat(P_ni_dev_nodal_df, DataFrame(node_ni_abs_dev_h, [Symbol("h$h") for h in H]))
-                CSV.write(joinpath(outpath, "power_ni_deviation_nodal.csv"), P_ni_dev_nodal_df, writeheader=true)
+                CSV.write(joinpath(outpath, "power_ni_deviation_nodal.csv"), P_ni_dev_nodal_df, header=true)
             end
         end
 
@@ -1069,7 +1069,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         end
         #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_ct_df = hcat(P_ct_df, power_h_df )
-        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , writeheader=true)
+        CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , header=true)
         
         #Power OutputDF
         if network_model in [2, 3] && nodal_output_map !== nothing
@@ -1106,7 +1106,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_gen_df = hcat(P_gen_df, power_h_df)
         
-        CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, header=true)
 
         #Emissions output (supports policy and post-processing checks)
         EF = [Gendata[:, "EF"];]
@@ -1115,12 +1115,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             State = Zonedata[:, "State"],
             Emissions_ton = [sum(EF[g] * sum(power[g,h] for h in H; init=0) for g in G_i[i]; init=0) for i in I]
         )
-        CSV.write(joinpath(outpath, "emissions_zone.csv"), E_zone_df, writeheader=true)
+        CSV.write(joinpath(outpath, "emissions_zone.csv"), E_zone_df, header=true)
         E_state_df = DataFrame(
             State = W,
             Emissions_ton = [sum(E_zone_df[i, :Emissions_ton] for i in I_w[w]; init=0) for w in W]
         )
-        CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, writeheader=true)
+        CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header=true)
         
         ##Power price
         # Obtain hourly power price from the active power-balance equation
@@ -1146,7 +1146,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             price_zone_matrix = [marginal_load_price_from_dual(model[:PB_con][i,h], :balance_rhs_load) for i in I, h in H]
             dual_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
             P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), dual_h_df)
-            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
             ref_zone_raw = get(config_set, "reference_bus", 1)
             ref_zone_idx = resolve_reference_index(ref_zone_raw, length(I), Dict(Idx_zone_dict[i] => i for i in I), "zone")
             decomp_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
@@ -1156,7 +1156,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 push!(decomp_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, lmp - energy, 0.0))
             end
             P_price_decomp_zonal_df = decomp_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, header=true)
         elseif network_model == 2 && haskey(model, :PBNode_con) && nodal_output_map !== nothing
             N = [n for n in 1:length(nodal_output_map.bus_labels)]
             price_node_matrix = [marginal_load_price_from_dual(model[:PBNode_con][n,h], :balance_rhs_load) for n in N, h in H]
@@ -1167,12 +1167,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N]
             )
             P_price_nodal_df = hcat(P_price_nodal_df, nodal_h_df)
-            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, header=true)
             price_zone_matrix = [sum(nodal_output_map.bus_weight[n] * price_node_matrix[n,h] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h in H]
             zonal_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
             P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), zonal_h_df)
-            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
-            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
+            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, header=true)
             ref_bus_raw = get(config_set, "reference_bus", 1)
             ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
             nodal_congestion_matrix = nothing
@@ -1207,7 +1207,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 push!(decomp_rows, (nodal_output_map.bus_labels[n], string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]]), string(Zonedata[nodal_output_map.bus_zone_of_n[n], "State"]), Int(h), lmp, energy, congestion, loss))
             end
             P_price_decomp_nodal_df = decomp_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, header=true)
             decomp_zone_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
             for i in I, (h_idx, h) in enumerate(H)
                 lmp = price_zone_matrix[i,h_idx]
@@ -1227,7 +1227,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 push!(decomp_zone_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, congestion, loss))
             end
             P_price_decomp_zonal_df = decomp_zone_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, header=true)
         elseif network_model == 3 && haskey(model, :PTDFInjDef_con) && nodal_output_map !== nothing
             N = [n for n in 1:length(nodal_output_map.bus_labels)]
             price_node_matrix = [marginal_load_price_from_dual(model[:PTDFInjDef_con][n,h], :ptdf_injection_definition) for n in N, h in H]
@@ -1238,12 +1238,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 State = [Zonedata[nodal_output_map.bus_zone_of_n[n], "State"] for n in N]
             )
             P_price_nodal_df = hcat(P_price_nodal_df, nodal_h_df)
-            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_nodal.csv"), P_price_nodal_df, header=true)
             price_zone_matrix = [sum(nodal_output_map.bus_weight[n] * price_node_matrix[n,h] for n in nodal_output_map.N_i[i]; init=0.0) for i in I, h in H]
             zonal_h_df = DataFrame(price_zone_matrix, [Symbol("h$h") for h in H])
             P_price_df = hcat(DataFrame(Zone = Zonedata[:, "Zone_id"]), zonal_h_df)
-            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
-            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
+            CSV.write(joinpath(outpath, "power_price_zonal.csv"), P_price_df, header=true)
             ref_bus_raw = get(config_set, "reference_bus", 1)
             ref_bus_idx = resolve_reference_index(ref_bus_raw, length(N), nodal_output_map.bus_idx_dict, "bus")
             nodal_congestion_matrix = nothing
@@ -1278,7 +1278,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 push!(decomp_rows, (nodal_output_map.bus_labels[n], string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n]]), string(Zonedata[nodal_output_map.bus_zone_of_n[n], "State"]), Int(h), lmp, energy, congestion, loss))
             end
             P_price_decomp_nodal_df = decomp_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_nodal.csv"), P_price_decomp_nodal_df, header=true)
             decomp_zone_rows = DataFrame(Zone=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
             for i in I, (h_idx, h) in enumerate(H)
                 lmp = price_zone_matrix[i,h_idx]
@@ -1298,17 +1298,17 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 push!(decomp_zone_rows, (string(Idx_zone_dict[i]), Int(h), lmp, energy, congestion, loss))
             end
             P_price_decomp_zonal_df = decomp_zone_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, header=true)
         elseif network_model == 0 && haskey(model, :SystemPB_con)
             sys_price = reshape([marginal_load_price_from_dual(model[:SystemPB_con][h], :balance_rhs_load) for h in H], 1, length(H))
             P_price_df = hcat(DataFrame(Region = ["System"]), DataFrame(sys_price, [Symbol("h$h") for h in H]))
-            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
             decomp_rows = DataFrame(Region=String[], Hour=Int[], LMP=Float64[], Energy=Float64[], Congestion=Float64[], Loss=Float64[])
             for (h_idx, h) in enumerate(H)
                 push!(decomp_rows, ("System", Int(h), sys_price[1,h_idx], sys_price[1,h_idx], 0.0, 0.0))
             end
             P_price_decomp_zonal_df = decomp_rows
-            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, writeheader=true)
+            CSV.write(joinpath(outpath, "power_price_decomposition_zonal.csv"), P_price_decomp_zonal_df, header=true)
         else
             println("No compatible power-balance duals found for configured network_model=$network_model; skipping power price output.")
         end
@@ -1342,7 +1342,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         flow_t_h = hcat([Array(flow[:,h]) for h in H]...)
         flow_t_h_df = DataFrame(flow_t_h, [Symbol("h$h") for h in H])
         P_flow_df = hcat(P_flow_df, flow_t_h_df )
-        CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, writeheader=true)
+        CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, header=true)
 
         hourly_line_loss = zeros(Float64, Num_Eline, length(H))
         if haskey(model, :LineLoss)
@@ -1362,13 +1362,13 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         end
         line_loss_h_df = DataFrame(hourly_line_loss, [Symbol("h$h") for h in H])
         line_loss_df = hcat(line_loss_df, line_loss_h_df)
-        CSV.write(joinpath(outpath, "line_loss.csv"), line_loss_df, writeheader=true)
+        CSV.write(joinpath(outpath, "line_loss.csv"), line_loss_df, header=true)
 
         system_transmission_loss_df = DataFrame(
             Hour = Int.(collect(H)),
             TransmissionLoss_MW = [sum(hourly_line_loss[:, h_idx]) for h_idx in 1:length(H)]
         )
-        CSV.write(joinpath(outpath, "transmission_loss_hourly.csv"), system_transmission_loss_df, writeheader=true)
+        CSV.write(joinpath(outpath, "transmission_loss_hourly.csv"), system_transmission_loss_df, header=true)
         
         #Congestion rent output (line-by-line)
         hourly_rent = nothing
@@ -1415,7 +1415,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         else
             line_rent_df.AnnCongestionRent .= 0.0
         end
-        CSV.write(joinpath(outpath, "line_congestion_rent.csv"), line_rent_df, writeheader=true)
+        CSV.write(joinpath(outpath, "line_congestion_rent.csv"), line_rent_df, header=true)
         line_shadow_df = DataFrame()
         if shadow_h !== nothing
             line_shadow_df = DataFrame(
@@ -1431,7 +1431,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             end
             line_shadow_h_df = DataFrame(shadow_h, [Symbol("h$h") for h in H])
             line_shadow_df = hcat(line_shadow_df, line_shadow_h_df)
-            CSV.write(joinpath(outpath, "line_shadow_price.csv"), line_shadow_df, writeheader=true)
+            CSV.write(joinpath(outpath, "line_shadow_price.csv"), line_shadow_df, header=true)
         end
         
         ##Storage---------------------------------------------------------------------------------------------------------------------
@@ -1461,7 +1461,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_soc_h_df = DataFrame(power_soc_h, [Symbol("soc_"*"h$h") for h in H])
 
         P_es_df = hcat(P_es_df, power_c_h_df, power_dc_h_df, power_soc_h_df)
-        CSV.write(joinpath(outpath, "es_power_hourly.csv"), P_es_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_hourly.csv"), P_es_df, header=true)
         =#
         #c
         P_es_c_df = DataFrame(
@@ -1479,7 +1479,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_c_t_h_df = DataFrame(power_c_t_h, [Symbol("c_"*"h$h") for h in H])
 
         P_es_c_df = hcat(P_es_c_df, power_c_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_charge.csv"), P_es_c_df, header=true)
         #dc
         P_es_dc_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"]),
@@ -1496,7 +1496,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_dc_t_h_df = DataFrame(power_dc_t_h, [Symbol("dc_"*"h$h") for h in H])
 
         P_es_dc_df = hcat(P_es_dc_df,  power_dc_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_discharge.csv"), P_es_dc_df, header=true)
         #soc
         P_es_soc_df = DataFrame(
             Technology = vcat(Storagedata[:,"Type"]),
@@ -1511,7 +1511,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_soc_t_h_df = DataFrame(power_soc_t_h, [Symbol("soc_"*"h$h") for h in H])
 
         P_es_soc_df = hcat(P_es_soc_df, power_soc_t_h_df)
-        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, writeheader=true)
+        CSV.write(joinpath(outpath, "es_power_soc.csv"), P_es_soc_df, header=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
         if flexible_demand == 1
             # Net DR shift (payback minus deferred)
@@ -1532,7 +1532,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
             dr_df = hcat(dr_df, power_dr_t_h_df)
 
-            CSV.write(joinpath(outpath, "dr_power.csv"), dr_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_power.csv"), dr_df, header=true)
             
             # DR payback
             dr_up_df = DataFrame(
@@ -1551,9 +1551,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
             dr_up_df = hcat(dr_up_df, power_dr_up_t_h_df)
 
-            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_up_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_up_df, header=true)
             # Backward-compatible alias
-            CSV.write(joinpath(outpath, "dr_up_power.csv"), dr_up_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_up_power.csv"), dr_up_df, header=true)
         
             # DR deferred
             dr_dn_df = DataFrame(
@@ -1572,9 +1572,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
             dr_dn_df = hcat(dr_dn_df, power_dr_dn_t_h_df)
 
-            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_dn_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_df_power.csv"), dr_dn_df, header=true)
             # Backward-compatible alias
-            CSV.write(joinpath(outpath, "dr_dn_power.csv"), dr_dn_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_dn_power.csv"), dr_dn_df, header=true)
 
             # DR backlog
             dr_backlog_df = DataFrame(
@@ -1588,7 +1588,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             power_dr_backlog_t_h = hcat([Array(power_dr_backlog[:,h]) for h in H]...)
             power_dr_backlog_t_h_df = DataFrame(power_dr_backlog_t_h, [Symbol("dr_"*"h$h") for h in H])
             dr_backlog_df = hcat(dr_backlog_df, power_dr_backlog_t_h_df)
-            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, writeheader=true)
+            CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, header=true)
         
         end
         ##System Cost-----------------------------------------------------------------------------------------------------------
@@ -1615,7 +1615,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         rename!(Cost_df, :Opr_cost => Symbol("Opr_cost (\$)"))
         rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
         rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
-        CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, writeheader=true)
+        CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, header=true)
 
         if summary_table == 1
             mkpath(summary_outpath)
@@ -1673,7 +1673,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 end
             end
             if nrow(Summary_Price_Hourly_df) > 0
-                CSV.write(joinpath(summary_outpath, "Summary_Price_Hourly.csv"), Summary_Price_Hourly_df, writeheader=true)
+                CSV.write(joinpath(summary_outpath, "Summary_Price_Hourly.csv"), Summary_Price_Hourly_df, header=true)
             end
 
             ## Summary_Congestion_Line_Hourly --------------------------------------------------
@@ -1726,7 +1726,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                     ))
                 end
             end
-            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Hourly.csv"), Summary_Congestion_Line_Hourly_df, writeheader=true)
+            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Hourly.csv"), Summary_Congestion_Line_Hourly_df, header=true)
 
             ## Summary_Congestion_Line_Annual --------------------------------------------------
             for l in L
@@ -1766,7 +1766,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                     Float64(p95_loading)
                 ))
             end
-            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Annual.csv"), Summary_Congestion_Line_Annual_df, writeheader=true)
+            CSV.write(joinpath(summary_outpath, "Summary_Congestion_Line_Annual.csv"), Summary_Congestion_Line_Annual_df, header=true)
 
             ## Summary_System_Hourly -----------------------------------------------------------
             zone_load = zeros(Float64, Num_zone, length(H))
@@ -1834,7 +1834,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                     Float64(emissions_hour[h_idx])
                 ))
             end
-            CSV.write(joinpath(summary_outpath, "Summary_System_Hourly.csv"), Summary_System_Hourly_df, writeheader=true)
+            CSV.write(joinpath(summary_outpath, "Summary_System_Hourly.csv"), Summary_System_Hourly_df, header=true)
 
             ## Summary_Congestion_Driver_Node_Hourly (nodal only) ------------------------------
             if network_model in [2, 3]
@@ -1915,7 +1915,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
                 else
                     println("Skip Summary_Congestion_Driver_Node_Hourly: missing nodal mapping, line endpoint columns, or shadow prices.")
                 end
-                CSV.write(joinpath(summary_outpath, "Summary_Congestion_Driver_Node_Hourly.csv"), Summary_Congestion_Driver_Node_Hourly_df, writeheader=true)
+                CSV.write(joinpath(summary_outpath, "Summary_Congestion_Driver_Node_Hourly.csv"), Summary_Congestion_Driver_Node_Hourly_df, header=true)
             end
         end
 

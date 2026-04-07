@@ -16,6 +16,6 @@ Clone or download the **HOPE** repository to your local directory - click the gr
 The open-source solver packages (e.g., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) will be automatically installed in step 2. While the commercial solver packages (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) should be installed by users (if needed) by following their instructions. 
 
 ```julia-repl
-pkg> add https://github.com/swang22/HOPE.jl
+pkg> add https://github.com/HOPE-Model-Project/HOPE
 ```
 

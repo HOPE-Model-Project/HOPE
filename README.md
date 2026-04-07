@@ -1,7 +1,7 @@
 # HOPE - Holistic Optimization Program for Electricity 
 
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://hope-model-project.github.io/HOPE/dev/)
-[![Build Status](https://github.com/swang22/HOPE/actions/workflows/Test.yml/badge.svg?branch=master-dev)](https://github.com/swang22/HOPE/actions/workflows/Test.yml?query=branch%3Amaster-dev)
+[![Build Status](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml/badge.svg?branch=master-dev)](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml?query=branch%3Amaster-dev)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 
@@ -63,7 +63,7 @@ In Julia, you can use `pwd()` to check if your current working directory is your
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/a35268e3-b6ca-4d43-ad62-e5d0a67b0e8b)
 
-**(3)** Make sure you are in the right working directory. Then, type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Make sure you are in the right working directory. Then, type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
    
@@ -89,7 +89,7 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6c61bed1-bf8e-4186-bea2-22413fd1328e)
 
-**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(@v1.8) pkg>` changing to `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
 
 **(4)** Type `instantiate` in the (HOPE) pkg prompt. ( After the HOPE is successfully installed, you can skip this step)
 
