@@ -22,7 +22,7 @@ catch
 end
 #using CPLEX
 using Cbc
-#using HiGHS
+using HiGHS
 #using SCIP
 using Clp
 using GLPK

@@ -69,13 +69,6 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
     end
 
     if solver == "highs"
-        if !isdefined(@__MODULE__, :HiGHS)
-            try
-                @eval using HiGHS
-            catch e
-                error("solver='highs' requested, but HiGHS.jl is unavailable in this environment. Install/activate HiGHS.jl. Original error: $(e)")
-            end
-        end
         # Optional solver parameters ############################################
         Myfeasib_Tol = 1e-6
             if(haskey(solver_settings, "Feasib_Tol")) Myfeasib_Tol = solver_settings["Feasib_Tol"] end

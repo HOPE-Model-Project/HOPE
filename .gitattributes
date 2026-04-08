@@ -1,0 +1,4 @@
+# Tell GitHub Linguist to ignore non-source directories for language stats
+tools/** linguist-vendored
+docs/build/** linguist-vendored
+docs/src/assets/** linguist-vendored
