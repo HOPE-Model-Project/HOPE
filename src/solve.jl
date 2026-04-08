@@ -37,6 +37,15 @@ function require_feasible_primal_solution(
     return nothing
 end
 
+"""
+    solve_model(config_set::Dict, input_data::Dict, model::Model) -> Dict
+
+Call `optimize!` on `model` and return a results dictionary containing solve timing.
+
+When `write_shadow_prices = 1` is set in `config_set` and the model contains integer
+variables (unit commitment or binary investment decisions), a second LP solve with fixed
+discrete variables is performed to recover dual prices.
+"""
 function solve_model(config_set::Dict, input_data::Dict, model::Model)
     model_mode = config_set["model_mode"]
     ## Start solve timer

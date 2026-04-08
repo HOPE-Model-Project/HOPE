@@ -886,6 +886,24 @@ function prepare_fresh_holistic_case(
     return fresh_case_dir
 end
 
+"""
+    run_hope_holistic_fresh(
+        GTEP_source_case::AbstractString,
+        PCM_source_case::AbstractString;
+        gtep_tag::AbstractString = "gtep_run",
+        pcm_tag::AbstractString  = "pcm_run",
+        debug_stage_file::Union{Nothing,AbstractString} = nothing,
+    ) -> Dict
+
+Clone both source cases to fresh timestamped directories, then run `run_hope_holistic`.
+
+Each cloned directory is named `<source>_<tag>_<timestamp>` and placed next to the source
+case.  Input files are copied; existing `output/` trees are excluded so each run starts
+from a clean state.
+
+Returns the same `Dict` as `run_hope_holistic`, extended with keys
+`"fresh_gtep_case_path"` and `"fresh_pcm_case_path"` pointing to the cloned directories.
+"""
 function run_hope_holistic_fresh(
     GTEP_source_case::AbstractString,
     PCM_source_case::AbstractString;
@@ -909,6 +927,22 @@ function run_hope_holistic_fresh(
     return result
 end
 
+"""
+    run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString) -> Dict
+
+Run the two-stage holistic GTEP→PCM workflow.
+
+1. The GTEP stage solves the expansion planning problem for `GTEP_case`.
+2. New capacity decisions (generators, storage, transmission lines) are injected
+   into the `PCM_case` input data.
+3. The PCM stage solves the production cost problem with the updated fleet.
+
+Both case directories must share a consistent zonal topology; mismatches raise an
+`ArgumentError` before any solve is attempted.
+
+Returns a `Dict` with keys `"gtep_output"` and `"pcm_output"` containing the respective
+result dictionaries.
+"""
 function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
     println("Run Holistic Assessment: 'GTEP-PCM' mode!")
     gtep_path, gtep_config =

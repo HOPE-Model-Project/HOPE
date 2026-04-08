@@ -209,8 +209,8 @@ The benchmark can be rerun from the retained source pair through the library ent
 using HOPE
 
 result = HOPE.run_hope_holistic_fresh(
-	"ModelCases/MD_GTEP_holistic_full8760_case_v20260406g",
-	"ModelCases/MD_PCM_holistic_full8760_case_v20260406g",
+    "ModelCases/MD_GTEP_holistic_full8760_case_v20260406g",
+    "ModelCases/MD_PCM_holistic_full8760_case_v20260406g",
 )
 ```
 

@@ -9,6 +9,22 @@ function gtep_debug_stage_log(config_set::Dict, stage::AbstractString)
     return nothing
 end
 
+"""
+    create_GTEP_model(
+        config_set::Dict,
+        input_data::Dict,
+        OPTIMIZER::MOI.OptimizerWithAttributes,
+    ) -> Model
+
+Build a JuMP model for the Generation and Transmission Expansion Planning (GTEP) problem.
+
+`config_set` is the parsed settings dictionary; `input_data` is the dictionary returned
+by `load_data`; `OPTIMIZER` is the solver handle returned by `initiate_solver`.
+
+The model captures investment decisions for generators, energy storage, and transmission
+lines subject to capacity adequacy, carbon policy, and network constraints.  Returns the
+un-solved `JuMP.Model`.
+"""
 function create_GTEP_model(
     config_set::Dict,
     input_data::Dict,

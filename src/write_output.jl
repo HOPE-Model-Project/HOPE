@@ -495,6 +495,21 @@ function aggregate_pcm_nodal_component_to_zone(
     ]
 end
 
+"""
+    write_output(
+        outpath::AbstractString,
+        config_set::Dict,
+        input_data::Dict,
+        model::Model,
+    )
+
+Write optimisation results to CSV files in the directory `outpath`.
+
+For GTEP mode the outputs include capacity decisions, investment costs, and generation
+dispatch summaries.  For PCM mode they include hourly dispatch schedules, locational
+marginal prices, and (optionally) shadow prices from the LP re-solve step.
+`outpath` is created if it does not already exist; existing files are overwritten.
+"""
 function write_output(
     outpath::AbstractString,
     config_set::Dict,

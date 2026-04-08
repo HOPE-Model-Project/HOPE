@@ -1,3 +1,14 @@
+"""
+    initiate_solver(case::AbstractString, solver::AbstractString) -> MOI.OptimizerWithAttributes
+
+Read solver settings from `<case>/Settings/<solver>_settings.yml` and return a
+`MOI.OptimizerWithAttributes` object that can be passed to `create_GTEP_model` or
+`create_PCM_model`.
+
+`solver` must be one of `"cbc"`, `"clp"`, `"glpk"`, `"highs"`, `"scip"`, `"gurobi"`, or
+`"cplex"`.  Commercial solvers (`gurobi`, `scip`, `cplex`) require the corresponding
+Julia package to be installed separately.
+"""
 function initiate_solver(case::AbstractString, solver::AbstractString)
     solver_settings_path = joinpath(case, "Settings", solver * "_settings.yml")
     solver_settings = open(solver_settings_path) do io

@@ -162,6 +162,21 @@ end
 
 pcm_clamp_availability_factor(x::Float64) = isfinite(x) ? clamp(x, 0.0, 1.0) : 0.0
 
+"""
+    create_PCM_model(
+        config_set::Dict,
+        input_data::Dict,
+        OPTIMIZER::MOI.OptimizerWithAttributes,
+    ) -> Model
+
+Build a JuMP model for the Production Cost Model (PCM).
+
+`config_set` is the parsed settings dictionary; `input_data` is the dictionary returned
+by `load_data`; `OPTIMIZER` is the solver handle returned by `initiate_solver`.
+
+Supports zonal and nodal (DC OPF) network models, unit commitment (MILP), flexible demand
+response, and operation reserve requirements.  Returns the un-solved `JuMP.Model`.
+"""
 function create_PCM_model(
     config_set::Dict,
     input_data::Dict,

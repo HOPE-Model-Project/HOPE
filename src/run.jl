@@ -1,3 +1,17 @@
+"""
+    run_hope(case::AbstractString)
+
+Run HOPE for a single case directory.
+
+`case` is the path to a HOPE case directory (e.g., `"ModelCases/IEEE14_PCM_case"`).
+Multiple path formats are accepted: `"HOPE/ModelCases/name"`, `"ModelCases/name"`, or
+just `"name"` are all resolved to the same case.  The `HOPE_MODELCASES_PATH` environment
+variable can point to a directory that is searched when the case is not found locally.
+
+The function reads `Settings/HOPE_model_settings.yml`, loads input data, initialises the
+solver, builds the optimisation model, solves it, and writes CSV results under
+`<case>/output/`.
+"""
 function run_hope(case::AbstractString)
     # Normalize the case path - handle different input formats
     case_path = case

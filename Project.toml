@@ -1,7 +1,7 @@
 name = "HOPE"
 uuid = "2ce8c7c5-3207-4bce-8974-65cdad2c68ed"
-version = "1.1.0-DEV"
-authors = ["swang22 <worldspace321@gmail.com> and contributors"]
+version = "1.1.0"
+authors = ["Shen Wang", "Mahdi Mehrtash", "Zoe Song", "Juan Senga", "Christopher Knittel", "and contributors"]
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -29,8 +29,8 @@ Cbc = "1"
 Clp = "1"
 Clustering = "0.15"
 Combinatorics = "1"
-DataFrames = "1.8"
-DataStructures = "0.19"
+DataFrames = "1"
+DataStructures = "0.18, 0.19"
 Distances = "0.10"
 GLPK = "1"
 Gurobi = "1"

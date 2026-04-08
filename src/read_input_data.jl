@@ -651,6 +651,18 @@ function build_pcm_aggregation_audit(
     )
 end
 
+"""
+    load_data(config_set::Dict, path::AbstractString) -> Dict
+
+Load all input data for a HOPE case from the directory `path`.
+
+`config_set` is the parsed `HOPE_model_settings.yml` dictionary; it controls the model
+mode (`"GTEP"` or `"PCM"`), the data subfolder (`DataCase`), and optional pre-processing
+such as resource aggregation and endogenous representative-day selection.
+
+Returns a `Dict` whose keys include `"Gendata"`, `"Loaddata"`, `"Zonedata"`,
+`"Linedata"`, and other model-mode-specific tables.
+"""
 function load_data(config_set::Dict, path::AbstractString)
     Data_case = config_set["DataCase"]
     model_mode = config_set["model_mode"]
