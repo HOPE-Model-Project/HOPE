@@ -1,7 +1,7 @@
 # PCM Inputs Explanation
 
-The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used. 
-      
+The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used.
+
 ## network_model setting
 
 In `HOPE_model_settings.yml`, set:
@@ -58,14 +58,14 @@ This is the input dataset for zone-relevant information (e.g., demand, mapping w
 
 ## gendata
 
-This is the input dataset for existing generators. 
+This is the input dataset for existing generators.
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to| 
+|Zone |The zone that the generator is belonging to|
 |Type |The technology type of the generator|
 |Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
 |Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
@@ -142,7 +142,7 @@ Required columns for nodal modes:
 Optional columns:
 - `State` for nodal state-policy accounting. When `network_model` is `2` or `3`, PCM now uses bus-to-state mapping for carbon/RPS accounting if this column is provided. If omitted, PCM falls back to the state of the bus's assigned zone.
 
-CSV name: `busdata.csv`  
+CSV name: `busdata.csv`
 XLSX sheet name: `busdata`
 
 ## branchdata (optional; used preferentially in nodal modes)
@@ -161,14 +161,14 @@ If `branchdata` is provided and `network_model` is nodal, HOPE uses it as networ
 PTDF note:
 - `network_model = 3` uses a lossless PTDF-based DCOPF. Keep `transmission_loss: 0` in that mode.
 
-CSV name: `branchdata.csv`  
+CSV name: `branchdata.csv`
 XLSX sheet name: `branchdata`
 
 ## ptdf_matrix_nodal / ptdf_matrix (optional)
 
 This optional dataset is used only when `network_model = 3` (nodal PTDF-based DCOPF).
 
-If this file/sheet is provided, HOPE reads the PTDF matrix directly.  
+If this file/sheet is provided, HOPE reads the PTDF matrix directly.
 If not provided, HOPE computes nodal PTDF from branch endpoints/reactance and `reference_bus`.
 
 Required format:
@@ -182,7 +182,7 @@ Accepted names:
 
 ## storagedata
 
-This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower). 
+This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower).
 
 ---
 |**Column Name** | **Description**|
@@ -451,7 +451,7 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ## single parameters
 
-This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values. 
+This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values.
 
 Implementation note: PCM reads these fields through an internal helper (`get_singlepar`) that returns the file value when present, otherwise a built-in default. This keeps backward compatibility when older cases do not include newly added single-parameter columns.
 

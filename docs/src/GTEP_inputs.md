@@ -1,6 +1,6 @@
 # GTEP Inputs Explanation
 
-The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used.       
+The input files for the **HOPE** model could be one big .XLSX file or multiple .csv files. If you use the XLSX file, each spreadsheet in the file needs to be prepared based on the input instructions below and the spreadsheet names should be carefully checked. If you use the csv files, each csv file will represent one spreadsheet from the XLSX file. If both XLSX file and csv files are provided, the XLSX files will be used.
 
 ## zonedata
 
@@ -17,14 +17,14 @@ This is the input dataset for zone-relevant information (e.g., demand, mapping w
 
 ## gendata
 
-This is the input dataset for existing generators. 
+This is the input dataset for existing generators.
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to| 
+|Zone |The zone that the generator is belonging to|
 |Type |The technology type of the generator|
 |Flag_RET | 1 if the generator is eligible for retirement, and 0 otherwise|
 |Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
@@ -38,14 +38,14 @@ This is the input dataset for existing generators.
 
 ## gendata_candidate
 
-This is the input dataset for candidate generators (a set of all generators that can be selected for installation). 
+This is the input dataset for candidate generators (a set of all generators that can be selected for installation).
 
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
 |Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
 |Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to| 
+|Zone |The zone that the generator is belonging to|
 |Type |The technology type of the generator|
 |Cost (\$/MW/yr) |Annualized investment cost for the generator in \$/MW/yr|
 |Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
@@ -94,7 +94,7 @@ To run GTEP with line losses:
 
 ## storagedata
 
-This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower). 
+This is the input dataset for existing energy storage units (e.g., battery storage and pumped storage hydropower).
 
 ---
 |**Column Name** | **Description**|
@@ -114,7 +114,7 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 ## storagedata_candidate
 
-This is the input dataset for candidate energy storage units (a set of all storage units that can be selected for installation). 
+This is the input dataset for candidate energy storage units (a set of all storage units that can be selected for installation).
 
 ---
 |**Column Name** | **Description**|
@@ -226,7 +226,7 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ## single parameters
 
-This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values. 
+This is the input dataset for some parameters that can be directly defined based on users' need. If not changed, they remain with default values.
 
 ---
 |**Column Name** | **Description**|
@@ -242,7 +242,3 @@ This is the input dataset for some parameters that can be directly defined based
 |Inv_bugt_line | Budget for newly installed transmission lines, default = 10000000000000000|
 |Inv_bugt_storage | Budget for newly installed storages, default = 10000000000000000|
 ---
-
-
-
-

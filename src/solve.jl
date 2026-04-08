@@ -5,7 +5,7 @@ Solve the HOPE optimization model and print results.
 
 # Arguments
 - `config_set::Dict`: Configuration settings from YAML file
-- `input_data::Dict`: Input data loaded from files 
+- `input_data::Dict`: Input data loaded from files
 - `model::Model`: JuMP model to solve
 
 # Returns
@@ -93,7 +93,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	## Record solver time (includes optional second pass)
 	solver_time = time() - solver_start_time
 
-	##read input for print	
+	##read input for print
 	W=unique(input_data["Zonedata"][:,"State"])							#Set of states, index w/w’
 	H=[h for h=1:size(input_data["Loaddata"],1)]
 	PT_rps = 10^9
@@ -121,7 +121,7 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 		print("RPS:state:Pen",[(w,sum(PT_rps*value.(model[:pt_rps][w]))) for w in W ],"\n\n");
 		print("CarbonCapPenalty= ",value.(model[:CarbonCapPenalty]),"\n\n");
 		print("CarbonCapEmissions= ",[(w,value.(model[:CarbonEmission][w])) for w in W],"\n\n");
-		
+
 		y_val = [Float64(value(model[:y][l])) for l in axes(model[:y], 1)]
 		x_val = [Float64(value(model[:x][g])) for g in axes(model[:x], 1)]
 		z_val = [Float64(value(model[:z][s])) for s in axes(model[:z], 1)]
@@ -162,6 +162,3 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
 	end
 	return  model
 end
-
-
-

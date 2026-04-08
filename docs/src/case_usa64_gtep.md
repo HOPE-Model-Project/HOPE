@@ -1,6 +1,6 @@
 # `USA_64zone_GTEP_case`
 
-Case path: `ModelCases/USA_64zone_GTEP_case`  
+Case path: `ModelCases/USA_64zone_GTEP_case`
 Data path: `ModelCases/USA_64zone_GTEP_case/Data_USA64_GTEP`
 
 ## Model Setup Snapshot

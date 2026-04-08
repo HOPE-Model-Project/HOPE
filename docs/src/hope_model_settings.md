@@ -49,5 +49,3 @@ Notes:
   1. set `transmission_loss: 1`,
   2. add optional `Loss (%)` columns to the relevant line input tables,
   3. keep `transmission_loss: 0` in `PCM network_model = 3`, because PTDF mode is currently lossless.
-
-

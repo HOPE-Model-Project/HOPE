@@ -1,6 +1,6 @@
 # `RTS24_PCM_multizone4_congested_1month_case`
 
-Case path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case`  
+Case path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case`
 Data path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case/Data_RTS24_PCM_full`
 
 ## Dashboard

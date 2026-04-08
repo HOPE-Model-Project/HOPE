@@ -1,8 +1,8 @@
 module HOPE
 ##using package##
 
-using JuMP 
-using DataFrames 
+using JuMP
+using DataFrames
 using CSV
 using XLSX
 using LinearAlgebra

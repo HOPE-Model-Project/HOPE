@@ -557,7 +557,7 @@ function load_data(config_set::Dict,path::AbstractString)
     model_mode = config_set["model_mode"]
     flexible_demand_raw = get(config_set, "flexible_demand", 0)
     flexible_demand = flexible_demand_raw isa Integer ? Int(flexible_demand_raw) : parse(Int, string(flexible_demand_raw))
-    
+
     if model_mode == "GTEP"                 #read data for generation and transmission expansion model
         input_data = Dict()
         println("Reading Input_Data Files for GTEP mode")
@@ -568,7 +568,7 @@ function load_data(config_set::Dict,path::AbstractString)
             println("The directory $folderpath contains .xlsx file, then try to read input data from GTEP_input_total.xlsx")
             #xlsx_file = XLSX.readxlsx(path*Data_case*"GTEP_input_total.xlsx")
             xlsx_path = joinpath(folderpath,"GTEP_input_total.xlsx")
-            
+
             #network
             println("Reading network")
             input_data["Zonedata"]=DataFrame(XLSX.readtable(xlsx_path,"zonedata"))
@@ -580,8 +580,8 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
                 input_data["Gendata"]=gendata_raw
-            end 
-            
+            end
+
             input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path,"storagedata"))
             if flexible_demand == 1
                 try
@@ -645,7 +645,7 @@ function load_data(config_set::Dict,path::AbstractString)
 
         else
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
-        
+
             #network
             #Zonedata=CSV.read("Data/zonedata.csv",DataFrame)
             println("Reading network")
@@ -658,8 +658,8 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
                 input_data["Gendata"]=gendata_raw
-            end 
-            
+            end
+
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
             if flexible_demand == 1
                 input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.csv"),DataFrame)
@@ -715,7 +715,7 @@ function load_data(config_set::Dict,path::AbstractString)
         end
 
 
-    
+
     elseif model_mode == "PCM"          #read data for production cost model
         input_data = Dict()
         println("Reading Input_Data Files for PCM mode")
@@ -764,13 +764,13 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"]; config_set=config_set)
             else
                 input_data["Gendata"]=gendata_raw
-            end 
-            
+            end
+
             input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path,"storagedata"))
             if flexible_demand == 1
                 input_data["DRdata"]=DataFrame(XLSX.readtable(xlsx_path,"flexddata"))
             end
-        
+
             #time series
             println("Reading time series")
             input_data["Winddata"]=DataFrame(XLSX.readtable(xlsx_path,"wind_timeseries_regional"))
@@ -844,7 +844,7 @@ function load_data(config_set::Dict,path::AbstractString)
 
         else
             println("No xlsx file found in the directory $folderpath, try to read data from .csv files")
-            
+
             println("Reading network")
             input_data["Zonedata"]=CSV.read(joinpath(folderpath,"zonedata.csv"),DataFrame)
             input_data["Linedata"]=CSV.read(joinpath(folderpath,"linedata.csv"),DataFrame)
@@ -877,13 +877,13 @@ function load_data(config_set::Dict,path::AbstractString)
                 input_data["AggregationAudit"] = build_pcm_aggregation_audit(gendata_raw, input_data["Gendata"]; config_set=config_set)
             else
                 input_data["Gendata"]=gendata_raw
-            end 
-            
+            end
+
             input_data["Storagedata"]=CSV.read(joinpath(folderpath,"storagedata.csv"),DataFrame)
             if flexible_demand == 1
                 input_data["DRdata"]=CSV.read(joinpath(folderpath,"flexddata.csv"),DataFrame)
             end
-        
+
             #time series
             println("Reading time series")
             input_data["Winddata"]=CSV.read(joinpath(folderpath,"wind_timeseries_regional.csv"),DataFrame)
@@ -949,7 +949,7 @@ function load_data(config_set::Dict,path::AbstractString)
             end
 
             println("CSV Files Successfully Load From $folderpath")
-        end   
+        end
     end
     return input_data
 end

@@ -1,4 +1,4 @@
-# HOPE - Holistic Optimization Program for Electricity 
+# HOPE - Holistic Optimization Program for Electricity
 
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://hope-model-project.github.io/HOPE/dev/)
 [![Build Status](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml?query=branch%3Amain)
@@ -9,7 +9,7 @@
 
 
 ## How to cite HOPE?
-You can cite the paper: 
+You can cite the paper:
 ```
 Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimization Program for Electricity. SoftwareX, 29, 101982. https://doi.org/10.1016/j.softx.2024.101982
 ```
@@ -35,7 +35,7 @@ Current HOPE model is also maintaining by researchers at MIT, including Shen Wan
 Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose **"Clone"** (recommended) or **"Download ZIP"**. 
+Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose **"Clone"** (recommended) or **"Download ZIP"**.
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`).
 >[!NOTE]
@@ -56,16 +56,16 @@ This is the **recommended setup** — HOPE will find the cases automatically wit
 
 >[!NOTE]
 >If you prefer to store model cases elsewhere, clone `HOPEModelCases` to any path and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE. See the [HOPEModelCases README](https://github.com/HOPE-Model-Project/HOPEModelCases) for details.
- 
+
 
 # Run a Case in HOPE
 ## Using VScode to Run a Case (Recommend)
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VScode and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
-**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home` 
+**(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home`
 
 >[!NOTE]
->The `home` directory could be any folder where you save your HOPE project. The `home` directory in the example below is named `Maryland-Electric-Sector-Transition`.  
+>The `home` directory could be any folder where you save your HOPE project. The `home` directory in the example below is named `Maryland-Electric-Sector-Transition`.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/c8acf95d-909d-44e2-8ded-61635367dc53)
 
@@ -74,14 +74,14 @@ Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) an
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
 
-In Julia, you can use `pwd()` to check if your current working directory is your `home` directory, if it is not, you can use `cd("/yourpath/home")` to change your working directory, as the picture is shown below. 
+In Julia, you can use `pwd()` to check if your current working directory is your `home` directory, if it is not, you can use `cd("/yourpath/home")` to change your working directory, as the picture is shown below.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/a35268e3-b6ca-4d43-ad62-e5d0a67b0e8b)
 
-**(3)** Make sure you are in the right working directory. Then, type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Make sure you are in the right working directory. Then, type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory) or `activate yourpath/home/HOPE` (if you are not in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
-   
+
 **(4)** Type `instantiate` in the (HOPE) pkg prompt (make sure you are in your `home` directory, not the `home/HOPE` directory!).
 
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
@@ -93,7 +93,7 @@ In Julia, you can use `pwd()` to check if your current working directory is your
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/output`. An example of a successful run in Julia prompt can be seen below.
 ![image](https://github.com/swang22/HOPE/assets/125523842/99790827-4337-4991-a320-85ae2bd10be2)
 
-**(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.   
+**(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.
 
 ## Using System Terminal to Run a Case
 You can use a system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
@@ -104,7 +104,7 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/6c61bed1-bf8e-4186-bea2-22413fd1328e)
 
-**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully. 
+**(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
 **(4)** Type `instantiate` in the (HOPE) pkg prompt. ( After the HOPE is successfully installed, you can skip this step)
 
@@ -115,14 +115,14 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/519de1bf-03d0-4bad-8e69-a8a4fe2ad682)
 
-The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/output`. 
+The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/output`.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/99790827-4337-4991-a320-85ae2bd10be2)
 
 
-**(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.  
+**(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.
 
-  
+
 #### Mac users
 
 # Run your case
@@ -149,7 +149,7 @@ Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for
 
 # Research & Publication
 
-[Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf) 
+[Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf)
 
 ## Acknowledgement
 This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
@@ -160,7 +160,3 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="320" height="160" />
 <br clear="both"/>
 <img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="280" alt="MIT CEEPR logo" />
-
-
-
-

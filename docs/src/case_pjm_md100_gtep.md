@@ -1,6 +1,6 @@
 # `PJM_MD100_GTEP_case`
 
-Case path: `ModelCases/PJM_MD100_GTEP_case`  
+Case path: `ModelCases/PJM_MD100_GTEP_case`
 Data path: `ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones`
 
 ## Model Setup Snapshot
@@ -58,5 +58,5 @@ Data path: `ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones`
 
 ![PJM MD100 zone network map](assets/modelcases_pjm_md100_zone_map.svg)
 
-Map note: this is a geography-style engineering schematic anchored by state positions and PJM-style zone labels.  
+Map note: this is a geography-style engineering schematic anchored by state positions and PJM-style zone labels.
 It is not a strict GIS shapefile rendering, but the edge capacities and zone connections are from the model inputs.

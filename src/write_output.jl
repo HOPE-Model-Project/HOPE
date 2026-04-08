@@ -1,7 +1,7 @@
 function mkdir_overwrite(path::AbstractString)
     if isdir(path)
         println("'output' folder exists, will be overwritten!")
-        
+
         # Try to remove with retries for Windows file locking issues
         max_retries = 3
         for attempt in 1:max_retries
@@ -19,7 +19,7 @@ function mkdir_overwrite(path::AbstractString)
                     println("Warning: Could not remove existing output directory after $max_retries attempts.")
                     println("This may be due to files being open in another application.")
                     println("Trying to create backup and continue...")
-                    
+
                     # Try to create a backup directory name
                     backup_path = path * "_backup_" * string(round(Int, time()))
                     try
@@ -32,7 +32,7 @@ function mkdir_overwrite(path::AbstractString)
             end
         end
     end
-    
+
     # Create the directory
     try
         mkdir(path)
@@ -368,10 +368,10 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
     summary_table_raw = get(config_set, "summary_table", get(config_set, "summary_tables", 0))
     summary_table = summary_table_raw isa Integer ? Int(summary_table_raw) : parse(Int, string(summary_table_raw))
     require_feasible_primal_solution(model; context="write_output for $(model_mode)")
-    println() 
+    println()
     println("HOPE model ($model_mode mode) is successfully solved!")
     if model_mode == "GTEP"
-        ##read input for print	
+        ##read input for print
         Storagedata = input_data["Storagedata"]
         Estoragedata_candidate = input_data["Estoragedata_candidate"]
         Gendata = input_data["Gendata"]
@@ -401,7 +401,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         Ordered_gen_nm = ["G$(g)" for g in 1:(Num_Egen + Num_Cgen)]
-        D=[d for d=1:Num_load] 	
+        D=[d for d=1:Num_load]
         D_i=[[d] for d in D]
         if flexible_demand == 1
             Num_DR = size(DRdata, 1)
@@ -465,7 +465,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         G_MR_E=findall(x -> x in [1], Gendata[:,"Flag_mustrun"])
         G_RET_raw=findall(x -> x in [1], Gendata[:,"Flag_RET"])
         G_RET=setdiff(G_RET_raw, G_MR_E)
-        G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]	
+        G_i=[[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]);(findall(Gendata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_Egen)] for i in I]
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
 		G_PV_C=findall(Gendata_candidate[:,"Type"].=="SolarPV").+Num_Egen#Set of candidate solar, subsets of G
 		G_PV=[G_PV_E;G_PV_C]											#Set of all solar, subsets of G
@@ -485,16 +485,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         end
         S_i=[[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]);(findall(Estoragedata_candidate[:,"Zone"].==Idx_zone_dict[i]).+Num_sto)] for i in I]
         S=[s for s=1:Num_sto+Num_Csto]							    #Set of storage units, index s
-        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S  
-		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S  
+        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S
+		S_new=[s for s=Num_sto+1:Num_sto+Num_Csto]						#Set of candidate storage units, subset of S
         LS_i=[[findall(Linedata[:,"From_zone"].==Idx_zone_dict[i]);(findall(Linedata_candidate[:,"From_zone"].==Idx_zone_dict[i]).+Num_Eline)] for i in I]
         #Param
         INV_g=Dict(zip(G_new,Gendata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
 		INV_l=Dict(zip(L_new,Linedata_candidate[:,Symbol("Cost (M\$)")]))#l						#Investment cost of transmission line l, M$
-		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s	
+		INV_s=Dict(zip(S_new,Estoragedata_candidate[:,Symbol("Cost (\$/MW/yr)")])) #s
         Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
         VCG=[Gencostdata;Gendata_candidate[:,Symbol("Cost (\$/MWh)")]]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s		
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];Estoragedata_candidate[:,Symbol("Cost (\$/MWh)")]]#s
         P_max=[Gendata[:,"Pmax (MW)"];Gendata_candidate[:,"Pmax (MW)"]]#g						#Maximum power generation of unit g, MW
         SCAP=[Storagedata[:,"Max Power (MW)"];Estoragedata_candidate[:,"Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
         unit_converter = 10^6
@@ -520,7 +520,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         )
 
         weighted_rep_hour_sum(f) = sum(N[t] * sum(f(t, h) for h in H_t[t]) for t in T)
-        
+
         ##Generator-----------------------------------------------------------------------------------------------------------
         #Investment cost of storage unit s, M$
         #Power OutputDF
@@ -543,9 +543,9 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #print(power_t_h)
         power_t_h_df = DataFrame(power_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_gen_df = hcat(P_gen_df, power_t_h_df )
-        
+
         CSV.write(joinpath(outpath, "power.csv"), P_gen_df, header=true)
-        
+
         ##Power price
         # Obtain hourly power price, utilize power balance constraint's shadow price
         duals_available = config_set["solver"] != "cbc" && has_duals(model)
@@ -556,7 +556,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             P_price_df = DataFrame()
             println("Dual values are unavailable for GTEP power price output. For MILP runs, set write_shadow_prices=1 (and inv_dcs_bin=1) to run fixed-LP dual recovery.")
         else
-            P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"]) 
+            P_price_df = DataFrame(Zone = Zonedata[:,"Zone_id"])
             dual_t_h = [[marginal_load_price_from_dual(model[:PB_con][i,t,h], :balance_rhs_load) for t in T for h in H_t[t]] for i in I]
             #dfPrice = hcat(dfPrice, DataFrame(transpose(dual_matrix), :auto))
             dual_t_h = transpose(hcat(dual_t_h...))
@@ -564,7 +564,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             P_price_df = hcat(P_price_df,dual_t_h_df)
             CSV.write(joinpath(outpath, "power_price.csv"), P_price_df, header=true)
         end
-        
+
         ##Renewable curtailments
         #P_ctl_df = DataFrame(
         #    Technology = vcat(Gendata[G_VRE_E,"Type"],Gendata_candidate[ G_VRE_C,"Type"]),
@@ -580,7 +580,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         ##Load shedding
         P_ls_df = DataFrame(
-          load_area = vcat(Zonedata[:, "Zone_id"]), 
+          load_area = vcat(Zonedata[:, "Zone_id"]),
           AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
         )
         P_ls_df.AnnTol .= [weighted_rep_hour_sum((t, h) -> value(model[:p_LS][i,h])) for i in I]
@@ -590,7 +590,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         P_ls_df = hcat(P_ls_df, power_ls_t_h_df)
 
         CSV.write(joinpath(outpath, "power_loadshedding.csv"), P_ls_df, header=true)
-        
+
         ##Renewable curtailments
         G_vre_exist_rps = intersect(intersect(G_exist, union(G_PV, G_W)), G_RPS)
         G_vre_new_rps = intersect(intersect(G_new, union(G_PV, G_W)), G_RPS)
@@ -623,7 +623,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_ct_df = hcat(P_ct_df, power_h_df )
         CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , header=true)
-        
+
         #Capacity OutputDF
         C_gen_df = DataFrame(
             Technology = vcat(Gendata[:,"Type"],Gendata_candidate[:,"Type"]),
@@ -665,7 +665,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         C_line_df[New_built_line_idx,:New_Build] .=1
         rename!(C_line_df, :Capacity => Symbol("Capacity (MW)"))
         CSV.write(joinpath(outpath, "line.csv"), C_line_df, header=true)
-        
+
         #Power flow OutputDF
         P_flow_df = DataFrame(
             From_zone = String[to_string_output(v) for v in vcat(Linedata[:,"From_zone"],Linedata_candidate[:,"From_zone"])],
@@ -675,18 +675,18 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1])
         )
         P_flow_df.AnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:f][l,h])) for l in L]
-        
+
         New_built_line_idx = map(x -> x + Num_Eline, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
         P_flow_df[!,"New_Build"] .= 0
         P_flow_df[New_built_line_idx,:New_Build] .=1
-        
+
         #Retreive power data from solved model
         flow = value.(model[:f])
         flow_t_h = hcat([Array(flow[:,h]) for t in T for h in H_t[t]]...)
         flow_t_h_df = DataFrame(flow_t_h, [Symbol("t$t"*"h$h") for t in T for h in H_t[t]])
         P_flow_df = hcat(P_flow_df, flow_t_h_df )
         CSV.write(joinpath(outpath, "power_flow.csv"), P_flow_df, header=true)
-        
+
 
         ##Storage---------------------------------------------------------------------------------------------------------------------
         #c
@@ -698,7 +698,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
         )
         P_es_c_df.ChAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:c][s,h])) for s in S]
-        
+
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_c_df[!,:New_Build] .= 0
         P_es_c_df[New_built_idx,:New_Build] .= 1
@@ -719,7 +719,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
         )
         P_es_dc_df.DisAnnSum .= [weighted_rep_hour_sum((t, h) -> value(model[:dc][s,h])) for s in S]
-        
+
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_dc_df[!,:New_Build] .= 0
         P_es_dc_df[New_built_idx,:New_Build] .= 1
@@ -738,7 +738,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
             New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
         )
-        
+
         New_built_idx = map(x -> x + Num_sto, [i for (i, v) in enumerate(value.(model[:z])) if v > 0])
         P_es_soc_df[!,:New_Build] .= 0
         P_es_soc_df[New_built_idx,:New_Build] .= 1
@@ -755,7 +755,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Technology = String[to_string_output(v) for v in vcat(Storagedata[:,"Type"],Estoragedata_candidate[:,"Type"])],
             Zone = String[to_string_output(v) for v in vcat(Storagedata[:,"Zone"],Estoragedata_candidate[:,"Zone"])],
             EC_Category = [repeat(["Existing"],Num_sto);repeat(["Candidate"],Num_Csto)],
-            New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),            
+            New_Build = Array{Union{Missing,Bool}}(undef, size(S)[1]),
             EnergyCapacity = Float64[to_float_output(v) for v in vcat(Storagedata[:,"Capacity (MWh)"],Estoragedata_candidate[:,"Capacity (MWh)"])],
             Capacity = Float64[to_float_output(v) for v in vcat(Storagedata[:,"Max Power (MW)"],Estoragedata_candidate[:,"Max Power (MW)"])]
         )
@@ -763,7 +763,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         C_es_df[New_built_idx,:New_Build] .= 1
         rename!(C_es_df, :Capacity => Symbol("Capacity (MW)"))
         rename!(C_es_df, :EnergyCapacity => Symbol("EnergyCapacity (MWh)"))
-        
+
         CSV.write(joinpath(outpath, "es_capacity.csv"), C_es_df, header=true)
         ##Demand response program---------------------------------------------------------------------------------------------------------------------
         if flexible_demand == 1
@@ -828,7 +828,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             LoL_plt = Array{Union{Missing,Float64}}(undef, Num_zone),
             Total_cost = Array{Union{Missing,Float64}}(undef, Num_zone)
         )
-        
+
         x = value.(model[:x])
         y = value.(model[:y])
         z = value.(model[:z])
@@ -864,8 +864,8 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             "es_capacity" => C_es_df,
             "system_cost" => Cost_df
         )
-    
-    elseif model_mode == "PCM" 
+
+    elseif model_mode == "PCM"
         network_model = parse_setting_int(config_set, "network_model", 0)
         Gendata = input_data["Gendata"]
         Storagedata = input_data["Storagedata"]
@@ -893,7 +893,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 		Idx_zone_dict = Dict(zip([i for i=1:Num_zone],Zonedata[:,"Zone_id"]))
 		Zone_idx_dict = Dict(zip(Zonedata[:,"Zone_id"],[i for i=1:Num_zone]))
         #Set
-        D=[d for d=1:Num_load] 	
+        D=[d for d=1:Num_load]
         D_i=[[d] for d in D]
         G=[g for g=1:Num_Egen]
         S=[s for s=1:Num_sto]
@@ -904,15 +904,15 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         singlepar_df = input_data["Singlepar"]
         singlepar_cols = Set(string.(names(singlepar_df)))
         theta_max_for_diag = ("theta_max" in singlepar_cols) ? to_float_setting(singlepar_df[1, "theta_max"]) : 1.0e3
-        G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]	
+        G_i=[findall(Gendata[:,"Zone"].==Idx_zone_dict[i]) for i in I]
         G_PV_E=findall(Gendata[:,"Type"].=="SolarPV")					#Set of existingsolar, subsets of G
 		G_PV=[G_PV_E;]											#Set of all solar, subsets of G
 		G_W_E=findall(x -> x in ["WindOn","WindOff"], Gendata[:,"Type"])#Set of existing wind, subsets of G
 		G_W=[G_W_E;]                                               #Set of all wind, subsets of G
         S_i=[findall(Storagedata[:,"Zone"].==Idx_zone_dict[i]) for i in I]
-        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S   
+        S_exist=[s for s=1:Num_sto]										#Set of existing storage units, subset of S
         LS_i=[Int[] for i in I]
-  
+
         #zone
         Ordered_zone_nm = [Idx_zone_dict[i] for i=1:Num_zone]
         W = unique(Zonedata[:, "State"])
@@ -920,7 +920,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #Param
         Gencostdata = input_data["Gendata"][:,Symbol("Cost (\$/MWh)")]
         VCG=[Gencostdata;]#g						#Variable cost of generation unit g, $/MWh
-		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s		
+		VCS=[Storagedata[:,Symbol("Cost (\$/MWh)")];]#s
         unit_converter = 10^6
         linedata_cols = Set(string.(names(Linedata)))
         from_zone_col = first_existing_col(linedata_cols, ["From_zone", "from_zone"])
@@ -994,7 +994,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
 
         ##Load shedding
         P_ls_df = DataFrame(
-          load_area = vcat(Zonedata[:, "Zone_id"]), 
+          load_area = vcat(Zonedata[:, "Zone_id"]),
           AnnTol =  Array{Union{Missing,Float64}}(undef, Num_load)
         )
         P_ls_df.AnnTol .= [sum(value.(model[:p_LS][d,h]) for h in H) for d in D]
@@ -1070,7 +1070,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         #power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_ct_df = hcat(P_ct_df, power_h_df )
         CSV.write(joinpath(outpath, "power_renewable_curtailment.csv"), P_ct_df , header=true)
-        
+
         #Power OutputDF
         if network_model in [2, 3] && nodal_output_map !== nothing
             gendata_cols_local = Set(string.(names(Gendata)))
@@ -1105,7 +1105,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
         power_h = hcat([Array(power[:,h]) for h in H]...)
         power_h_df = DataFrame(power_h, [Symbol("h$h") for h in H])
         P_gen_df = hcat(P_gen_df, power_h_df)
-        
+
         CSV.write(joinpath(outpath, "power_hourly.csv"), P_gen_df, header=true)
 
         #Emissions output (supports policy and post-processing checks)
@@ -1121,7 +1121,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Emissions_ton = [sum(E_zone_df[i, :Emissions_ton] for i in I_w[w]; init=0) for w in W]
         )
         CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header=true)
-        
+
         ##Power price
         # Obtain hourly power price from the active power-balance equation
         P_price_df = DataFrame()
@@ -1336,7 +1336,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             )
         end
         P_flow_df.AnnSum .= [sum(value.(model[:f][l,h]) for h in H ) for l in L]
-        
+
         #Retreive power data from solved model
         flow = value.(model[:f])
         flow_t_h = hcat([Array(flow[:,h]) for h in H]...)
@@ -1369,7 +1369,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             TransmissionLoss_MW = [sum(hourly_line_loss[:, h_idx]) for h_idx in 1:length(H)]
         )
         CSV.write(joinpath(outpath, "transmission_loss_hourly.csv"), system_transmission_loss_df, header=true)
-        
+
         #Congestion rent output (line-by-line)
         hourly_rent = nothing
         line_rent_df = DataFrame(
@@ -1433,7 +1433,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             line_shadow_df = hcat(line_shadow_df, line_shadow_h_df)
             CSV.write(joinpath(outpath, "line_shadow_price.csv"), line_shadow_df, header=true)
         end
-        
+
         ##Storage---------------------------------------------------------------------------------------------------------------------
         #=
         P_es_df = DataFrame(
@@ -1471,7 +1471,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             ChAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),     #Annual charge
         )
         P_es_c_df.ChAnnSum .= [sum(value.(model[:c][s,h]) for h in H) for s in S]
-    
+
         #Retreive power data from solved model
         power_c = value.(model[:c])
 
@@ -1488,7 +1488,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             DisAnnSum = Array{Union{Missing,Float64}}(undef, size(S)[1]),    #Annual discharge
         )
         P_es_dc_df.DisAnnSum .= [sum(value.(model[:dc][s,h]) for h in H) for s in S]
-        
+
         #Retreive power data from solved model
         power_dc = value.(model[:dc])
 
@@ -1503,7 +1503,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             Zone = vcat(Storagedata[:,"Zone"]),
             EC_Category = repeat(["Existing"],Num_sto),
         )
-        
+
         #Retreive power data from solved model
         power_soc = value.(model[:soc])
 
@@ -1517,12 +1517,12 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             # Net DR shift (payback minus deferred)
             dr_df = DataFrame(
                 Resource = vcat(R),
-                Zone = vcat(DRdata[:,"Zone"]),    
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
             dr_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) - value.(model[:dr_DF][r,h]) for h in H) for r in R]
-            
+
             #Retreive power data from solved model
             power_dr_df = value.(model[:dr_DF])
             power_dr_pb = value.(model[:dr_PB])
@@ -1533,16 +1533,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             dr_df = hcat(dr_df, power_dr_t_h_df)
 
             CSV.write(joinpath(outpath, "dr_power.csv"), dr_df, header=true)
-            
+
             # DR payback
             dr_up_df = DataFrame(
                 Resource = vcat(R),
-                Zone = vcat(DRdata[:,"Zone"]),    
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
             dr_up_df.DRAnnSum .= [sum(value.(model[:dr_PB][r,h]) for h in H) for r in R]
-            
+
             #Retreive power data from solved model
             power_dr_up = value.(model[:dr_PB])
 
@@ -1554,16 +1554,16 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             CSV.write(joinpath(outpath, "dr_pb_power.csv"), dr_up_df, header=true)
             # Backward-compatible alias
             CSV.write(joinpath(outpath, "dr_up_power.csv"), dr_up_df, header=true)
-        
+
             # DR deferred
             dr_dn_df = DataFrame(
                 Resource = vcat(R),
-                Zone = vcat(DRdata[:,"Zone"]),    
+                Zone = vcat(DRdata[:,"Zone"]),
                 Technology = vcat(DRdata[:,"Type"]),
                 DRAnnSum = Array{Union{Missing,Float64}}(undef, size(R)[1]),
             )
             dr_dn_df.DRAnnSum .= [sum(value.(model[:dr_DF][r,h]) for h in H) for r in R]
-            
+
             #Retreive power data from solved model
             power_dr_dn = value.(model[:dr_DF])
 
@@ -1589,7 +1589,7 @@ function write_output(outpath::AbstractString,config_set::Dict, input_data::Dict
             power_dr_backlog_t_h_df = DataFrame(power_dr_backlog_t_h, [Symbol("dr_"*"h$h") for h in H])
             dr_backlog_df = hcat(dr_backlog_df, power_dr_backlog_t_h_df)
             CSV.write(joinpath(outpath, "dr_backlog.csv"), dr_backlog_df, header=true)
-        
+
         end
         ##System Cost-----------------------------------------------------------------------------------------------------------
         Cost_df = DataFrame(

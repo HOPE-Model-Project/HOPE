@@ -1,6 +1,6 @@
 # `ISONE_PCM_250bus_case`
 
-Case path: `ModelCases/ISONE_PCM_250bus_case`  
+Case path: `ModelCases/ISONE_PCM_250bus_case`
 Data path: `ModelCases/ISONE_PCM_250bus_case/Data_ISONE_PCM_250bus`
 
 ## Dashboard

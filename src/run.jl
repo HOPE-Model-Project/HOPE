@@ -1,31 +1,31 @@
 function run_hope(case::AbstractString)
 	# Normalize the case path - handle different input formats
 	case_path = case
-	
+
 	# Handle HOPE prefix removal
 	if startswith(case_path, "HOPE/") || startswith(case_path, "HOPE\\")
 		case_path = case_path[6:end]
 	end
-	
+
 	# Remove trailing slashes
 	case_path = rstrip(case_path, ['/', '\\'])
-	
+
 	# Handle ModelCases prefix
 	if startswith(case_path, "ModelCases/") || startswith(case_path, "ModelCases\\")
 		case_path = case_path[12:end]
 	end
-	
+
 	# Now try to find the directory
 	path = nothing
 	tried_paths = String[]
-	
+
 	# Try 1: Direct path as given (after normalization)
 	test_path = case_path
 	push!(tried_paths, test_path)
 	if isdir(test_path)
 		path = test_path
 	end
-	
+
 	# Try 2: Add ModelCases/ prefix
 	if path === nothing
 		test_path = joinpath("ModelCases", case_path)
@@ -34,7 +34,7 @@ function run_hope(case::AbstractString)
 			path = test_path
 		end
 	end
-	
+
 	# Try 3: Use just the basename with ModelCases/ prefix
 	if path === nothing
 		test_path = joinpath("ModelCases", basename(case_path))
@@ -81,16 +81,16 @@ function run_hope(case::AbstractString)
 		end
 		throw(ArgumentError(error_msg))
 	end
-	
+
 	outpath = joinpath(path, "output")
 	settings_file = joinpath(path, "Settings", "HOPE_model_settings.yml")
-	
+
 	if !isfile(settings_file)
 		throw(ArgumentError("Settings file not found: $settings_file"))
 	end
-	
+
 	try
-		# Set model configuration 
+		# Set model configuration
 		config_set = open(settings_file) do io
 			YAML.load(io)
 		end
@@ -108,7 +108,7 @@ function run_hope(case::AbstractString)
 		# Read in data
 		input_data = load_data(config_set, path)
 		my_input = deepcopy(input_data)
-		
+
 		# Create model
 		my_model = if config_set["model_mode"] == "GTEP"
 			create_GTEP_model(config_set, input_data, optimizer)
@@ -117,7 +117,7 @@ function run_hope(case::AbstractString)
 		else
 			throw(ArgumentError("Invalid model mode: $(config_set["model_mode"]). Must be 'GTEP' or 'PCM'"))
 		end
-		
+
 		# Solve model
 		my_solved_model = solve_model(config_set, input_data, my_model)
 
@@ -132,7 +132,7 @@ function run_hope(case::AbstractString)
 				@info "Skipping postprocess snapshot because save_postprocess_snapshot is currently supported only for GTEP cases."
 			end
 		end
-		
+
 		Results = Dict(
 			"case_path" => path,
 			"output_path" => outpath,
@@ -142,9 +142,9 @@ function run_hope(case::AbstractString)
 			"input" => my_input,
 			"snapshot" => snapshot_info,
 		)
-		
+
 		return Results
-		
+
 	catch e
 		@error "Error running HOPE case: $case" exception=(e, catch_backtrace())
 		rethrow()
@@ -155,17 +155,17 @@ function write_hope(case::AbstractString, solved_case::Model)
 	if !isdir(case)
 		throw(ArgumentError("Case directory does not exist: $case"))
 	end
-	
+
 	path = case
 	outpath = joinpath(path, "output")
 	settings_file = joinpath(case, "Settings", "HOPE_model_settings.yml")
-	
+
 	if !isfile(settings_file)
 		throw(ArgumentError("Settings file not found: $settings_file"))
 	end
-	
+
 	try
-		# Set model configuration 
+		# Set model configuration
 		config_set = open(settings_file) do io
 			YAML.load(io)
 		end

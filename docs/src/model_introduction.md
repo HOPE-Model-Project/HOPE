@@ -59,5 +59,3 @@ Both `GTEP` and `PCM` support:
   - `2`: REG + SPIN + NSPIN
 - `summary_table`:
   - `1`: write summary analytics to `output/Analysis/Summary_*.csv`
-
-

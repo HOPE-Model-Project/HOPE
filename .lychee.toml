@@ -1,8 +1,9 @@
 exclude = [
-  "@ref",
-  "^https://github.com/.*/releases/tag/v.*$",
-  "^https://github.com/swang22/HOPE/assets/.*$",
-  "^https://doi.org/10\..*$"
+  '@ref',
+  '^https://github.com/.*/releases/tag/v.*$',
+  '^https://github.com/swang22/HOPE/assets/.*$',
+  '^https://doi.org/10\..*$',
+  '^https://hobbsgroup\.johnshopkins\.edu/.*$'
 ]
 
 exclude_path = [

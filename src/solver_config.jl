@@ -45,7 +45,7 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
             if(haskey(solver_settings, "DualObjectiveLimit")) MyDualObjectiveLimit = solver_settings["DualObjectiveLimit"] end
         MyMaximumIterations = 2147483647
             if(haskey(solver_settings, "MaximumIterations")) MyMaximumIterations = solver_settings["MaximumIterations"] end
-        MyLogLevel= 1 
+        MyLogLevel= 1
             if(haskey(solver_settings, "LogLevel")) MyLogLevel = solver_settings["LogLevel"] end
         MyInfeasibleReturn = 0
             if(haskey(solver_settings, "InfeasibleReturn")) MyInfeasibleReturn = solver_settings["InfeasibleReturn"] end
@@ -124,7 +124,7 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
         MyOptimal_Tol = 1e-4 #https://www.ibm.com/docs/en/cofz/12.9.0?topic=parameters-optimality-tolerance
             if(haskey(solver_settings, "Optimal_Tol")) MyOptimal_Tol = solver_settings["Optimal_Tol"] end
         MyAggFill= 10 #https://www.ibm.com/docs/en/cofz/12.9.0?topic=parameters-preprocessing-aggregator-fill
-            if(haskey(solver_settings, "AggFill")) MyAggFill = solver_settings["AggFill"] end	
+            if(haskey(solver_settings, "AggFill")) MyAggFill = solver_settings["AggFill"] end
         Mypre_dual = 0 #https://www.ibm.com/docs/en/cofz/12.9.0?topic=parameters-presolve-dual-setting
             if(haskey(solver_settings, "PreDual")) Mypre_dual = solver_settings["PreDual"] end
         Myseconds = 1e+75 #https://www.ibm.com/docs/en/cofz/12.9.0?topic=parameters-optimizer-time-limit-in-seconds

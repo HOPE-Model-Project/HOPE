@@ -11,11 +11,11 @@ Install Visual Studio Code: download [VS Code](https://code.visualstudio.com/) a
 **(2)** In the VS Code terminal, type `julia` and press Enter. Julia will open as below:
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
-   
+
 **(3)** Type `]` to enter Julia package mode, then run `activate .` from the repository root. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
    ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
-   
+
 **(4)** Type `instantiate` at the `(HOPE) pkg>` prompt.
 
 **(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
@@ -155,4 +155,3 @@ If you want to validate a pair before solving, you can also use the generic audi
 ```powershell
 julia --project=. tools/repo_utils/audit_holistic_case_pair.jl <GTEP_case> <PCM_case>
 ```
-

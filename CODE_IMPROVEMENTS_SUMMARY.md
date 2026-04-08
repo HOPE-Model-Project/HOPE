@@ -7,7 +7,7 @@ This document summarizes the code quality improvements made to the HOPE Julia co
 
 ### 1. **Hard-coded Path Elimination**
 - **Problem**: Files contained absolute Windows-specific paths that made code non-portable
-- **Solution**: 
+- **Solution**:
   - Created `get_paths()` function in `constants.jl` for dynamic path construction
   - Updated `plot_output_GTEP_operation.jl` and `plot_output_capacity.jl` to use relative paths
   - Paths now work cross-platform and adapt to project structure

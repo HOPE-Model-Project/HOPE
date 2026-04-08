@@ -14,12 +14,12 @@ function validate_case_directory(case::AbstractString)
     if !isdir(case)
         throw(ArgumentError("Case directory does not exist: $case"))
     end
-    
+
     settings_file = joinpath(case, "Settings", "HOPE_model_settings.yml")
     if !isfile(settings_file)
         throw(ArgumentError("Settings file not found: $settings_file"))
     end
-    
+
     return true
 end
 
@@ -44,7 +44,7 @@ function safe_file_read(filepath::AbstractString, reader_func::Function)
     if !isfile(filepath)
         throw(ArgumentError("File not found: $filepath"))
     end
-    
+
     try
         return reader_func(filepath)
     catch e
@@ -90,11 +90,11 @@ Generic function to aggregate capacity data by specified columns.
 """
 function aggregate_capacity_data(df::DataFrame, group_cols::Vector{Symbol}, sum_cols::Vector{Symbol})
     agg_df = combine(groupby(df, group_cols), sum_cols .=> sum)
-    
+
     # Rename columns to remove _sum suffix
     old_names = [Symbol("$(col)_sum") for col in sum_cols]
     rename!(agg_df, old_names .=> sum_cols)
-    
+
     return agg_df
 end
 
@@ -143,7 +143,7 @@ function safe_remove_directory(path::AbstractString; max_retries::Int = 3)
     if !isdir(path)
         return true  # Already doesn't exist
     end
-    
+
     for attempt in 1:max_retries
         try
             rm(path; force=true, recursive=true)

@@ -1,6 +1,6 @@
 function debug(outpath::AbstractString, config_set::Dict, model::Model)
 	model_mode = config_set["model_mode"]
-	
+
 
 	##Debugging
 	if config_set["debug"]==0
@@ -31,7 +31,7 @@ function debug(outpath::AbstractString, config_set::Dict, model::Model)
 				end
 			end
 		end
-	
+
 	elseif config_set["debug"]!=0
 		println("Wrong debug method, please set debug =0, 1 or 2 in HOPE_model_settings.yml")
 	end
@@ -56,12 +56,12 @@ function run_debug(case::AbstractString)
 	elseif config_set["model_mode"] == "PCM"
 		my_model = create_PCM_model(config_set,input_data,optimizer)
 	else
-		println("ModeError: Please check the model mode, it should be 'GTEP' or 'PCM', the 'OPF' and 'DART' are currently not availiable!" ) 
+		println("ModeError: Please check the model mode, it should be 'GTEP' or 'PCM', the 'OPF' and 'DART' are currently not availiable!" )
 	end
 	#debug model
 	println("Debugging...")
 	my_debug_model = debug(outpath, config_set, my_model)
 	#output
 	#my_output = write_output(outpath, config_set, input_data,my_debug_model)
-	return my_debug_model 
+	return my_debug_model
 end

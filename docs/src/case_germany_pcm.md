@@ -1,9 +1,9 @@
 # `GERMANY_PCM` case suite
 
-Primary nodal case path: `ModelCases/GERMANY_PCM_nodal_case`  
+Primary nodal case path: `ModelCases/GERMANY_PCM_nodal_case`
 Primary nodal data path: `ModelCases/GERMANY_PCM_nodal_case/Data_GERMANY_PCM_nodal`
 
-Primary zonal case path: `ModelCases/GERMANY_PCM_zonal4_case`  
+Primary zonal case path: `ModelCases/GERMANY_PCM_zonal4_case`
 Primary zonal data path: `ModelCases/GERMANY_PCM_zonal4_case/Data_GERMANY_PCM_zonal4`
 
 Dashboard demo case path: `ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case`

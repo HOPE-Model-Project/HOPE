@@ -55,7 +55,7 @@ pages = OrderedDict(
         "Contributing" => "90-contributing.md",
         "Developer Guide" => "91-developer.md",
     ]
-)  
+)
 
 makedocs(;
     modules=[HOPE],

@@ -1,6 +1,6 @@
 # `MD_GTEP_holistic_full8760_case_v20260406g` / `MD_PCM_holistic_full8760_case_v20260406g`
 
-GTEP case path: `ModelCases/MD_GTEP_holistic_full8760_case_v20260406g`  
+GTEP case path: `ModelCases/MD_GTEP_holistic_full8760_case_v20260406g`
 PCM case path: `ModelCases/MD_PCM_holistic_full8760_case_v20260406g`
 
 Reference preserved solved pair:
