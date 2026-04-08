@@ -32,32 +32,32 @@ manually — HOPE loads them on demand when a case requests them.
 
 ### Setup steps
 
-1. **Obtain a license.**
-   - [Gurobi](https://www.gurobi.com/solutions/licensing/) — free academic license available
-   - [SCIP](https://scipopt.org/) — free for academic use
-   - [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio) — free academic
-     license via IBM Academic Initiative
+**Step 1 — Obtain a license.**
 
-2. **Install the solver and its Julia package.**
+- [Gurobi](https://www.gurobi.com/solutions/licensing/) — free academic license available
+- [SCIP](https://scipopt.org/) — free for academic use
+- [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio) — free academic license via IBM Academic Initiative
 
-   For Gurobi, download and install the Gurobi solver from
-   [gurobi.com](https://www.gurobi.com/downloads/), set the `GRB_LICENSE_FILE`
-   environment variable to point to your `gurobi.lic` file, then add the Julia package:
+**Step 2 — Install the solver and its Julia package.**
 
-   ```julia
-   import Pkg
-   Pkg.activate(".")   # activate the HOPE project environment
-   Pkg.add("Gurobi")   # substitute "SCIP" or "CPLEX" as needed
-   ```
+For Gurobi, download and install the Gurobi solver from
+[gurobi.com](https://www.gurobi.com/downloads/), set the `GRB_LICENSE_FILE`
+environment variable to point to your `gurobi.lic` file, then add the Julia package:
 
-3. **Set the solver** in the case settings file.
+```julia
+import Pkg
+Pkg.activate(".")   # activate the HOPE project environment
+Pkg.add("Gurobi")   # substitute "SCIP" or "CPLEX" as needed
+```
 
-   ```yaml
-   # Settings/HOPE_model_settings.yml
-   solver: gurobi    # or: scip / cplex
-   ```
+**Step 3 — Set the solver** in the case settings file.
 
-   HOPE will issue a clear error if the package is missing or the license is invalid.
+```yaml
+# Settings/HOPE_model_settings.yml
+solver: gurobi    # or: scip / cplex
+```
+
+HOPE will issue a clear error if the package is missing or the license is invalid.
 
 ### Solver settings files
 
@@ -73,6 +73,5 @@ Each solver reads its parameters from a YAML file in the case `Settings/` direct
 | `scip_settings.yml` | SCIP |
 | `cplex_settings.yml` | CPLEX |
 
-Most users do not need to modify these files.  When tuning is required, consult
+Most users do not need to modify these files. When tuning is required, consult
 the documentation for the chosen solver.
-

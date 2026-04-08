@@ -148,31 +148,32 @@ your own Julia environment — HOPE does not pull them in automatically.
 
 ### Steps to enable a commercial solver
 
-1. **Obtain a license.**
-   - [Gurobi Academic or Commercial License](https://www.gurobi.com/solutions/licensing/)
-   - [SCIP (free for academic use)](https://scipopt.org/)
-   - [CPLEX Academic or Commercial License](https://www.ibm.com/products/ilog-cplex-optimization-studio)
+**Step 1 — Obtain a license.**
 
-2. **Install the Julia package** in the HOPE project environment.
+- [Gurobi Academic or Commercial License](https://www.gurobi.com/solutions/licensing/)
+- [SCIP (free for academic use)](https://scipopt.org/)
+- [CPLEX Academic or Commercial License](https://www.ibm.com/products/ilog-cplex-optimization-studio)
 
-   ```julia
-   # start Julia in the HOPE repo root, then:
-   import Pkg
-   Pkg.activate(".")          # activate the HOPE environment
-   Pkg.add("Gurobi")          # or "SCIP" / "CPLEX"
-   ```
+**Step 2 — Install the Julia package** in the HOPE project environment.
 
-   > [!NOTE]
-   > `Gurobi.jl` requires the Gurobi solver itself to be installed on your machine
-   > and a valid `GRB_LICENSE_FILE` environment variable. See the
-   > [Gurobi.jl README](https://github.com/jump-dev/Gurobi.jl) for details.
+```julia
+# start Julia in the HOPE repo root, then:
+import Pkg
+Pkg.activate(".")          # activate the HOPE environment
+Pkg.add("Gurobi")          # or "SCIP" / "CPLEX"
+```
 
-3. **Set the solver** in the case settings file.
+> [!NOTE]
+> `Gurobi.jl` requires the Gurobi solver itself to be installed on your machine
+> and a valid `GRB_LICENSE_FILE` environment variable. See the
+> [Gurobi.jl README](https://github.com/jump-dev/Gurobi.jl) for details.
 
-   ```yaml
-   # ModelCases/<case>/Settings/HOPE_model_settings.yml
-   solver: gurobi    # or: scip / cplex
-   ```
+**Step 3 — Set the solver** in the case settings file.
+
+```yaml
+# ModelCases/<case>/Settings/HOPE_model_settings.yml
+solver: gurobi    # or: scip / cplex
+```
 
 HOPE will load the commercial solver package automatically the first time it is
 requested. If the package is not installed, a clear error message is shown.
