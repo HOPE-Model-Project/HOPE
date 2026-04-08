@@ -43,7 +43,24 @@ function run_hope(case::AbstractString)
 			path = test_path
 		end
 	end
-	
+
+	# Try 4: HOPE_MODELCASES_PATH env var (set when ModelCases lives outside HOPE/)
+	if path === nothing && haskey(ENV, "HOPE_MODELCASES_PATH")
+		mc_root = ENV["HOPE_MODELCASES_PATH"]
+		test_path = joinpath(mc_root, case_path)
+		push!(tried_paths, test_path)
+		if isdir(test_path)
+			path = test_path
+		end
+		if path === nothing
+			test_path = joinpath(mc_root, basename(case_path))
+			push!(tried_paths, test_path)
+			if isdir(test_path)
+				path = test_path
+			end
+		end
+	end
+
 	# If still not found, provide helpful error message
 	if path === nothing
 		available_cases = try

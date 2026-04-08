@@ -39,10 +39,23 @@ Clone OR download the **HOPE** repository to your local directory - click the gr
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`).
 >[!NOTE]
->If you downloaded the ZIP, rename the extracted folder to `HOPE` (the zip extracts to a folder named after the branch, e.g., `HOPE-master-dev`).
+>If you downloaded the ZIP, rename the extracted folder to `HOPE` (the zip extracts to a folder named after the branch, e.g., `HOPE-main`).
 
 In your `HOPE` project, the files should be something like below:
 ![image](https://github.com/swang22/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
+
+## 3. Get model cases
+
+Model cases are maintained in a separate repository: [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases). Clone it into the `ModelCases/` folder inside your HOPE directory:
+
+```bash
+git clone https://github.com/HOPE-Model-Project/HOPEModelCases HOPE/ModelCases
+```
+
+This is the **recommended setup** — HOPE will find the cases automatically with no extra configuration. To update your model cases later, run `git pull` inside `HOPE/ModelCases/`.
+
+>[!NOTE]
+>If you prefer to store model cases elsewhere, clone `HOPEModelCases` to any path and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE. See the [HOPEModelCases README](https://github.com/HOPE-Model-Project/HOPEModelCases) for details.
  
 
 # Run a Case in HOPE
@@ -133,10 +146,6 @@ If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
 # Documentation
 
 Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
-
-For a brief guide to how the newer `master-dev` branch differs from the older `master` branch, see [VERSION_DIFFERENCES.md](VERSION_DIFFERENCES.md).
-
-Current active development is tracked on `master-dev`. The legacy `master` branch is being retained during the transition and is planned to be archived later as `master-v1`.
 
 # Research & Publication
 
