@@ -131,17 +131,51 @@ Follow these steps:
 
 
 # Solvers
+
 ## Free Solvers
-**Cbc**
+
+HOPE bundles the following open-source solvers and no extra installation is needed:
+**HiGHS** (default), **GLPK**, **Clp**, **Cbc**.
+
+Set `solver: highs` (or any of the above) in
+`ModelCases/<case>/Settings/HOPE_model_settings.yml`.
 
 ## Commercial Solvers
-If you want to use commercial solvers, e.g., **Gurobi** and **CPLEX**
-1. You need to get the licenses from these solvers. [Gurobi](https://www.gurobi.com/solutions/licensing/?campaignid=2027425882&adgroupid=138872525680&creative=596136109143&keyword=gurobi%20license&matchtype=e&_bn=g&gad_source=1&gclid=CjwKCAiAlcyuBhBnEiwAOGZ2S58i-V4O5NOhUBGcfMmqsbiM1jWYudIrbNsfUYIozsGvJDUu_lE05hoCJMAQAvD_BwE) or [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio/cplex-optimizer)
-2. In the `(HOPE) pkg>` project package mode (type `]` in the Julia package mode), install the Gurobi or CPLEX dependencies `(HOPE) pkg> add Gurobi` or `(HOPE) pkg> add CPLEX`
-3. Install the solver package you want to use. `Gurobi.jl` and `CPLEX.jl` are loaded automatically when they are installed and the case requests the corresponding solver.
-4. Set the solver you want to use in the file `ModelCases/<the case folder you want to run>/Settings/HOPE_model_settings.yml`
->[!NOTE]
->You may need to re-activate HOPE if you have made modifications as above.
+
+**Gurobi**, **SCIP**, and **CPLEX** are supported but are *not* installed by default.
+Because they require a separate license, they are optional dependencies that you add to
+your own Julia environment — HOPE does not pull them in automatically.
+
+### Steps to enable a commercial solver
+
+1. **Obtain a license.**
+   - [Gurobi Academic or Commercial License](https://www.gurobi.com/solutions/licensing/)
+   - [SCIP (free for academic use)](https://scipopt.org/)
+   - [CPLEX Academic or Commercial License](https://www.ibm.com/products/ilog-cplex-optimization-studio)
+
+2. **Install the Julia package** in the HOPE project environment.
+
+   ```julia
+   # start Julia in the HOPE repo root, then:
+   import Pkg
+   Pkg.activate(".")          # activate the HOPE environment
+   Pkg.add("Gurobi")          # or "SCIP" / "CPLEX"
+   ```
+
+   > [!NOTE]
+   > `Gurobi.jl` requires the Gurobi solver itself to be installed on your machine
+   > and a valid `GRB_LICENSE_FILE` environment variable. See the
+   > [Gurobi.jl README](https://github.com/jump-dev/Gurobi.jl) for details.
+
+3. **Set the solver** in the case settings file.
+
+   ```yaml
+   # ModelCases/<case>/Settings/HOPE_model_settings.yml
+   solver: gurobi    # or: scip / cplex
+   ```
+
+HOPE will load the commercial solver package automatically the first time it is
+requested. If the package is not installed, a clear error message is shown.
 
 # Documentation
 

@@ -13,17 +13,13 @@ using Distances
 using Combinatorics
 using Statistics
 
-##using solver#
-
-try
-    using Gurobi
-catch
-    # Keep HOPE loadable in environments without Gurobi.
-end
-#using CPLEX
+##using solver##
+# Open-source solvers are loaded unconditionally.
+# Commercial solvers (Gurobi, SCIP, CPLEX) are optional: install them separately
+# with `Pkg.add("Gurobi")` etc. and HOPE will find them automatically when the
+# case settings request them.
 using Cbc
 using HiGHS
-#using SCIP
 using Clp
 using GLPK
 
