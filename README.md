@@ -1,7 +1,7 @@
 # HOPE - Holistic Optimization Program for Electricity 
 
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://hope-model-project.github.io/HOPE/dev/)
-[![Build Status](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml/badge.svg?branch=master-dev)](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml?query=branch%3Amaster-dev)
+[![Build Status](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/HOPE-Model-Project/HOPE/actions/workflows/Test.yml?query=branch%3Amain)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 
@@ -26,7 +26,9 @@ Users can select the proper mode of HOPE based on their research needs. Each mod
 
 The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and [Zoe Song](https://).
 
-Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel) 
+Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel)
+
+> **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
 
 # Preparation Phase
 ## 1. Install Julia
