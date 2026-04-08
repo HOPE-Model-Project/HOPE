@@ -14,6 +14,13 @@
 !/tools/**/raw_sources/**/README.md
 **/__pycache__/
 
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Local scratch / debug scripts (not part of the package)
+check_docs.jl
+
 # Generated preprocessing outputs and local analysis artifacts
 /tools/**/outputs/*.csv
 /tools/**/outputs/*.log
