@@ -86,7 +86,7 @@ endogenous_rep_day: 0
 external_rep_day: 1
 flexible_demand: 0
 planning_reserve_mode: 0
-solver: cbc
+solver: highs
 save_postprocess_snapshot: 1
 """)
         end
@@ -100,7 +100,7 @@ resource_types:
         open(joinpath(settings_dir, "HOPE_rep_day_settings.yml"), "w") do io
             write(io, "time_periods:\n  1: [1, 1, 1, 1]\n")
         end
-        open(joinpath(settings_dir, "cbc_settings.yml"), "w") do io
+        open(joinpath(settings_dir, "highs_settings.yml"), "w") do io
             write(io, "TimeLimit: 60\n")
         end
 
@@ -112,7 +112,7 @@ resource_types:
             "external_rep_day" => 1,
             "flexible_demand" => 0,
             "planning_reserve_mode" => 0,
-            "solver" => "cbc",
+            "solver" => "highs",
             "save_postprocess_snapshot" => 1,
         )
         base_input, fixed_input = build_snapshot_test_inputs()
@@ -133,13 +133,13 @@ resource_types:
         @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_model_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_rep_day_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "Settings", "HOPE_erec_settings.yml"))
-        @test isfile(joinpath(snapshot_dir, "Settings", "cbc_settings.yml"))
+        @test isfile(joinpath(snapshot_dir, "Settings", "highs_settings.yml"))
         @test isfile(joinpath(snapshot_dir, "base_input", "gendata.csv"))
         @test isfile(joinpath(snapshot_dir, "fixed_fleet_input", "gendata.csv"))
 
         loaded = HOPE.load_postprocess_snapshot(output_dir)
         @test loaded["output_path"] == output_dir
-        @test loaded["config"]["solver"] == "cbc"
+        @test loaded["config"]["solver"] == "highs"
         @test loaded["metadata"]["save_postprocess_snapshot"] == 1
         @test nrow(loaded["base_input"]["Gendata"]) == 1
         @test nrow(loaded["base_input"]["Gendata_candidate"]) == 1

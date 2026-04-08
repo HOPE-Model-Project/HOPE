@@ -146,7 +146,7 @@ operation_reserve_mode: 0
 transmission_loss: 0
 write_shadow_prices: 0
 summary_table: 0
-solver: cbc
+solver: highs
 debug: 0
 endogenous_rep_day: 0
 external_rep_day: 1
@@ -168,11 +168,10 @@ output_dir_name: output_erec
 """)
     end
 
-    open(joinpath(settings_dir, "cbc_settings.yml"), "w") do io
+    open(joinpath(settings_dir, "highs_settings.yml"), "w") do io
         write(io, """
 TimeLimit: 60
-logLevel: 0
-threads: 1
+LogLevel: 0
 """)
     end
 
