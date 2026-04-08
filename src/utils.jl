@@ -115,7 +115,8 @@ Get the case directory and default `output/` directory paths for a given case.
 """
 function get_case_paths(case_name::String)
     project_root = get_project_root()
-    case_dir = joinpath(project_root, "ModelCases", case_name)
+    modelcases_root = get(ENV, "HOPE_MODELCASES_PATH", joinpath(project_root, "ModelCases"))
+    case_dir = joinpath(modelcases_root, case_name)
     output_dir = joinpath(case_dir, "output")
     return case_dir, output_dir
 end
@@ -127,8 +128,9 @@ Get the default `output/` directory path and case directory path for a given cas
 """
 function get_paths(case_name::String = "MD_clean_case0RPS")
     project_root = get_project_root()
-    output_dir = joinpath(project_root, "ModelCases", case_name, "output")
-    case_dir = joinpath(project_root, "ModelCases", case_name)
+    modelcases_root = get(ENV, "HOPE_MODELCASES_PATH", joinpath(project_root, "ModelCases"))
+    output_dir = joinpath(modelcases_root, case_name, "output")
+    case_dir = joinpath(modelcases_root, case_name)
     return output_dir, case_dir
 end
 

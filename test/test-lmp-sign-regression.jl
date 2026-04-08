@@ -131,15 +131,19 @@ function run_price_sign_check(case_rel::AbstractString, semantics::Symbol, con_n
 end
 
 @testset "PCM LMP Sign Regression" begin
-    angle_report = run_price_sign_check("ModelCases/ISONE_PCM_250bus_case", :balance_rhs_load, :PBNode_con)
+    if get(ENV, "HOPE_MODELCASES_PATH", "") == ""
+        @info "Skipping LMP sign regression test. Set HOPE_MODELCASES_PATH to the ModelCases directory to enable."
+    else
+    angle_report = run_price_sign_check(joinpath(ENV["HOPE_MODELCASES_PATH"], "ISONE_PCM_250bus_case"), :balance_rhs_load, :PBNode_con)
     @test isapprox(angle_report.exported_lmp, angle_report.file_lmp; atol = 1.0e-6)
     @test isapprox(angle_report.exported_lmp, angle_report.delta_obj; atol = 1.0e-4, rtol = 1.0e-6)
     @test isapprox(angle_report.exported_lmp, angle_report.raw_dual; atol = 1.0e-6)
     @test isapprox(angle_report.exported_lmp, -angle_report.raw_shadow; atol = 1.0e-6)
 
-    ptdf_report = run_price_sign_check("ModelCases/RTS24_PCM_fullfunc_case", :ptdf_injection_definition, :PTDFInjDef_con)
+    ptdf_report = run_price_sign_check(joinpath(ENV["HOPE_MODELCASES_PATH"], "RTS24_PCM_fullfunc_case"), :ptdf_injection_definition, :PTDFInjDef_con)
     @test isapprox(ptdf_report.exported_lmp, ptdf_report.file_lmp; atol = 1.0e-6)
     @test isapprox(ptdf_report.exported_lmp, ptdf_report.delta_obj; atol = 1.0e-4, rtol = 1.0e-6)
     @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_dual; atol = 1.0e-6)
     @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_shadow; atol = 1.0e-6)
+    end
 end
