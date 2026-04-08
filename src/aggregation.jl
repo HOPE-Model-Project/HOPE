@@ -5,23 +5,16 @@ Return default advanced settings for resource aggregation. These settings are
 loaded from `Settings/HOPE_aggregation_settings.yml` when
 `resource_aggregation = 1`.
 """
-function default_aggregation_settings(config_set::AbstractDict=Dict{String,Any}())
+function default_aggregation_settings(config_set::AbstractDict = Dict{String,Any}())
     return Dict{String,Any}(
         "write_aggregation_audit" => 1,
         "aggregation_method" => "basic",
-        "grouping_keys" => ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
+        "grouping_keys" =>
+            ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
         "pcm_additional_grouping_keys" => ["Flag_UC"],
         "clustered_thermal_commitment" => 1,
-        "clustering_feature_columns" => [
-            "Cost (\$/MWh)",
-            "FOR",
-            "CC",
-            "AF",
-            "RU",
-            "RD",
-            "Pmax (MW)",
-            "Pmin (MW)",
-        ],
+        "clustering_feature_columns" =>
+            ["Cost (\$/MWh)", "FOR", "CC", "AF", "RU", "RD", "Pmax (MW)", "Pmin (MW)"],
         "clustering_target_cluster_size" => 4,
         "clustering_max_clusters_per_group" => 4,
         "normalize_clustering_features" => 1,
@@ -55,17 +48,19 @@ end
 function normalize_aggregation_settings!(settings::AbstractDict)
     if !haskey(settings, "aggregation_method")
         if haskey(settings, "feature_based_clustering")
-            settings["aggregation_method"] = parse_aggregation_binary(
-                settings["feature_based_clustering"],
-                "aggregation_settings.feature_based_clustering",
-            ) == 1 ? "feature_based" : "basic"
+            settings["aggregation_method"] =
+                parse_aggregation_binary(
+                    settings["feature_based_clustering"],
+                    "aggregation_settings.feature_based_clustering",
+                ) == 1 ? "feature_based" : "basic"
         else
             settings["aggregation_method"] = "basic"
         end
     end
 
     if !haskey(settings, "feature_based_clustering")
-        settings["feature_based_clustering"] = settings["aggregation_method"] == "feature_based" ? 1 : 0
+        settings["feature_based_clustering"] =
+            settings["aggregation_method"] == "feature_based" ? 1 : 0
     end
     return settings
 end
@@ -79,9 +74,11 @@ function parse_aggregation_binary(x, keyname::AbstractString)
 end
 
 function aggregation_settings_value(config_set::AbstractDict, key::AbstractString, default)
-    settings = haskey(config_set, "aggregation_settings") ?
-        Dict{String,Any}(string(k) => v for (k, v) in pairs(config_set["aggregation_settings"])) :
-        default_aggregation_settings(config_set)
+    settings =
+        haskey(config_set, "aggregation_settings") ?
+        Dict{String,Any}(
+            string(k) => v for (k, v) in pairs(config_set["aggregation_settings"])
+        ) : default_aggregation_settings(config_set)
     normalize_aggregation_settings!(settings)
     return get(settings, key, default)
 end
@@ -101,9 +98,15 @@ function clustered_thermal_commitment_enabled(config_set::AbstractDict)
 end
 
 function aggregation_method(config_set::AbstractDict)
-    method = lowercase(string(aggregation_settings_value(config_set, "aggregation_method", "basic")))
+    method = lowercase(
+        string(aggregation_settings_value(config_set, "aggregation_method", "basic")),
+    )
     if !(method in ("basic", "feature_based"))
-        throw(ArgumentError("aggregation_settings.aggregation_method must be \"basic\" or \"feature_based\"."))
+        throw(
+            ArgumentError(
+                "aggregation_settings.aggregation_method must be \"basic\" or \"feature_based\".",
+            ),
+        )
     end
     return method
 end
@@ -123,7 +126,11 @@ function clustering_target_cluster_size(config_set::AbstractDict)
     raw = aggregation_settings_value(config_set, "clustering_target_cluster_size", 4)
     v = raw isa Integer ? Int(raw) : parse(Int, string(raw))
     if v < 1
-        throw(ArgumentError("aggregation_settings.clustering_target_cluster_size must be >= 1."))
+        throw(
+            ArgumentError(
+                "aggregation_settings.clustering_target_cluster_size must be >= 1.",
+            ),
+        )
     end
     return v
 end
@@ -132,12 +139,20 @@ function clustering_max_clusters_per_group(config_set::AbstractDict)
     raw = aggregation_settings_value(config_set, "clustering_max_clusters_per_group", 4)
     v = raw isa Integer ? Int(raw) : parse(Int, string(raw))
     if v < 0
-        throw(ArgumentError("aggregation_settings.clustering_max_clusters_per_group must be >= 0."))
+        throw(
+            ArgumentError(
+                "aggregation_settings.clustering_max_clusters_per_group must be >= 0.",
+            ),
+        )
     end
     return v
 end
 
-function aggregation_setting_string_list(config_set::AbstractDict, key::AbstractString, default::Vector{String}=String[])
+function aggregation_setting_string_list(
+    config_set::AbstractDict,
+    key::AbstractString,
+    default::Vector{String} = String[],
+)
     raw = aggregation_settings_value(config_set, key, default)
     if raw isa AbstractVector
         return [string(v) for v in raw]
@@ -148,22 +163,38 @@ function aggregation_setting_string_list(config_set::AbstractDict, key::Abstract
     end
 end
 
-function aggregation_grouping_keys(df::AbstractDataFrame, config_set::AbstractDict, model_mode::AbstractString)
+function aggregation_grouping_keys(
+    df::AbstractDataFrame,
+    config_set::AbstractDict,
+    model_mode::AbstractString,
+)
     keys = aggregation_setting_string_list(
         config_set,
         "grouping_keys",
         ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
     )
-    explicit_grouping_keys = haskey(config_set, "aggregation_settings") &&
+    explicit_grouping_keys =
+        haskey(config_set, "aggregation_settings") &&
         haskey(config_set["aggregation_settings"], "grouping_keys")
     if model_mode == "PCM"
-        append!(keys, aggregation_setting_string_list(config_set, "pcm_additional_grouping_keys", ["Flag_UC"]))
+        append!(
+            keys,
+            aggregation_setting_string_list(
+                config_set,
+                "pcm_additional_grouping_keys",
+                ["Flag_UC"],
+            ),
+        )
     end
     available = Set(string.(names(df)))
     missing = [k for k in keys if !(k in available)]
     if !isempty(missing)
         if explicit_grouping_keys
-            throw(ArgumentError("aggregation_settings.grouping_keys contains columns missing from input data: $(join(missing, ", "))."))
+            throw(
+                ArgumentError(
+                    "aggregation_settings.grouping_keys contains columns missing from input data: $(join(missing, ", ")).",
+                ),
+            )
         end
         keys = [k for k in keys if k in available]
     end
@@ -171,9 +202,12 @@ function aggregation_grouping_keys(df::AbstractDataFrame, config_set::AbstractDi
 end
 
 function aggregation_should_merge_type(type_name::AbstractString, config_set::AbstractDict)
-    keep_separate = Set(aggregation_setting_string_list(config_set, "keep_separate_technologies", String[]))
+    keep_separate = Set(
+        aggregation_setting_string_list(config_set, "keep_separate_technologies", String[]),
+    )
     type_name in keep_separate && return false
-    aggregate_only = Set(aggregation_setting_string_list(config_set, "aggregate_technologies", String[]))
+    aggregate_only =
+        Set(aggregation_setting_string_list(config_set, "aggregate_technologies", String[]))
     isempty(aggregate_only) && return true
     return type_name in aggregate_only
 end

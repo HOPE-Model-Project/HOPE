@@ -22,29 +22,39 @@ Missing values default to 0.
 function parse_line_loss_rates(df::DataFrame)
     to_float_local(v) = v isa Number ? Float64(v) : parse(Float64, string(v))
     loss_cols = Set(string.(names(df)))
-    loss_col = first_existing_col(loss_cols, [
-        "Loss (%)",
-        "Loss_pct",
-        "Loss Factor",
-        "Loss_Factor",
-        "Line_Loss_Percentage",
-        "Line Loss Percentage",
-        "loss_pct",
-        "loss_factor",
-    ])
+    loss_col = first_existing_col(
+        loss_cols,
+        [
+            "Loss (%)",
+            "Loss_pct",
+            "Loss Factor",
+            "Loss_Factor",
+            "Line_Loss_Percentage",
+            "Line Loss Percentage",
+            "loss_pct",
+            "loss_factor",
+        ],
+    )
     rates = zeros(Float64, nrow(df))
     if loss_col === nothing
         return rates
     end
-    for row in 1:nrow(df)
+    for row = 1:nrow(df)
         raw = df[row, loss_col]
-        rate = if raw === missing || raw === nothing || (raw isa AbstractString && isempty(strip(raw)))
-            0.0
-        else
-            to_float_local(raw)
-        end
+        rate =
+            if raw === missing ||
+               raw === nothing ||
+               (raw isa AbstractString && isempty(strip(raw)))
+                0.0
+            else
+                to_float_local(raw)
+            end
         if rate < 0.0
-            throw(ArgumentError("Transmission loss rate in column '$(loss_col)' must be non-negative; found $(rate) at row $(row)."))
+            throw(
+                ArgumentError(
+                    "Transmission loss rate in column '$(loss_col)' must be non-negative; found $(rate) at row $(row).",
+                ),
+            )
         end
         rates[row] = rate > 1.0 ? rate / 100.0 : rate
     end
@@ -56,11 +66,20 @@ Resolve a reference node from either:
 - integer index in 1..n_nodes
 - node id key found in node_idx_map
 """
-function resolve_reference_index(reference_raw, n_nodes::Int, node_idx_map::AbstractDict, node_label::String)
+function resolve_reference_index(
+    reference_raw,
+    n_nodes::Int,
+    node_idx_map::AbstractDict,
+    node_label::String,
+)
     if reference_raw isa Integer
         ref_idx = Int(reference_raw)
         if ref_idx < 1 || ref_idx > n_nodes
-            throw(ArgumentError("Invalid $(node_label) reference index=$(ref_idx). Expected integer in [1,$(n_nodes)]."))
+            throw(
+                ArgumentError(
+                    "Invalid $(node_label) reference index=$(ref_idx). Expected integer in [1,$(n_nodes)].",
+                ),
+            )
         end
         return ref_idx
     end
@@ -72,20 +91,30 @@ function resolve_reference_index(reference_raw, n_nodes::Int, node_idx_map::Abst
     if haskey(node_idx_map, ref_key_str)
         return node_idx_map[ref_key_str]
     end
-    throw(ArgumentError("Invalid $(node_label) reference=$(reference_raw). Provide either a valid index or an existing node id."))
+    throw(
+        ArgumentError(
+            "Invalid $(node_label) reference=$(reference_raw). Provide either a valid index or an existing node id.",
+        ),
+    )
 end
 
 """
 Compute PTDF matrix from line incidence and reactance data.
 """
-function compute_ptdf_from_incidence(from_idx::Vector{Int}, to_idx::Vector{Int}, x_vals::Vector{Float64}, n_nodes::Int, reference_node::Int)
+function compute_ptdf_from_incidence(
+    from_idx::Vector{Int},
+    to_idx::Vector{Int},
+    x_vals::Vector{Float64},
+    n_nodes::Int,
+    reference_node::Int,
+)
     n_line = length(from_idx)
     if n_nodes < 2
         throw(ArgumentError("PTDF requires at least 2 nodes; got $(n_nodes)."))
     end
     A = zeros(Float64, n_line, n_nodes)
     b = zeros(Float64, n_line)
-    for l in 1:n_line
+    for l = 1:n_line
         x = x_vals[l]
         if x == 0.0
             throw(ArgumentError("Line $(l) has zero reactance, cannot compute PTDF."))
@@ -97,10 +126,12 @@ function compute_ptdf_from_incidence(from_idx::Vector{Int}, to_idx::Vector{Int},
     Bdiag = Diagonal(b)
     Bf = Bdiag * A
     Bbus = transpose(A) * Bdiag * A
-    keep = [i for i in 1:n_nodes if i != reference_node]
+    keep = [i for i = 1:n_nodes if i != reference_node]
     Bbus_red = Bbus[keep, keep]
     Bbus_red_inv = if rank(Bbus_red) < length(keep)
-        println("Warning: Reduced B matrix is singular (likely disconnected network). Using pseudo-inverse for PTDF construction.")
+        println(
+            "Warning: Reduced B matrix is singular (likely disconnected network). Using pseudo-inverse for PTDF construction.",
+        )
         pinv(Bbus_red)
     else
         inv(Bbus_red)
@@ -118,25 +149,35 @@ Current PCM behavior does not call this function:
 - network_model=1 uses zonal transport
 - network_model=2/3 use nodal DCOPF
 """
-function compute_zone_ptdf_from_linedata(Linedata::DataFrame, ordered_zone_nm::Vector, reference_bus::Int)
+function compute_zone_ptdf_from_linedata(
+    Linedata::DataFrame,
+    ordered_zone_nm::Vector,
+    reference_bus::Int,
+)
     num_line = size(Linedata, 1)
     num_zone = length(ordered_zone_nm)
-    zone_idx = Dict(ordered_zone_nm[i] => i for i in 1:num_zone)
+    zone_idx = Dict(ordered_zone_nm[i] => i for i = 1:num_zone)
     linedata_cols = Set(string.(names(Linedata)))
     x_col = first_existing_col(linedata_cols, ["X", "Reactance"])
     use_unit_reactance = x_col === nothing
     if use_unit_reactance
-        println("Warning: PTDF auto-computation found no line reactance column (X/Reactance). Using unit reactance X=1.0 for all lines.")
+        println(
+            "Warning: PTDF auto-computation found no line reactance column (X/Reactance). Using unit reactance X=1.0 for all lines.",
+        )
     end
     to_float(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
     from_idx = Vector{Int}(undef, num_line)
     to_idx = Vector{Int}(undef, num_line)
     x_vals = Vector{Float64}(undef, num_line)
-    for l in 1:num_line
+    for l = 1:num_line
         from_zone = Linedata[l, "From_zone"]
         to_zone = Linedata[l, "To_zone"]
         if !haskey(zone_idx, from_zone) || !haskey(zone_idx, to_zone)
-            throw(ArgumentError("Line $(l) uses zones ($(from_zone), $(to_zone)) not found in zonedata Zone_id list."))
+            throw(
+                ArgumentError(
+                    "Line $(l) uses zones ($(from_zone), $(to_zone)) not found in zonedata Zone_id list.",
+                ),
+            )
         end
         from_idx[l] = zone_idx[from_zone]
         to_idx[l] = zone_idx[to_zone]

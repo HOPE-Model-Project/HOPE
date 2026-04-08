@@ -2,43 +2,85 @@ using DataFrames
 using CSV
 
 function build_snapshot_test_inputs()
-    gendata = DataFrame(; Zone=["Z1"], Type=["NGCC_CCS"], EF=[0.4], CC=[0.9], AF=[1.0], FOR=[0.05], Flag_thermal=[1], Flag_VRE=[0], Flag_RET=[0], Flag_mustrun=[0], Flag_RPS=[0])
+    gendata = DataFrame(;
+        Zone = ["Z1"],
+        Type = ["NGCC_CCS"],
+        EF = [0.4],
+        CC = [0.9],
+        AF = [1.0],
+        FOR = [0.05],
+        Flag_thermal = [1],
+        Flag_VRE = [0],
+        Flag_RET = [0],
+        Flag_mustrun = [0],
+        Flag_RPS = [0],
+    )
     gendata[!, Symbol("Pmax (MW)")] = [100.0]
     gendata[!, Symbol("Pmin (MW)")] = [25.0]
     gendata[!, Symbol("Cost (\$/MWh)")] = [30.0]
 
-    gendata_candidate = DataFrame(; Zone=["Z1"], Type=["SolarPV"], EF=[0.0], CC=[0.0], AF=[0.4], FOR=[0.0], Flag_thermal=[0], Flag_VRE=[1], Flag_RET=[0], Flag_mustrun=[0], Flag_RPS=[1])
+    gendata_candidate = DataFrame(;
+        Zone = ["Z1"],
+        Type = ["SolarPV"],
+        EF = [0.0],
+        CC = [0.0],
+        AF = [0.4],
+        FOR = [0.0],
+        Flag_thermal = [0],
+        Flag_VRE = [1],
+        Flag_RET = [0],
+        Flag_mustrun = [0],
+        Flag_RPS = [1],
+    )
     gendata_candidate[!, Symbol("Pmax (MW)")] = [50.0]
     gendata_candidate[!, Symbol("Pmin (MW)")] = [0.0]
     gendata_candidate[!, Symbol("Cost (\$/MWh)")] = [0.0]
 
-    storagedata = DataFrame(; Zone=["Z1"], Type=["Battery"], CC=[0.0])
+    storagedata = DataFrame(; Zone = ["Z1"], Type = ["Battery"], CC = [0.0])
     storagedata[!, Symbol("Capacity (MWh)")] = [40.0]
     storagedata[!, Symbol("Max Power (MW)")] = [10.0]
     storagedata[!, Symbol("Cost (\$/MWh)")] = [1.0]
 
-    storagedata_candidate = DataFrame(; Zone=["Z1"], Type=["Battery"], CC=[0.0])
+    storagedata_candidate = DataFrame(; Zone = ["Z1"], Type = ["Battery"], CC = [0.0])
     storagedata_candidate[!, Symbol("Capacity (MWh)")] = [20.0]
     storagedata_candidate[!, Symbol("Max Power (MW)")] = [5.0]
     storagedata_candidate[!, Symbol("Cost (\$/MWh)")] = [1.0]
-    linedata = DataFrame(; From_zone=["Z1"], To_zone=["Z1"])
+    linedata = DataFrame(; From_zone = ["Z1"], To_zone = ["Z1"])
     linedata[!, Symbol("Capacity (MW)")] = [1000.0]
     linedata[!, Symbol("Cost (M\$)")] = [0.0]
-    linedata_candidate = DataFrame(; From_zone=String[], To_zone=String[])
+    linedata_candidate = DataFrame(; From_zone = String[], To_zone = String[])
     linedata_candidate[!, Symbol("Capacity (MW)")] = Float64[]
     linedata_candidate[!, Symbol("Cost (M\$)")] = Float64[]
-    zonedata = DataFrame(; Zone_id=["Z1"], State=["S1"])
+    zonedata = DataFrame(; Zone_id = ["Z1"], State = ["S1"])
     zonedata[!, Symbol("Demand (MW)")] = [100.0]
     cbpdata = DataFrame(From_state = ["S1"], Carbon_cap = [1.0e6])
     rpsdata = DataFrame(From_state = ["S1"], RPS = [0.0])
-    singlepar = DataFrame(VOLL = [15000.0], Inv_bugt_gen = [0.0], Inv_bugt_storage = [0.0], Inv_bugt_line = [0.0], Reserve_margin = [0.15])
-    loaddata = DataFrame(; Month=[1, 1], Day=[1, 1], Hours=[1, 2], Z1=[0.9, 1.0], NI=[0.0, 0.0])
+    singlepar = DataFrame(
+        VOLL = [15000.0],
+        Inv_bugt_gen = [0.0],
+        Inv_bugt_storage = [0.0],
+        Inv_bugt_line = [0.0],
+        Reserve_margin = [0.15],
+    )
+    loaddata = DataFrame(;
+        Month = [1, 1],
+        Day = [1, 1],
+        Hours = [1, 2],
+        Z1 = [0.9, 1.0],
+        NI = [0.0, 0.0],
+    )
     loaddata[!, Symbol("Time Period")] = [1, 1]
     select!(loaddata, Symbol("Time Period"), :Month, :Day, :Hours, :Z1, :NI)
-    afdata = DataFrame(; Month=[1, 1], Day=[1, 1], Hours=[1, 2], G1=[1.0, 1.0], G2=[0.2, 0.5])
+    afdata = DataFrame(;
+        Month = [1, 1],
+        Day = [1, 1],
+        Hours = [1, 2],
+        G1 = [1.0, 1.0],
+        G2 = [0.2, 0.5],
+    )
     afdata[!, Symbol("Time Period")] = [1, 1]
     select!(afdata, Symbol("Time Period"), :Month, :Day, :Hours, :G1, :G2)
-    repweights = DataFrame(; Weight=[365.0])
+    repweights = DataFrame(; Weight = [365.0])
     repweights[!, Symbol("Time Period")] = [1]
     select!(repweights, Symbol("Time Period"), :Weight)
 
@@ -78,7 +120,9 @@ end
         mkpath(settings_dir)
 
         open(joinpath(settings_dir, "HOPE_model_settings.yml"), "w") do io
-            write(io, """
+            write(
+                io,
+                """
 DataCase: Data/
 model_mode: GTEP
 resource_aggregation: 0
@@ -88,20 +132,24 @@ flexible_demand: 0
 planning_reserve_mode: 0
 solver: highs
 save_postprocess_snapshot: 1
-""")
+""",
+            )
         end
         open(joinpath(settings_dir, "HOPE_erec_settings.yml"), "w") do io
-            write(io, """
+            write(
+                io,
+                """
 enabled: 1
 resource_types:
   - generator
-""")
+""",
+            )
         end
         open(joinpath(settings_dir, "HOPE_rep_day_settings.yml"), "w") do io
             write(io, "time_periods:\n  1: [1, 1, 1, 1]\n")
         end
         open(joinpath(settings_dir, "highs_settings.yml"), "w") do io
-            write(io, "TimeLimit: 60\n")
+            write(io, "TimeLimit: 60.0\n")
         end
 
         config = Dict{String,Any}(
@@ -123,7 +171,7 @@ resource_types:
             config,
             base_input,
             fixed_input;
-            mode=1,
+            mode = 1,
         )
 
         snapshot_dir = snapshot_info["snapshot_dir"]
@@ -145,7 +193,8 @@ resource_types:
         @test nrow(loaded["base_input"]["Gendata_candidate"]) == 1
         @test nrow(loaded["fixed_input"]["Gendata_candidate"]) == 0
         @test "NI" in names(loaded["base_input"]["Loaddata"])
-        @test length(loaded["base_input"]["NIdata"]) == nrow(loaded["base_input"]["Loaddata"])
+        @test length(loaded["base_input"]["NIdata"]) ==
+              nrow(loaded["base_input"]["Loaddata"])
 
         snapshot_settings = HOPE.load_erec_settings(snapshot_dir)
         @test snapshot_settings["resource_types"] == ["generator"]

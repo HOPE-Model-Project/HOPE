@@ -2,10 +2,10 @@ using CSV
 using DataFrames
 
 @testset "Holistic helpers" begin
-	@test HOPE.pcm_clamp_availability_factor(-0.001411903) == 0.0
-	@test HOPE.pcm_clamp_availability_factor(1.25) == 1.0
-	@test HOPE.pcm_clamp_availability_factor(0.42) == 0.42
-	@test HOPE.pcm_clamp_availability_factor(NaN) == 0.0
+    @test HOPE.pcm_clamp_availability_factor(-0.001411903) == 0.0
+    @test HOPE.pcm_clamp_availability_factor(1.25) == 1.0
+    @test HOPE.pcm_clamp_availability_factor(0.42) == 0.42
+    @test HOPE.pcm_clamp_availability_factor(NaN) == 0.0
 
     generation_df = DataFrame(
         :Zone => String[],
@@ -35,7 +35,11 @@ using DataFrames
         Symbol("Cost (\$/MWh)") => [14.0, NaN, missing],
         :FOR => [0.0, NaN, missing],
     )
-    filled = HOPE.holistic_fill_columns(fill_df, [[:Zone, :Type], [:Type]], [Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"), :FOR])
+    filled = HOPE.holistic_fill_columns(
+        fill_df,
+        [[:Zone, :Type], [:Type]],
+        [Symbol("Pmin (MW)"), Symbol("Cost (\$/MWh)"), :FOR],
+    )
     @test filled[2, Symbol("Pmin (MW)")] == 0.0
     @test filled[3, Symbol("Pmin (MW)")] == 0.0
     @test filled[2, Symbol("Cost (\$/MWh)")] == 14.0
@@ -107,14 +111,13 @@ using DataFrames
             ),
         )
 
-        pcm_config = Dict(
-            "resource_aggregation" => 0,
-            "unit_commitment" => 0,
-        )
+        pcm_config = Dict("resource_aggregation" => 0, "unit_commitment" => 0)
 
-        updated_input = HOPE.prepare_pcm_inputs_from_gtep(gtep_output, pcm_input, pcm_config)
+        updated_input =
+            HOPE.prepare_pcm_inputs_from_gtep(gtep_output, pcm_input, pcm_config)
 
-        observed_generation = select(updated_input["Gendata"], :Zone, :Type, Symbol("Pmax (MW)"))
+        observed_generation =
+            select(updated_input["Gendata"], :Zone, :Type, Symbol("Pmax (MW)"))
         sort!(observed_generation, [:Zone, :Type])
         expected_generation = DataFrame(
             :Zone => ["APS_MD", "BGE"],
@@ -123,7 +126,13 @@ using DataFrames
         )
         @test observed_generation == expected_generation
 
-        observed_storage = select(updated_input["Storagedata"], :Zone, :Type, Symbol("Capacity (MWh)"), Symbol("Max Power (MW)"))
+        observed_storage = select(
+            updated_input["Storagedata"],
+            :Zone,
+            :Type,
+            Symbol("Capacity (MWh)"),
+            Symbol("Max Power (MW)"),
+        )
         sort!(observed_storage, [:Zone, :Type])
         expected_storage = DataFrame(
             :Zone => ["APS_MD", "BGE"],
@@ -209,14 +218,16 @@ using DataFrames
             "DataCase" => "Data_PCM2035",
         )
 
-        updated_input = HOPE.prepare_pcm_inputs_from_gtep(gtep_output, pcm_input, pcm_config)
+        updated_input =
+            HOPE.prepare_pcm_inputs_from_gtep(gtep_output, pcm_input, pcm_config)
         @test haskey(updated_input, "GendataRaw")
         @test nrow(updated_input["GendataRaw"]) == 2
         @test updated_input["Gendata"][1, Symbol("Pmax (MW)")] == 150.0
 
         mktempdir() do tmpdir
             case_dir = joinpath(tmpdir, "pcm_case")
-            paths = HOPE.persist_pcm_inputs_for_holistic(case_dir, pcm_config, updated_input)
+            paths =
+                HOPE.persist_pcm_inputs_for_holistic(case_dir, pcm_config, updated_input)
 
             persisted_gendata = CSV.read(paths["gendata"], DataFrame)
             @test nrow(persisted_gendata) == 2
@@ -247,12 +258,19 @@ using DataFrames
             mkpath(joinpath(source_case, "debug_report"))
             mkpath(joinpath(source_case, "output_backup_legacy"))
 
-            write(joinpath(source_case, "Settings", "HOPE_model_settings.yml"), "model_mode: PCM\ndebug_stage_file: \"old/debug_stage.txt\"\n")
+            write(
+                joinpath(source_case, "Settings", "HOPE_model_settings.yml"),
+                "model_mode: PCM\ndebug_stage_file: \"old/debug_stage.txt\"\n",
+            )
             write(joinpath(source_case, "Data", "keep.txt"), "keep")
             write(joinpath(source_case, "output", "drop.txt"), "drop")
 
             debug_stage_file = joinpath(tmpdir, "fresh", "debug_stage.txt")
-            fresh_case = HOPE.prepare_fresh_holistic_case(source_case, "test_run"; debug_stage_file=debug_stage_file)
+            fresh_case = HOPE.prepare_fresh_holistic_case(
+                source_case,
+                "test_run";
+                debug_stage_file = debug_stage_file,
+            )
 
             @test fresh_case != source_case
             @test isdir(fresh_case)
@@ -264,9 +282,13 @@ using DataFrames
             @test !isdir(joinpath(fresh_case, "debug_report"))
             @test !isdir(joinpath(fresh_case, "output_backup_legacy"))
 
-            settings_text = read(joinpath(fresh_case, "Settings", "HOPE_model_settings.yml"), String)
+            settings_text =
+                read(joinpath(fresh_case, "Settings", "HOPE_model_settings.yml"), String)
             expected_debug_stage_file = replace(normpath(debug_stage_file), "\\" => "/")
-            @test occursin("debug_stage_file: \"$(expected_debug_stage_file)\"", settings_text)
+            @test occursin(
+                "debug_stage_file: \"$(expected_debug_stage_file)\"",
+                settings_text,
+            )
         end
     end
 end

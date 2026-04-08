@@ -6,7 +6,8 @@ const PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
 to_float_test(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
 
 function test_case_config(case_path::AbstractString)
-    config = HOPE.YAML.load(open(joinpath(case_path, "Settings", "HOPE_model_settings.yml")))
+    config =
+        HOPE.YAML.load(open(joinpath(case_path, "Settings", "HOPE_model_settings.yml")))
     config["solver"] = "clp"
     config["summary_table"] = 0
     config["debug"] = 0
@@ -20,12 +21,22 @@ function test_case_config(case_path::AbstractString)
 end
 
 function trim_pcm_timeseries!(input_data::Dict)
-    for key in ("Loaddata", "Winddata", "Solardata", "DRtsdata", "NodalLoaddata", "NodalNIdata", "AFdata")
+    for key in (
+        "Loaddata",
+        "Winddata",
+        "Solardata",
+        "DRtsdata",
+        "NodalLoaddata",
+        "NodalNIdata",
+        "AFdata",
+    )
         if haskey(input_data, key)
             input_data[key] = copy(input_data[key][1:1, :])
         end
     end
-    input_data["NIdata"] = ("NI" in names(input_data["Loaddata"])) ? copy(input_data["Loaddata"][:, "NI"]) : zeros(1)
+    input_data["NIdata"] =
+        ("NI" in names(input_data["Loaddata"])) ? copy(input_data["Loaddata"][:, "NI"]) :
+        zeros(1)
     return input_data
 end
 
@@ -39,7 +50,7 @@ function ensure_nodal_load!(input_data::Dict)
             nodal[!, Symbol(col)] = copy(loaddata[:, col])
         end
     end
-    for row in 1:nrow(busdata)
+    for row = 1:nrow(busdata)
         bus_id = string(busdata[row, "Bus_id"])
         zone_id = string(busdata[row, "Zone_id"])
         nodal[!, Symbol(bus_id)] = to_float_test.(loaddata[:, zone_id])
@@ -51,7 +62,10 @@ end
 function bus_peak_mw_by_row(input_data::Dict)
     busdata = input_data["Busdata"]
     zonedata = input_data["Zonedata"]
-    zone_peak = Dict(string(zonedata[i, "Zone_id"]) => to_float_test(zonedata[i, "Demand (MW)"]) for i in 1:nrow(zonedata))
+    zone_peak = Dict(
+        string(zonedata[i, "Zone_id"]) => to_float_test(zonedata[i, "Demand (MW)"]) for
+        i = 1:nrow(zonedata)
+    )
     bus_peak = zeros(Float64, nrow(busdata))
     for zone in unique(string.(busdata[:, "Zone_id"]))
         rows = findall(string.(busdata[:, "Zone_id"]) .== zone)
@@ -71,7 +85,8 @@ end
 
 function bus_column_name(df::DataFrame, bus_label::AbstractString)
     match_idx = findfirst(name -> string(name) == bus_label, names(df))
-    match_idx === nothing && error("Bus column $(bus_label) not found in nodal load dataframe.")
+    match_idx === nothing &&
+        error("Bus column $(bus_label) not found in nodal load dataframe.")
     return names(df)[match_idx]
 end
 
@@ -134,16 +149,34 @@ end
     if get(ENV, "HOPE_MODELCASES_PATH", "") == ""
         @info "Skipping LMP sign regression test. Set HOPE_MODELCASES_PATH to the ModelCases directory to enable."
     else
-    angle_report = run_price_sign_check(joinpath(ENV["HOPE_MODELCASES_PATH"], "ISONE_PCM_250bus_case"), :balance_rhs_load, :PBNode_con)
-    @test isapprox(angle_report.exported_lmp, angle_report.file_lmp; atol = 1.0e-6)
-    @test isapprox(angle_report.exported_lmp, angle_report.delta_obj; atol = 1.0e-4, rtol = 1.0e-6)
-    @test isapprox(angle_report.exported_lmp, angle_report.raw_dual; atol = 1.0e-6)
-    @test isapprox(angle_report.exported_lmp, -angle_report.raw_shadow; atol = 1.0e-6)
+        angle_report = run_price_sign_check(
+            joinpath(ENV["HOPE_MODELCASES_PATH"], "ISONE_PCM_250bus_case"),
+            :balance_rhs_load,
+            :PBNode_con,
+        )
+        @test isapprox(angle_report.exported_lmp, angle_report.file_lmp; atol = 1.0e-6)
+        @test isapprox(
+            angle_report.exported_lmp,
+            angle_report.delta_obj;
+            atol = 1.0e-4,
+            rtol = 1.0e-6,
+        )
+        @test isapprox(angle_report.exported_lmp, angle_report.raw_dual; atol = 1.0e-6)
+        @test isapprox(angle_report.exported_lmp, -angle_report.raw_shadow; atol = 1.0e-6)
 
-    ptdf_report = run_price_sign_check(joinpath(ENV["HOPE_MODELCASES_PATH"], "RTS24_PCM_fullfunc_case"), :ptdf_injection_definition, :PTDFInjDef_con)
-    @test isapprox(ptdf_report.exported_lmp, ptdf_report.file_lmp; atol = 1.0e-6)
-    @test isapprox(ptdf_report.exported_lmp, ptdf_report.delta_obj; atol = 1.0e-4, rtol = 1.0e-6)
-    @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_dual; atol = 1.0e-6)
-    @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_shadow; atol = 1.0e-6)
+        ptdf_report = run_price_sign_check(
+            joinpath(ENV["HOPE_MODELCASES_PATH"], "RTS24_PCM_fullfunc_case"),
+            :ptdf_injection_definition,
+            :PTDFInjDef_con,
+        )
+        @test isapprox(ptdf_report.exported_lmp, ptdf_report.file_lmp; atol = 1.0e-6)
+        @test isapprox(
+            ptdf_report.exported_lmp,
+            ptdf_report.delta_obj;
+            atol = 1.0e-4,
+            rtol = 1.0e-6,
+        )
+        @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_dual; atol = 1.0e-6)
+        @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_shadow; atol = 1.0e-6)
     end
 end

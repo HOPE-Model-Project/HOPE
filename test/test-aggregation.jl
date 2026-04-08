@@ -7,7 +7,8 @@ using JuMP
     @test defaults["write_aggregation_audit"] == 1
     @test defaults["clustered_thermal_commitment"] == 1
     @test defaults["aggregation_method"] == "basic"
-    @test defaults["grouping_keys"] == ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"]
+    @test defaults["grouping_keys"] ==
+          ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"]
 
     mktempdir() do tmpdir
         case_dir = joinpath(tmpdir, "agg_case")
@@ -44,12 +45,14 @@ using JuMP
         "G2" => [0.2, 0.4],
         "G3" => [1.0, 1.0],
     )
-    cand = DataFrame(
-        Zone = String[],
-        Type = String[],
-    )
+    cand = DataFrame(Zone = String[], Type = String[])
     agg_af = HOPE.aggregate_afdata_gtep(raw, agg, cand, raw_af)
-    audit = HOPE.build_gtep_aggregation_audit(raw, agg; raw_afdata=raw_af, aggregated_afdata=agg_af)
+    audit = HOPE.build_gtep_aggregation_audit(
+        raw,
+        agg;
+        raw_afdata = raw_af,
+        aggregated_afdata = agg_af,
+    )
 
     @test nrow(audit["mapping"]) == 3
     @test nrow(audit["summary"]) == 2
@@ -85,7 +88,14 @@ using JuMP
     sep_cfg = Dict{String,Any}(
         "resource_aggregation" => 1,
         "aggregation_settings" => Dict(
-            "grouping_keys" => ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
+            "grouping_keys" => [
+                "Zone",
+                "Type",
+                "Flag_RET",
+                "Flag_mustrun",
+                "Flag_VRE",
+                "Flag_thermal",
+            ],
             "pcm_additional_grouping_keys" => Any[],
             "aggregate_technologies" => Any[],
             "keep_separate_technologies" => ["SolarPV"],
@@ -113,7 +123,14 @@ using JuMP
     clustered_cfg = Dict{String,Any}(
         "resource_aggregation" => 1,
         "aggregation_settings" => Dict(
-            "grouping_keys" => ["Zone", "Type", "Flag_RET", "Flag_mustrun", "Flag_VRE", "Flag_thermal"],
+            "grouping_keys" => [
+                "Zone",
+                "Type",
+                "Flag_RET",
+                "Flag_mustrun",
+                "Flag_VRE",
+                "Flag_thermal",
+            ],
             "pcm_additional_grouping_keys" => Any[],
             "aggregation_method" => "feature_based",
             "clustering_feature_columns" => ["Cost (\$/MWh)", "FOR", "CC"],
@@ -127,8 +144,14 @@ using JuMP
     clustered_costs = sort(Float64.(clustered_agg[!, Symbol("Cost (\$/MWh)")]))
     @test clustered_costs[1] ≈ 26.0 atol=0.1
     @test clustered_costs[2] ≈ 86.0 atol=0.1
-    clustered_audit = HOPE.build_gtep_aggregation_audit(clustered_raw, clustered_agg; config_set=clustered_cfg)
-    @test any(occursin("FeatureCluster=", k) for k in clustered_audit["summary"][!, :GroupingKey])
+    clustered_audit = HOPE.build_gtep_aggregation_audit(
+        clustered_raw,
+        clustered_agg;
+        config_set = clustered_cfg,
+    )
+    @test any(
+        occursin("FeatureCluster=", k) for k in clustered_audit["summary"][!, :GroupingKey]
+    )
 
     pcm_raw = DataFrame(
         Zone = ["Z1", "Z1"],
@@ -154,7 +177,8 @@ using JuMP
         "unit_commitment" => 1,
         "resource_aggregation" => 1,
         "aggregation_settings" => Dict(
-            "grouping_keys" => ["Zone", "Type", "Flag_thermal", "Flag_VRE", "Flag_mustrun"],
+            "grouping_keys" =>
+                ["Zone", "Type", "Flag_thermal", "Flag_VRE", "Flag_mustrun"],
             "pcm_additional_grouping_keys" => ["Flag_UC"],
             "clustered_thermal_commitment" => 1,
         ),
@@ -176,10 +200,7 @@ using JuMP
     @test preagg_pcm_agg[1, Symbol("ClusteredUnitPmin (MW)")] ≈ 12.0
 
     uc_model = Model()
-    input_data = Dict(
-        "Gendata" => pcm_agg,
-        "Loaddata" => DataFrame(Zone = [1.0, 1.0]),
-    )
+    input_data = Dict("Gendata" => pcm_agg, "Loaddata" => DataFrame(Zone = [1.0, 1.0]))
     @variable(uc_model, p[1:nrow(pcm_agg), 1:2] >= 0)
     HOPE.unit_commitment!(pcm_cfg, input_data, uc_model)
     @test upper_bound(uc_model[:o][1, 1]) == 2.0

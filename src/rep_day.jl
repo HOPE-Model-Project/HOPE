@@ -5,13 +5,22 @@ Return default advanced settings for endogenous representative-day construction.
 These settings are loaded from `Settings/HOPE_rep_day_settings.yml` when
 `endogenous_rep_day = 1`.
 """
-function default_rep_day_settings(config_set::AbstractDict=Dict{String,Any}())
-    default_time_periods = haskey(config_set, "time_periods") ? deepcopy(config_set["time_periods"]) : Dict{Any,Any}()
+function default_rep_day_settings(config_set::AbstractDict = Dict{String,Any}())
+    default_time_periods =
+        haskey(config_set, "time_periods") ? deepcopy(config_set["time_periods"]) :
+        Dict{Any,Any}()
     return Dict{String,Any}(
         "time_periods" => default_time_periods,
         "clustering_method" => "kmedoids",
         "feature_mode" => "planning_features",
-        "planning_feature_set" => ["zonal_load", "zonal_net_load", "zonal_wind_cf", "zonal_solar_cf", "system_net_load", "system_ramp"],
+        "planning_feature_set" => [
+            "zonal_load",
+            "zonal_net_load",
+            "zonal_wind_cf",
+            "zonal_solar_cf",
+            "system_net_load",
+            "system_ramp",
+        ],
         "representative_days_per_period" => 2,
         "add_extreme_days" => 1,
         "extreme_day_metrics" => ["peak_load", "peak_net_load", "max_ramp"],
@@ -78,9 +87,18 @@ function parse_time_period_tuple(dates)
     end
     vals = collect(dates)
     if length(vals) != 4
-        throw(ArgumentError("Invalid time_period entry $(dates). Expected 4 values: (start_month, start_day, end_month, end_day)."))
+        throw(
+            ArgumentError(
+                "Invalid time_period entry $(dates). Expected 4 values: (start_month, start_day, end_month, end_day).",
+            ),
+        )
     end
-    return (to_int_rep_day(vals[1]), to_int_rep_day(vals[2]), to_int_rep_day(vals[3]), to_int_rep_day(vals[4]))
+    return (
+        to_int_rep_day(vals[1]),
+        to_int_rep_day(vals[2]),
+        to_int_rep_day(vals[3]),
+        to_int_rep_day(vals[4]),
+    )
 end
 
 """
@@ -92,45 +110,81 @@ Return endogenous representative-day time periods as an ordered vector of
 `config_set["time_periods"]` is used.
 """
 function resolve_rep_day_time_periods(config_set::AbstractDict)
-    settings = haskey(config_set, "rep_day_settings") ? config_set["rep_day_settings"] : default_rep_day_settings(config_set)
-    raw_time_periods = get(settings, "time_periods", get(config_set, "time_periods", nothing))
+    settings =
+        haskey(config_set, "rep_day_settings") ? config_set["rep_day_settings"] :
+        default_rep_day_settings(config_set)
+    raw_time_periods =
+        get(settings, "time_periods", get(config_set, "time_periods", nothing))
     if raw_time_periods === nothing || isempty(raw_time_periods)
-        throw(ArgumentError("endogenous_rep_day=1 requires representative-day time_periods. Provide them in HOPE_rep_day_settings.yml under `time_periods:`."))
+        throw(
+            ArgumentError(
+                "endogenous_rep_day=1 requires representative-day time_periods. Provide them in HOPE_rep_day_settings.yml under `time_periods:`.",
+            ),
+        )
     end
     pairs_vec = Pair{Int,NTuple{4,Int}}[]
     for (key, value) in pairs(raw_time_periods)
         push!(pairs_vec, to_int_rep_day(key) => parse_time_period_tuple(value))
     end
-    sort!(pairs_vec; by=first)
+    sort!(pairs_vec; by = first)
     expected = collect(1:length(pairs_vec))
     found = [first(p) for p in pairs_vec]
     if found != expected
-        throw(ArgumentError("Representative-day time_period keys must be contiguous 1..T. Found $(found)."))
+        throw(
+            ArgumentError(
+                "Representative-day time_period keys must be contiguous 1..T. Found $(found).",
+            ),
+        )
     end
     return pairs_vec
 end
 
 function rep_day_settings_value(config_set::AbstractDict, key::AbstractString, default)
-    settings = haskey(config_set, "rep_day_settings") ? config_set["rep_day_settings"] : default_rep_day_settings(config_set)
+    settings =
+        haskey(config_set, "rep_day_settings") ? config_set["rep_day_settings"] :
+        default_rep_day_settings(config_set)
     return get(settings, key, default)
 end
 
 function parse_rep_day_metric_list(raw_metrics, keyname::AbstractString)
-    metrics = raw_metrics isa AbstractVector ? lowercase.(strip.(string.(collect(raw_metrics)))) : [lowercase(strip(string(raw_metrics)))]
+    metrics =
+        raw_metrics isa AbstractVector ? lowercase.(strip.(string.(collect(raw_metrics)))) :
+        [lowercase(strip(string(raw_metrics)))]
     allowed = Set(["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"])
     bad = [m for m in metrics if !(m in allowed)]
     if !isempty(bad)
-        throw(ArgumentError("Invalid $(keyname)=$(bad). Allowed values: peak_load, peak_net_load, min_wind, min_solar, max_ramp."))
+        throw(
+            ArgumentError(
+                "Invalid $(keyname)=$(bad). Allowed values: peak_load, peak_net_load, min_wind, min_solar, max_ramp.",
+            ),
+        )
     end
     return unique(metrics)
 end
 
 function parse_rep_day_feature_list(raw_features, keyname::AbstractString)
-    features = raw_features isa AbstractVector ? lowercase.(strip.(string.(collect(raw_features)))) : [lowercase(strip(string(raw_features)))]
-    allowed = Set(["zonal_load", "zonal_net_load", "zonal_wind_cf", "zonal_solar_cf", "system_load", "system_net_load", "zonal_ramp", "system_ramp", "ni"])
+    features =
+        raw_features isa AbstractVector ?
+        lowercase.(strip.(string.(collect(raw_features)))) :
+        [lowercase(strip(string(raw_features)))]
+    allowed = Set([
+        "zonal_load",
+        "zonal_net_load",
+        "zonal_wind_cf",
+        "zonal_solar_cf",
+        "system_load",
+        "system_net_load",
+        "zonal_ramp",
+        "system_ramp",
+        "ni",
+    ])
     bad = [f for f in features if !(f in allowed)]
     if !isempty(bad)
-        throw(ArgumentError("Invalid $(keyname)=$(bad). Allowed values: zonal_load, zonal_net_load, zonal_wind_cf, zonal_solar_cf, system_load, system_net_load, zonal_ramp, system_ramp, ni."))
+        throw(
+            ArgumentError(
+                "Invalid $(keyname)=$(bad). Allowed values: zonal_load, zonal_net_load, zonal_wind_cf, zonal_solar_cf, system_load, system_net_load, zonal_ramp, system_ramp, ni.",
+            ),
+        )
     end
     return unique(features)
 end
@@ -151,16 +205,28 @@ end
 
 function validate_endogenous_rep_day_partition(loaddata::DataFrame, rep_time_periods)
     if !all(col -> col in names(loaddata), ["Month", "Day"])
-        throw(ArgumentError("endogenous_rep_day requires Month and Day columns in load_timeseries_regional for time-period validation."))
+        throw(
+            ArgumentError(
+                "endogenous_rep_day requires Month and Day columns in load_timeseries_regional for time-period validation.",
+            ),
+        )
     end
 
-    day_keys = sort!(unique([(Int(loaddata[row_idx, "Month"]), Int(loaddata[row_idx, "Day"])) for row_idx in 1:nrow(loaddata)]); by = x -> day_of_year_no_leap(x[1], x[2]))
+    day_keys = sort!(
+        unique([
+            (Int(loaddata[row_idx, "Month"]), Int(loaddata[row_idx, "Day"])) for
+            row_idx = 1:nrow(loaddata)
+        ]);
+        by = x -> day_of_year_no_leap(x[1], x[2]),
+    )
     missing_days = Tuple{Int,Int}[]
     overlap_days = Vector{Tuple{Tuple{Int,Int},Vector{Int}}}()
 
     for day_key in day_keys
         day_row = (Month = day_key[1], Day = day_key[2])
-        matched_periods = Int[first(tp) for tp in rep_time_periods if row_in_time_period(last(tp), day_row)]
+        matched_periods = Int[
+            first(tp) for tp in rep_time_periods if row_in_time_period(last(tp), day_row)
+        ]
         if isempty(matched_periods)
             push!(missing_days, day_key)
         elseif length(matched_periods) > 1
@@ -173,14 +239,30 @@ function validate_endogenous_rep_day_partition(loaddata::DataFrame, rep_time_per
         messages = String[]
         if !isempty(missing_days)
             examples = join(format_day.(missing_days[1:min(end, 5)]), ", ")
-            push!(messages, "gap days not covered by any time_period (examples: $(examples))")
+            push!(
+                messages,
+                "gap days not covered by any time_period (examples: $(examples))",
+            )
         end
         if !isempty(overlap_days)
-            examples = join(["$(format_day(day_key)) -> periods $(periods)" for (day_key, periods) in overlap_days[1:min(end, 5)]], "; ")
-            push!(messages, "overlap days covered by multiple time_period entries (examples: $(examples))")
+            examples = join(
+                [
+                    "$(format_day(day_key)) -> periods $(periods)" for
+                    (day_key, periods) in overlap_days[1:min(end, 5)]
+                ],
+                "; ",
+            )
+            push!(
+                messages,
+                "overlap days covered by multiple time_period entries (examples: $(examples))",
+            )
         end
         details = join(messages, " ; ")
-        throw(ArgumentError("Invalid representative-day time_periods: they must cover each real chronology day exactly once. Found $(details)."))
+        throw(
+            ArgumentError(
+                "Invalid representative-day time_periods: they must cover each real chronology day exactly once. Found $(details).",
+            ),
+        )
     end
 end
 
@@ -188,26 +270,42 @@ function validate_external_rep_day_inputs(
     loaddata::DataFrame,
     afdata::DataFrame,
     rep_weight_df::DataFrame;
-    drtsdata::Union{Nothing,DataFrame}=nothing,
+    drtsdata::Union{Nothing,DataFrame} = nothing,
 )
     if !("Time Period" in names(rep_weight_df)) || !("Weight" in names(rep_weight_df))
-        throw(ArgumentError("rep_period_weights must include columns: 'Time Period' and 'Weight'."))
+        throw(
+            ArgumentError(
+                "rep_period_weights must include columns: 'Time Period' and 'Weight'.",
+            ),
+        )
     end
 
     t_raw = Int.(rep_weight_df[!, "Time Period"])
     duplicate_t = unique(t_raw[findall(>(1), [count(==(t), t_raw) for t in t_raw])])
     if !isempty(duplicate_t)
-        throw(ArgumentError("rep_period_weights contains duplicate Time Period rows: $(sort(unique(duplicate_t))). Provide exactly one weight per representative period."))
+        throw(
+            ArgumentError(
+                "rep_period_weights contains duplicate Time Period rows: $(sort(unique(duplicate_t))). Provide exactly one weight per representative period.",
+            ),
+        )
     end
 
     weights = Float64.(rep_weight_df[!, "Weight"])
     bad_rows = findall(w -> !isfinite(w) || w <= 0.0, weights)
     if !isempty(bad_rows)
-        throw(ArgumentError("rep_period_weights must contain strictly positive finite weights. Invalid rows: $(bad_rows)."))
+        throw(
+            ArgumentError(
+                "rep_period_weights must contain strictly positive finite weights. Invalid rows: $(bad_rows).",
+            ),
+        )
     end
     total_weight = sum(weights)
     if !(isfinite(total_weight) && total_weight > 0.0)
-        throw(ArgumentError("rep_period_weights must sum to a positive finite value. Found $(total_weight)."))
+        throw(
+            ArgumentError(
+                "rep_period_weights must sum to a positive finite value. Found $(total_weight).",
+            ),
+        )
     end
     if abs(total_weight - round(total_weight)) > 1.0e-6
         @warn "rep_period_weights sums to $(total_weight), which is not an integer number of original periods/days. This is allowed, but unusual for a standard annual representative-day mapping."
@@ -218,27 +316,51 @@ function validate_external_rep_day_inputs(
         throw(ArgumentError("rep_period_weights is empty."))
     end
     if t_vals != collect(1:length(t_vals))
-        throw(ArgumentError("rep_period_weights Time Period must be contiguous 1..T. Found: $(t_vals)."))
+        throw(
+            ArgumentError(
+                "rep_period_weights Time Period must be contiguous 1..T. Found: $(t_vals).",
+            ),
+        )
     end
 
-    function validate_external_timeseries_periods(df::DataFrame, label::AbstractString, expected_t::Vector{Int})
+    function validate_external_timeseries_periods(
+        df::DataFrame,
+        label::AbstractString,
+        expected_t::Vector{Int},
+    )
         required_cols = ["Time Period", "Hours"]
         missing_cols = [c for c in required_cols if !(c in names(df))]
         if !isempty(missing_cols)
-            throw(ArgumentError("$(label) is missing required columns $(missing_cols) for external representative-day mode."))
+            throw(
+                ArgumentError(
+                    "$(label) is missing required columns $(missing_cols) for external representative-day mode.",
+                ),
+            )
         end
         data_t_vals = sort(unique(Int.(df[!, "Time Period"])))
         if data_t_vals != expected_t
-            throw(ArgumentError("Time Period IDs in $(label) ($(data_t_vals)) must match rep_period_weights ($(expected_t)) for external representative mode."))
+            throw(
+                ArgumentError(
+                    "Time Period IDs in $(label) ($(data_t_vals)) must match rep_period_weights ($(expected_t)) for external representative mode.",
+                ),
+            )
         end
         for t in expected_t
             idx_t = findall(Int.(df[!, "Time Period"]) .== t)
             if length(idx_t) != 24
-                throw(ArgumentError("Each external representative Time Period must contain exactly 24 rows in $(label). Found $(length(idx_t)) rows for Time Period=$(t)."))
+                throw(
+                    ArgumentError(
+                        "Each external representative Time Period must contain exactly 24 rows in $(label). Found $(length(idx_t)) rows for Time Period=$(t).",
+                    ),
+                )
             end
             hours_t = Int.(df[idx_t, "Hours"])
             if sort(hours_t) != collect(1:24)
-                throw(ArgumentError("Hours for external representative Time Period=$(t) in $(label) must be 1..24 exactly once. Found $(sort(hours_t))."))
+                throw(
+                    ArgumentError(
+                        "Hours for external representative Time Period=$(t) in $(label) must be 1..24 exactly once. Found $(sort(hours_t)).",
+                    ),
+                )
             end
         end
     end
@@ -253,10 +375,12 @@ function validate_external_rep_day_inputs(
         @warn "rep_period_weights sums to $(total_weight), which is smaller than the number of representative periods ($(length(t_vals))). This implies an average weight below 1.0 per representative period."
     end
 
-    return Dict(Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df))
+    return Dict(
+        Int(row["Time Period"]) => Float64(row["Weight"]) for row in eachrow(rep_weight_df)
+    )
 end
 
-function select_rep_columns(df::DataFrame, requested_cols; include_ni::Bool=false)
+function select_rep_columns(df::DataFrame, requested_cols; include_ni::Bool = false)
     cols = [col for col in string.(collect(requested_cols)) if col in names(df)]
     if include_ni && ("NI" in names(df))
         push!(cols, "NI")
@@ -266,10 +390,14 @@ end
 
 function collect_day_blocks(df::DataFrame, dates::NTuple{4,Int})
     if !all(col -> col in names(df), ["Month", "Day", "Hours"])
-        throw(ArgumentError("endogenous_rep_day requires Month, Day, and Hours columns in full chronology inputs."))
+        throw(
+            ArgumentError(
+                "endogenous_rep_day requires Month, Day, and Hours columns in full chronology inputs.",
+            ),
+        )
     end
     day_rows = Dict{Tuple{Int,Int},Vector{Int}}()
-    for row_idx in 1:nrow(df)
+    for row_idx = 1:nrow(df)
         row = df[row_idx, :]
         if row_in_time_period(dates, row)
             key = (Int(row.Month), Int(row.Day))
@@ -282,12 +410,20 @@ function collect_day_blocks(df::DataFrame, dates::NTuple{4,Int})
         rows = day_rows[key]
         hours = Int.(df[rows, "Hours"])
         if length(rows) != 24 || sort(hours) != collect(1:24)
-            throw(ArgumentError("Each endogenous representative-day candidate must contain exactly 24 hourly rows with Hours=1:24. Problem found for Month=$(key[1]) Day=$(key[2])."))
+            throw(
+                ArgumentError(
+                    "Each endogenous representative-day candidate must contain exactly 24 hourly rows with Hours=1:24. Problem found for Month=$(key[1]) Day=$(key[2]).",
+                ),
+            )
         end
         push!(blocks, (key = key, rows = rows[sortperm(hours)]))
     end
     if isempty(blocks)
-        throw(ArgumentError("No chronology rows matched the requested representative-day time period $(dates)."))
+        throw(
+            ArgumentError(
+                "No chronology rows matched the requested representative-day time period $(dates).",
+            ),
+        )
     end
     return blocks
 end
@@ -316,16 +452,36 @@ function build_joint_daily_feature_matrix(
     ordered_gen,
     config_set::AbstractDict,
 )
-    include_load = parse_rep_day_binary(rep_day_settings_value(config_set, "include_load", 1), "rep_day_settings.include_load")
-    include_af = parse_rep_day_binary(rep_day_settings_value(config_set, "include_af", 1), "rep_day_settings.include_af")
-    include_dr = parse_rep_day_binary(rep_day_settings_value(config_set, "include_dr", 1), "rep_day_settings.include_dr")
-    normalize_features = parse_rep_day_binary(rep_day_settings_value(config_set, "normalize_features", 1), "rep_day_settings.normalize_features")
+    include_load = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "include_load", 1),
+        "rep_day_settings.include_load",
+    )
+    include_af = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "include_af", 1),
+        "rep_day_settings.include_af",
+    )
+    include_dr = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "include_dr", 1),
+        "rep_day_settings.include_dr",
+    )
+    normalize_features = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "normalize_features", 1),
+        "rep_day_settings.normalize_features",
+    )
 
-    load_cols = include_load == 1 ? select_rep_columns(loaddata, ordered_zone; include_ni=true) : String[]
+    load_cols =
+        include_load == 1 ? select_rep_columns(loaddata, ordered_zone; include_ni = true) :
+        String[]
     af_cols = include_af == 1 ? select_rep_columns(afdata, ordered_gen) : String[]
-    dr_cols = (include_dr == 1 && drtsdata !== nothing) ? select_rep_columns(drtsdata, ordered_zone) : String[]
+    dr_cols =
+        (include_dr == 1 && drtsdata !== nothing) ?
+        select_rep_columns(drtsdata, ordered_zone) : String[]
     if isempty(load_cols) && isempty(af_cols) && isempty(dr_cols)
-        throw(ArgumentError("Representative-day feature matrix is empty. Enable at least one of include_load/include_af/include_dr in HOPE_rep_day_settings.yml."))
+        throw(
+            ArgumentError(
+                "Representative-day feature matrix is empty. Enable at least one of include_load/include_af/include_dr in HOPE_rep_day_settings.yml.",
+            ),
+        )
     end
 
     feature_matrix = Matrix{Float64}(undef, length(day_blocks), 0)
@@ -361,7 +517,12 @@ function zone_string(value)
     return string(value)
 end
 
-function generator_zone_type_maps(generator_df::Union{Nothing,DataFrame}, ordered_zone, ordered_gen, afdata::DataFrame)
+function generator_zone_type_maps(
+    generator_df::Union{Nothing,DataFrame},
+    ordered_zone,
+    ordered_gen,
+    afdata::DataFrame,
+)
     zone_labels = string.(ordered_zone)
     wind_maps = Dict(zone => (String[], Float64[]) for zone in zone_labels)
     solar_maps = Dict(zone => (String[], Float64[]) for zone in zone_labels)
@@ -395,13 +556,18 @@ function generator_zone_type_maps(generator_df::Union{Nothing,DataFrame}, ordere
     return wind_maps, solar_maps
 end
 
-function weighted_profile_from_cols(df::DataFrame, rows::Vector{Int}, cols::Vector{String}, weights::Vector{Float64})
+function weighted_profile_from_cols(
+    df::DataFrame,
+    rows::Vector{Int},
+    cols::Vector{String},
+    weights::Vector{Float64},
+)
     if isempty(cols)
         return zeros(Float64, length(rows))
     end
     mat = Matrix{Float64}(df[rows, cols])
     if isempty(weights) || sum(weights) <= 0
-        return vec(mean(mat, dims=2))
+        return vec(mean(mat, dims = 2))
     end
     return vec(mat * (weights ./ sum(weights)))
 end
@@ -415,21 +581,33 @@ function build_planning_daily_feature_matrix(
     config_set::AbstractDict,
     generator_df::Union{Nothing,DataFrame},
 )
-    normalize_features = parse_rep_day_binary(rep_day_settings_value(config_set, "normalize_features", 1), "rep_day_settings.normalize_features")
+    normalize_features = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "normalize_features", 1),
+        "rep_day_settings.normalize_features",
+    )
     feature_set = parse_rep_day_feature_list(
-        rep_day_settings_value(config_set, "planning_feature_set", default_rep_day_settings(config_set)["planning_feature_set"]),
+        rep_day_settings_value(
+            config_set,
+            "planning_feature_set",
+            default_rep_day_settings(config_set)["planning_feature_set"],
+        ),
         "rep_day_settings.planning_feature_set",
     )
-    isempty(feature_set) && throw(ArgumentError("rep_day_settings.planning_feature_set cannot be empty when feature_mode = planning_features."))
+    isempty(feature_set) && throw(
+        ArgumentError(
+            "rep_day_settings.planning_feature_set cannot be empty when feature_mode = planning_features.",
+        ),
+    )
 
     zone_labels = string.(ordered_zone)
-    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni=false)
-    wind_maps, solar_maps = generator_zone_type_maps(generator_df, ordered_zone, ordered_gen, afdata)
+    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni = false)
+    wind_maps, solar_maps =
+        generator_zone_type_maps(generator_df, ordered_zone, ordered_gen, afdata)
 
     feature_matrix = Matrix{Float64}(undef, length(day_blocks), 0)
     for (day_idx, block) in enumerate(day_blocks)
         load_block = Matrix{Float64}(loaddata[block.rows, load_cols])
-        system_load = vec(sum(load_block, dims=2))
+        system_load = vec(sum(load_block, dims = 2))
         ni = "NI" in names(loaddata) ? Float64.(loaddata[block.rows, "NI"]) : zeros(24)
         zonal_features = Dict{String,Any}()
         system_wind = zeros(24)
@@ -440,17 +618,21 @@ function build_planning_daily_feature_matrix(
             zonal_load = load_block[:, z_idx]
             wind_cols, wind_weights = wind_maps[zone]
             solar_cols, solar_weights = solar_maps[zone]
-            zonal_wind_cf = weighted_profile_from_cols(afdata, block.rows, wind_cols, wind_weights)
-            zonal_solar_cf = weighted_profile_from_cols(afdata, block.rows, solar_cols, solar_weights)
+            zonal_wind_cf =
+                weighted_profile_from_cols(afdata, block.rows, wind_cols, wind_weights)
+            zonal_solar_cf =
+                weighted_profile_from_cols(afdata, block.rows, solar_cols, solar_weights)
             zonal_wind_potential = sum(wind_weights) .* zonal_wind_cf
             zonal_solar_potential = sum(solar_weights) .* zonal_solar_cf
             system_wind .+= zonal_wind_potential
             system_solar .+= zonal_solar_potential
             zonal_ni = similar(system_load)
             for h in eachindex(system_load)
-                zonal_ni[h] = system_load[h] > 0 ? ni[h] * zonal_load[h] / system_load[h] : 0.0
+                zonal_ni[h] =
+                    system_load[h] > 0 ? ni[h] * zonal_load[h] / system_load[h] : 0.0
             end
-            zonal_net_load = zonal_load .- zonal_ni .- zonal_wind_potential .- zonal_solar_potential
+            zonal_net_load =
+                zonal_load .- zonal_ni .- zonal_wind_potential .- zonal_solar_potential
             push!(zonal_net_cols, zonal_net_load)
             zonal_features["load_$zone"] = zonal_load
             zonal_features["net_$zone"] = zonal_net_load
@@ -507,9 +689,15 @@ end
 
 function normalize_time_period_iterable(time_periods)
     if time_periods isa AbstractVector{<:Pair}
-        return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in time_periods]
+        return [
+            (to_int_rep_day(tp) => parse_time_period_tuple(dates)) for
+            (tp, dates) in time_periods
+        ]
     end
-    return [(to_int_rep_day(tp) => parse_time_period_tuple(dates)) for (tp, dates) in pairs(time_periods)]
+    return [
+        (to_int_rep_day(tp) => parse_time_period_tuple(dates)) for
+        (tp, dates) in pairs(time_periods)
+    ]
 end
 
 """
@@ -518,15 +706,16 @@ end
 Deprecated helper retained for backward compatibility. It builds one synthetic
 centroid day per time period, independently by column.
 """
-function get_representative_ts(df, time_periods, ordered_cols, k=1)
+function get_representative_ts(df, time_periods, ordered_cols, k = 1)
     rep_dat_dict = Dict{Int,DataFrame}()
     ndays_dict = Dict{Int,Int}()
     for (tp, dates) in normalize_time_period_iterable(time_periods)
         blocks = collect_day_blocks(df, dates)
         n_days = length(blocks)
         representative_day_df = DataFrame()
-        for nm in select_rep_columns(df, ordered_cols; include_ni=("NI" in names(df)))
-            col_mtx = hcat([parse.(Float64, string.(df[block.rows, nm])) for block in blocks]...)
+        for nm in select_rep_columns(df, ordered_cols; include_ni = ("NI" in names(df)))
+            col_mtx =
+                hcat([parse.(Float64, string.(df[block.rows, nm])) for block in blocks]...)
             clustering_result = kmeans(col_mtx, 1)
             representative_day_df[!, nm] = clustering_result.centers'[1, :]
         end
@@ -539,8 +728,14 @@ function get_representative_ts(df, time_periods, ordered_cols, k=1)
     return rep_dat_dict, ndays_dict
 end
 
-function extract_rep_block(df::DataFrame, rows::Vector{Int}, ordered_cols; include_ni::Bool=false, add_hour::Bool=false)
-    selected_cols = select_rep_columns(df, ordered_cols; include_ni=include_ni)
+function extract_rep_block(
+    df::DataFrame,
+    rows::Vector{Int},
+    ordered_cols;
+    include_ni::Bool = false,
+    add_hour::Bool = false,
+)
+    selected_cols = select_rep_columns(df, ordered_cols; include_ni = include_ni)
     rep_df = select(df[rows, :], selected_cols)
     if add_hour
         rep_df[!, "Hour"] = collect(1:24)
@@ -554,9 +749,9 @@ function select_medoid_index(feature_matrix::Matrix{Float64})
         return 1
     end
     scores = fill(0.0, n_days)
-    for i in 1:n_days
+    for i = 1:n_days
         xi = view(feature_matrix, i, :)
-        for j in 1:n_days
+        for j = 1:n_days
             xj = view(feature_matrix, j, :)
             scores[i] += sum((xi[k] - xj[k])^2 for k in eachindex(xi))
         end
@@ -578,18 +773,22 @@ function select_medoid_indices(feature_matrix::Matrix{Float64}, k::Int)
         return [medoid], assignments, counts
     end
 
-    distance_matrix = pairwise(SqEuclidean(), transpose(feature_matrix), dims=2)
+    distance_matrix = pairwise(SqEuclidean(), transpose(feature_matrix), dims = 2)
     result = kmedoids(distance_matrix, k)
     medoids = collect(result.medoids)
     sort_order = sortperm(medoids)
     sorted_medoids = medoids[sort_order]
     cluster_map = Dict(old_idx => new_idx for (new_idx, old_idx) in enumerate(sort_order))
     sorted_assignments = [cluster_map[a] for a in result.assignments]
-    sorted_counts = [count(==(cluster_idx), sorted_assignments) for cluster_idx in 1:k]
+    sorted_counts = [count(==(cluster_idx), sorted_assignments) for cluster_idx = 1:k]
     return sorted_medoids, sorted_assignments, sorted_counts
 end
 
-function squared_distance_to_center(feature_matrix::Matrix{Float64}, day_idx::Int, center::AbstractVector{<:Real})
+function squared_distance_to_center(
+    feature_matrix::Matrix{Float64},
+    day_idx::Int,
+    center::AbstractVector{<:Real},
+)
     xi = view(feature_matrix, day_idx, :)
     return sum((xi[k] - center[k])^2 for k in eachindex(xi))
 end
@@ -603,10 +802,13 @@ function select_kmeans_indices(feature_matrix::Matrix{Float64}, k::Int)
         centers = copy(feature_matrix)
         return proxy_indices, assignments, counts, centers
     elseif k == 1
-        center = vec(mean(feature_matrix, dims=1))
+        center = vec(mean(feature_matrix, dims = 1))
         assignments = ones(Int, n_days)
         counts = [n_days]
-        proxy_idx = argmin([squared_distance_to_center(feature_matrix, day_idx, center) for day_idx in 1:n_days])
+        proxy_idx = argmin([
+            squared_distance_to_center(feature_matrix, day_idx, center) for
+            day_idx = 1:n_days
+        ])
         centers = reshape(center, 1, :)
         return [proxy_idx], assignments, counts, centers
     end
@@ -616,14 +818,17 @@ function select_kmeans_indices(feature_matrix::Matrix{Float64}, k::Int)
     centers = transpose(result.centers)
     proxy_indices = Int[]
     counts = Int[]
-    for cluster_idx in 1:k
+    for cluster_idx = 1:k
         members = findall(==(cluster_idx), assignments)
         push!(counts, length(members))
         if isempty(members)
             push!(proxy_indices, 1)
         else
             center = view(centers, cluster_idx, :)
-            nearest_local = argmin([squared_distance_to_center(feature_matrix, day_idx, center) for day_idx in members])
+            nearest_local = argmin([
+                squared_distance_to_center(feature_matrix, day_idx, center) for
+                day_idx in members
+            ])
             push!(proxy_indices, members[nearest_local])
         end
     end
@@ -637,7 +842,11 @@ function select_kmeans_indices(feature_matrix::Matrix{Float64}, k::Int)
     return sorted_proxy_indices, sorted_assignments, sorted_counts, sorted_centers
 end
 
-function select_cluster_representatives(feature_matrix::Matrix{Float64}, k::Int, clustering_method::AbstractString)
+function select_cluster_representatives(
+    feature_matrix::Matrix{Float64},
+    k::Int,
+    clustering_method::AbstractString,
+)
     method = lowercase(String(clustering_method))
     if method == "kmedoids"
         rep_indices, assignments, counts = select_medoid_indices(feature_matrix, k)
@@ -646,19 +855,34 @@ function select_cluster_representatives(feature_matrix::Matrix{Float64}, k::Int,
     elseif method == "kmeans"
         return select_kmeans_indices(feature_matrix, k)
     end
-    throw(ArgumentError("Unsupported rep_day_settings.clustering_method=$(clustering_method). Supported values: kmedoids, kmeans."))
+    throw(
+        ArgumentError(
+            "Unsupported rep_day_settings.clustering_method=$(clustering_method). Supported values: kmedoids, kmeans.",
+        ),
+    )
 end
 
-function combine_rep_day_generator_data(generator_data::Union{Nothing,DataFrame}, candidate_generator_data::Union{Nothing,DataFrame})
+function combine_rep_day_generator_data(
+    generator_data::Union{Nothing,DataFrame},
+    candidate_generator_data::Union{Nothing,DataFrame},
+)
     generator_data === nothing && candidate_generator_data === nothing && return nothing
     existing = generator_data === nothing ? DataFrame() : copy(generator_data)
-    candidate = candidate_generator_data === nothing ? DataFrame() : copy(candidate_generator_data)
-    return isempty(existing) ? candidate : (isempty(candidate) ? existing : vcat(existing, candidate; cols=:union))
+    candidate =
+        candidate_generator_data === nothing ? DataFrame() : copy(candidate_generator_data)
+    return isempty(existing) ? candidate :
+           (isempty(candidate) ? existing : vcat(existing, candidate; cols = :union))
 end
 
-function generator_metric_weights(generator_df::Union{Nothing,DataFrame}, ordered_gen, type_labels::Vector{String})
-    generator_df === nothing && return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
-    isempty(type_labels) && return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
+function generator_metric_weights(
+    generator_df::Union{Nothing,DataFrame},
+    ordered_gen,
+    type_labels::Vector{String},
+)
+    generator_df === nothing &&
+        return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
+    isempty(type_labels) &&
+        return Tuple{Vector{String},Vector{Float64}}(String[], Float64[])
     cols = String[]
     weights = Float64[]
     for (idx, col) in enumerate(string.(ordered_gen))
@@ -672,12 +896,24 @@ function generator_metric_weights(generator_df::Union{Nothing,DataFrame}, ordere
     return cols, weights
 end
 
-function build_centroid_rep_block(df::DataFrame, day_blocks, block_indices::Vector{Int}, ordered_cols; include_ni::Bool=false, add_hour::Bool=false)
-    selected_cols = select_rep_columns(df, ordered_cols; include_ni=include_ni)
+function build_centroid_rep_block(
+    df::DataFrame,
+    day_blocks,
+    block_indices::Vector{Int},
+    ordered_cols;
+    include_ni::Bool = false,
+    add_hour::Bool = false,
+)
+    selected_cols = select_rep_columns(df, ordered_cols; include_ni = include_ni)
     rep_df = DataFrame()
     for col in selected_cols
-        col_stack = hcat([parse.(Float64, string.(df[day_blocks[block_idx].rows, col])) for block_idx in block_indices]...)
-        rep_df[!, col] = vec(mean(col_stack, dims=2))
+        col_stack = hcat(
+            [
+                parse.(Float64, string.(df[day_blocks[block_idx].rows, col])) for
+                block_idx in block_indices
+            ]...,
+        )
+        rep_df[!, col] = vec(mean(col_stack, dims = 2))
     end
     if add_hour
         rep_df[!, "Hour"] = collect(1:24)
@@ -685,7 +921,11 @@ function build_centroid_rep_block(df::DataFrame, day_blocks, block_indices::Vect
     return rep_df
 end
 
-function filter_existing_af_columns(cols::Vector{String}, weights::Vector{Float64}, afdata::DataFrame)
+function filter_existing_af_columns(
+    cols::Vector{String},
+    weights::Vector{Float64},
+    afdata::DataFrame,
+)
     keep = findall(col -> col in names(afdata), cols)
     return cols[keep], weights[keep]
 end
@@ -711,11 +951,14 @@ function compute_extreme_metric_values(
     ordered_gen,
     generator_df::Union{Nothing,DataFrame},
 )
-    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni=false)
-    wind_cols, wind_weights = generator_metric_weights(generator_df, ordered_gen, ["WindOn", "WindOff"])
-    solar_cols, solar_weights = generator_metric_weights(generator_df, ordered_gen, ["SolarPV"])
+    load_cols = select_rep_columns(loaddata, ordered_zone; include_ni = false)
+    wind_cols, wind_weights =
+        generator_metric_weights(generator_df, ordered_gen, ["WindOn", "WindOff"])
+    solar_cols, solar_weights =
+        generator_metric_weights(generator_df, ordered_gen, ["SolarPV"])
     wind_cols, wind_weights = filter_existing_af_columns(wind_cols, wind_weights, afdata)
-    solar_cols, solar_weights = filter_existing_af_columns(solar_cols, solar_weights, afdata)
+    solar_cols, solar_weights =
+        filter_existing_af_columns(solar_cols, solar_weights, afdata)
     values = Dict(
         "peak_load" => fill(-Inf, length(day_blocks)),
         "peak_net_load" => fill(-Inf, length(day_blocks)),
@@ -725,27 +968,42 @@ function compute_extreme_metric_values(
     )
 
     for (block_idx, block) in enumerate(day_blocks)
-        system_load = isempty(load_cols) ? zeros(24) : vec(sum(Matrix{Float64}(loaddata[block.rows, load_cols]), dims=2))
+        system_load =
+            isempty(load_cols) ? zeros(24) :
+            vec(sum(Matrix{Float64}(loaddata[block.rows, load_cols]), dims = 2))
         ni = "NI" in names(loaddata) ? Float64.(loaddata[block.rows, "NI"]) : zeros(24)
 
         wind_cf = if isempty(wind_cols)
             nothing
         else
-            [safe_weighted_average(row_numeric_values(afdata, block.rows[h], wind_cols), wind_weights) for h in 1:24]
+            [
+                safe_weighted_average(
+                    row_numeric_values(afdata, block.rows[h], wind_cols),
+                    wind_weights,
+                ) for h = 1:24
+            ]
         end
         solar_cf = if isempty(solar_cols)
             nothing
         else
-            [safe_weighted_average(row_numeric_values(afdata, block.rows[h], solar_cols), solar_weights) for h in 1:24]
+            [
+                safe_weighted_average(
+                    row_numeric_values(afdata, block.rows[h], solar_cols),
+                    solar_weights,
+                ) for h = 1:24
+            ]
         end
 
-        wind_potential = wind_cf === nothing ? zeros(24) : collect(sum(wind_weights) .* wind_cf)
-        solar_potential = solar_cf === nothing ? zeros(24) : collect(sum(solar_weights) .* solar_cf)
+        wind_potential =
+            wind_cf === nothing ? zeros(24) : collect(sum(wind_weights) .* wind_cf)
+        solar_potential =
+            solar_cf === nothing ? zeros(24) : collect(sum(solar_weights) .* solar_cf)
         net_load = system_load .- ni .- wind_potential .- solar_potential
 
         values["peak_load"][block_idx] = maximum(system_load)
         values["peak_net_load"][block_idx] = maximum(net_load)
-        values["max_ramp"][block_idx] = isempty(net_load) ? -Inf : maximum(vcat(0.0, diff(net_load)))
+        values["max_ramp"][block_idx] =
+            isempty(net_load) ? -Inf : maximum(vcat(0.0, diff(net_load)))
         values["min_wind"][block_idx] = wind_cf === nothing ? Inf : mean(wind_cf)
         values["min_solar"][block_idx] = solar_cf === nothing ? Inf : mean(solar_cf)
     end
@@ -760,16 +1018,30 @@ function select_extreme_day_indices(
     ordered_zone,
     ordered_gen,
     config_set::AbstractDict;
-    generator_data::Union{Nothing,DataFrame}=nothing,
+    generator_data::Union{Nothing,DataFrame} = nothing,
 )
-    add_extreme_days = parse_rep_day_binary(rep_day_settings_value(config_set, "add_extreme_days", 0), "rep_day_settings.add_extreme_days")
+    add_extreme_days = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "add_extreme_days", 0),
+        "rep_day_settings.add_extreme_days",
+    )
     add_extreme_days == 0 && return Int[], String[]
 
     metrics = parse_rep_day_metric_list(
-        rep_day_settings_value(config_set, "extreme_day_metrics", ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"]),
+        rep_day_settings_value(
+            config_set,
+            "extreme_day_metrics",
+            ["peak_load", "peak_net_load", "min_wind", "min_solar", "max_ramp"],
+        ),
         "rep_day_settings.extreme_day_metrics",
     )
-    metric_values = compute_extreme_metric_values(loaddata, afdata, day_blocks, ordered_zone, ordered_gen, generator_data)
+    metric_values = compute_extreme_metric_values(
+        loaddata,
+        afdata,
+        day_blocks,
+        ordered_zone,
+        ordered_gen,
+        generator_data,
+    )
     selected_indices = Int[]
     selected_metrics = String[]
     seen = Set{Int}()
@@ -800,19 +1072,20 @@ function select_iterative_refinement_days(
     cluster_counts::Vector{Float64},
     selected_indices::Vector{Int},
     n_refinement::Int;
-    representative_centers::Union{Nothing,Matrix{Float64}}=nothing,
+    representative_centers::Union{Nothing,Matrix{Float64}} = nothing,
 )
     n_refinement <= 0 && return Tuple{Int,Float64}[]
 
     refinement = Tuple{Int,Float64}[]
     selected_set = Set(selected_indices)
     active_centers = if representative_centers === nothing
-        isempty(selected_indices) ? Matrix{Float64}(undef, 0, size(feature_matrix, 2)) : copy(feature_matrix[selected_indices, :])
+        isempty(selected_indices) ? Matrix{Float64}(undef, 0, size(feature_matrix, 2)) :
+        copy(feature_matrix[selected_indices, :])
     else
         copy(representative_centers)
     end
 
-    for _ in 1:n_refinement
+    for _ = 1:n_refinement
         best_idx = 0
         best_score = -Inf
         for day_idx in axes(feature_matrix, 1)
@@ -823,7 +1096,13 @@ function select_iterative_refinement_days(
             if cluster_counts[cluster_idx] <= 1.0
                 continue
             end
-            score = minimum(squared_distance_to_center(feature_matrix, day_idx, view(active_centers, center_idx, :)) for center_idx in axes(active_centers, 1))
+            score = minimum(
+                squared_distance_to_center(
+                    feature_matrix,
+                    day_idx,
+                    view(active_centers, center_idx, :),
+                ) for center_idx in axes(active_centers, 1)
+            )
             if score > best_score
                 best_idx = day_idx
                 best_score = score
@@ -833,7 +1112,8 @@ function select_iterative_refinement_days(
         cluster_counts[assignments[best_idx]] -= 1.0
         push!(refinement, (best_idx, best_score))
         push!(selected_set, best_idx)
-        active_centers = vcat(active_centers, reshape(copy(feature_matrix[best_idx, :]), 1, :))
+        active_centers =
+            vcat(active_centers, reshape(copy(feature_matrix[best_idx, :]), 1, :))
     end
 
     return refinement
@@ -843,14 +1123,25 @@ function build_storage_rep_linkage(day_assignments::DataFrame)
     if nrow(day_assignments) == 0
         return Dict(
             "day_assignments" => DataFrame(),
-            "transition_table" => DataFrame(PredecessorRepresentativePeriod=Int[], RepresentativePeriod=Int[], Count=Int[], Weight=Float64[]),
+            "transition_table" => DataFrame(
+                PredecessorRepresentativePeriod = Int[],
+                RepresentativePeriod = Int[],
+                Count = Int[],
+                Weight = Float64[],
+            ),
             "predecessors" => Dict{Int,Vector{Int}}(),
             "predecessor_weight" => Dict{Tuple{Int,Int},Float64}(),
-            "run_stats" => DataFrame(RepresentativePeriod=Int[], NumRuns=Int[], AverageRunLength=Float64[], MaxRunLength=Int[]),
+            "run_stats" => DataFrame(
+                RepresentativePeriod = Int[],
+                NumRuns = Int[],
+                AverageRunLength = Float64[],
+                MaxRunLength = Int[],
+            ),
         )
     end
 
-    sorted_assignments = sort(copy(day_assignments), [:DayOfYear, :TimePeriod, :Month, :Day])
+    sorted_assignments =
+        sort(copy(day_assignments), [:DayOfYear, :TimePeriod, :Month, :Day])
     reps = Int.(sorted_assignments[:, "RepresentativePeriod"])
     unique_reps = sort(unique(reps))
 
@@ -858,15 +1149,19 @@ function build_storage_rep_linkage(day_assignments::DataFrame)
     for idx in eachindex(reps)
         prev_rep = reps[idx == 1 ? end : idx - 1]
         curr_rep = reps[idx]
-        transition_counts[(prev_rep, curr_rep)] = get(transition_counts, (prev_rep, curr_rep), 0) + 1
+        transition_counts[(prev_rep, curr_rep)] =
+            get(transition_counts, (prev_rep, curr_rep), 0) + 1
     end
 
-    transition_rows = NamedTuple{(:PredecessorRepresentativePeriod, :RepresentativePeriod, :Count, :Weight),Tuple{Int,Int,Int,Float64}}[]
+    transition_rows = NamedTuple{
+        (:PredecessorRepresentativePeriod, :RepresentativePeriod, :Count, :Weight),
+        Tuple{Int,Int,Int,Float64},
+    }[]
     predecessors = Dict{Int,Vector{Int}}()
     predecessor_weight = Dict{Tuple{Int,Int},Float64}()
     for rep in unique_reps
         incoming = [(prev, cnt) for ((prev, curr), cnt) in transition_counts if curr == rep]
-        sort!(incoming; by=first)
+        sort!(incoming; by = first)
         total_incoming = sum(cnt for (_, cnt) in incoming)
         predecessors[rep] = Int[prev for (prev, _) in incoming]
         for (prev, cnt) in incoming
@@ -876,11 +1171,14 @@ function build_storage_rep_linkage(day_assignments::DataFrame)
         end
     end
 
-    run_rows = NamedTuple{(:RepresentativePeriod, :NumRuns, :AverageRunLength, :MaxRunLength),Tuple{Int,Int,Float64,Int}}[]
+    run_rows = NamedTuple{
+        (:RepresentativePeriod, :NumRuns, :AverageRunLength, :MaxRunLength),
+        Tuple{Int,Int,Float64,Int},
+    }[]
     run_lengths = Dict{Int,Vector{Int}}()
     current_rep = reps[1]
     current_len = 1
-    for idx in 2:length(reps)
+    for idx = 2:length(reps)
         if reps[idx] == current_rep
             current_len += 1
         else
@@ -924,14 +1222,17 @@ function build_endogenous_rep_periods(
     ordered_zone,
     ordered_gen,
     config_set::AbstractDict;
-    drtsdata::Union{Nothing,DataFrame}=nothing,
-    generator_data::Union{Nothing,DataFrame}=nothing,
-    candidate_generator_data::Union{Nothing,DataFrame}=nothing,
+    drtsdata::Union{Nothing,DataFrame} = nothing,
+    generator_data::Union{Nothing,DataFrame} = nothing,
+    candidate_generator_data::Union{Nothing,DataFrame} = nothing,
 )
     rep_time_periods = resolve_rep_day_time_periods(config_set)
     validate_endogenous_rep_day_partition(loaddata, rep_time_periods)
-    feature_mode = lowercase(String(rep_day_settings_value(config_set, "feature_mode", "joint_daily")))
-    clustering_method = lowercase(String(rep_day_settings_value(config_set, "clustering_method", "kmedoids")))
+    feature_mode =
+        lowercase(String(rep_day_settings_value(config_set, "feature_mode", "joint_daily")))
+    clustering_method = lowercase(
+        String(rep_day_settings_value(config_set, "clustering_method", "kmedoids")),
+    )
     rep_days_per_period = parse_rep_day_positive_int(
         rep_day_settings_value(config_set, "representative_days_per_period", 1),
         "rep_day_settings.representative_days_per_period",
@@ -967,12 +1268,18 @@ function build_endogenous_rep_periods(
     method_label = base_method_label
     extreme_method_label = string(base_method_label, "_extreme")
     refinement_method_label = string(base_method_label, "_iterative")
-    iterative_refinement = parse_rep_day_binary(rep_day_settings_value(config_set, "iterative_refinement", 0), "rep_day_settings.iterative_refinement")
+    iterative_refinement = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "iterative_refinement", 0),
+        "rep_day_settings.iterative_refinement",
+    )
     iterative_refinement_days = parse_rep_day_nonnegative_int(
         rep_day_settings_value(config_set, "iterative_refinement_days_per_period", 1),
         "rep_day_settings.iterative_refinement_days_per_period",
     )
-    link_storage_rep_days = parse_rep_day_binary(rep_day_settings_value(config_set, "link_storage_rep_days", 0), "rep_day_settings.link_storage_rep_days")
+    link_storage_rep_days = parse_rep_day_binary(
+        rep_day_settings_value(config_set, "link_storage_rep_days", 0),
+        "rep_day_settings.link_storage_rep_days",
+    )
 
     for (tp, dates) in rep_time_periods
         blocks = collect_day_blocks(loaddata, dates)
@@ -982,12 +1289,25 @@ function build_endogenous_rep_periods(
         end
 
         if !(feature_mode in ("joint_daily", "planning_features"))
-            throw(ArgumentError("Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, planning_features."))
+            throw(
+                ArgumentError(
+                    "Unsupported rep_day_settings.feature_mode=$(feature_mode). Supported values: joint_daily, planning_features.",
+                ),
+            )
         end
 
-        all_generator_data = combine_rep_day_generator_data(generator_data, candidate_generator_data)
+        all_generator_data =
+            combine_rep_day_generator_data(generator_data, candidate_generator_data)
         feature_matrix = if feature_mode == "joint_daily"
-            build_joint_daily_feature_matrix(loaddata, afdata, drtsdata, blocks, ordered_zone, ordered_gen, config_set)
+            build_joint_daily_feature_matrix(
+                loaddata,
+                afdata,
+                drtsdata,
+                blocks,
+                ordered_zone,
+                ordered_gen,
+                config_set,
+            )
         else
             build_planning_daily_feature_matrix(
                 loaddata,
@@ -999,7 +1319,8 @@ function build_endogenous_rep_periods(
                 all_generator_data,
             )
         end
-        rep_indices, assignments, counts, centers = select_cluster_representatives(feature_matrix, k_eff, clustering_method)
+        rep_indices, assignments, counts, centers =
+            select_cluster_representatives(feature_matrix, k_eff, clustering_method)
         cluster_counts = Float64.(counts)
         extreme_indices, extreme_metrics = select_extreme_day_indices(
             loaddata,
@@ -1008,7 +1329,7 @@ function build_endogenous_rep_periods(
             ordered_zone,
             ordered_gen,
             config_set;
-            generator_data=all_generator_data,
+            generator_data = all_generator_data,
         )
         selected_rep_set = clustering_method == "kmedoids" ? Set(rep_indices) : Set{Int}()
         augmented_extremes = Tuple{Int,String}[]
@@ -1023,15 +1344,20 @@ function build_endogenous_rep_periods(
             cluster_counts[cluster_idx] -= 1.0
             push!(augmented_extremes, (extreme_idx, metric))
         end
-        selected_indices = vcat(clustering_method == "kmedoids" ? rep_indices : Int[], first.(augmented_extremes))
-        refinement_days = iterative_refinement == 1 ? select_iterative_refinement_days(
-            feature_matrix,
-            assignments,
-            cluster_counts,
-            selected_indices,
-            iterative_refinement_days;
-            representative_centers=clustering_method == "kmeans" ? centers : nothing,
-        ) : Tuple{Int,Float64}[]
+        selected_indices = vcat(
+            clustering_method == "kmedoids" ? rep_indices : Int[],
+            first.(augmented_extremes),
+        )
+        refinement_days =
+            iterative_refinement == 1 ?
+            select_iterative_refinement_days(
+                feature_matrix,
+                assignments,
+                cluster_counts,
+                selected_indices,
+                iterative_refinement_days;
+                representative_centers = clustering_method == "kmeans" ? centers : nothing,
+            ) : Tuple{Int,Float64}[]
         rep_ids = Int[]
         cluster_rep_id_map = Dict{Int,Int}()
         extreme_rep_id_map = Dict{Int,Int}()
@@ -1039,52 +1365,173 @@ function build_endogenous_rep_periods(
         excluded_indices = Set(vcat(first.(augmented_extremes), first.(refinement_days)))
         for (local_idx, block_idx) in enumerate(rep_indices)
             selected_block = blocks[block_idx]
-            cluster_members = [member_idx for member_idx in eachindex(assignments) if assignments[member_idx] == local_idx && !(member_idx in excluded_indices)]
+            cluster_members = [
+                member_idx for member_idx in eachindex(assignments) if
+                assignments[member_idx] == local_idx && !(member_idx in excluded_indices)
+            ]
             if isempty(cluster_members)
                 cluster_members = [block_idx]
             end
             if clustering_method == "kmeans"
-                load_rep[rep_period_id] = build_centroid_rep_block(loaddata, blocks, cluster_members, ordered_zone; include_ni=true, add_hour=true)
-                af_rep[rep_period_id] = build_centroid_rep_block(afdata, blocks, cluster_members, ordered_gen; include_ni=false, add_hour=false)
+                load_rep[rep_period_id] = build_centroid_rep_block(
+                    loaddata,
+                    blocks,
+                    cluster_members,
+                    ordered_zone;
+                    include_ni = true,
+                    add_hour = true,
+                )
+                af_rep[rep_period_id] = build_centroid_rep_block(
+                    afdata,
+                    blocks,
+                    cluster_members,
+                    ordered_gen;
+                    include_ni = false,
+                    add_hour = false,
+                )
                 if drtsdata !== nothing
-                    dr_rep[rep_period_id] = build_centroid_rep_block(drtsdata, blocks, cluster_members, ordered_zone; include_ni=false, add_hour=false)
+                    dr_rep[rep_period_id] = build_centroid_rep_block(
+                        drtsdata,
+                        blocks,
+                        cluster_members,
+                        ordered_zone;
+                        include_ni = false,
+                        add_hour = false,
+                    )
                 end
             else
-                load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
-                af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+                load_rep[rep_period_id] = extract_rep_block(
+                    loaddata,
+                    selected_block.rows,
+                    ordered_zone;
+                    include_ni = true,
+                    add_hour = true,
+                )
+                af_rep[rep_period_id] = extract_rep_block(
+                    afdata,
+                    selected_block.rows,
+                    ordered_gen;
+                    include_ni = false,
+                    add_hour = false,
+                )
                 if drtsdata !== nothing
-                    dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+                    dr_rep[rep_period_id] = extract_rep_block(
+                        drtsdata,
+                        selected_block.rows,
+                        ordered_zone;
+                        include_ni = false,
+                        add_hour = false,
+                    )
                 end
             end
             ndays[rep_period_id] = cluster_counts[local_idx]
-            selection_type = clustering_method == "kmeans" ? "cluster_centroid" : "cluster_medoid"
-            push!(metadata, (rep_period_id, tp, local_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], method_label, selection_type, "", 0.0))
+            selection_type =
+                clustering_method == "kmeans" ? "cluster_centroid" : "cluster_medoid"
+            push!(
+                metadata,
+                (
+                    rep_period_id,
+                    tp,
+                    local_idx,
+                    selected_block.key[1],
+                    selected_block.key[2],
+                    ndays[rep_period_id],
+                    method_label,
+                    selection_type,
+                    "",
+                    0.0,
+                ),
+            )
             cluster_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
         for (offset_idx, (block_idx, metric)) in enumerate(augmented_extremes)
             selected_block = blocks[block_idx]
-            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
-            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+            load_rep[rep_period_id] = extract_rep_block(
+                loaddata,
+                selected_block.rows,
+                ordered_zone;
+                include_ni = true,
+                add_hour = true,
+            )
+            af_rep[rep_period_id] = extract_rep_block(
+                afdata,
+                selected_block.rows,
+                ordered_gen;
+                include_ni = false,
+                add_hour = false,
+            )
             if drtsdata !== nothing
-                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+                dr_rep[rep_period_id] = extract_rep_block(
+                    drtsdata,
+                    selected_block.rows,
+                    ordered_zone;
+                    include_ni = false,
+                    add_hour = false,
+                )
             end
             ndays[rep_period_id] = 1.0
-            push!(metadata, (rep_period_id, tp, k_eff + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], extreme_method_label, "extreme_day", metric, 0.0))
+            push!(
+                metadata,
+                (
+                    rep_period_id,
+                    tp,
+                    k_eff + offset_idx,
+                    selected_block.key[1],
+                    selected_block.key[2],
+                    ndays[rep_period_id],
+                    extreme_method_label,
+                    "extreme_day",
+                    metric,
+                    0.0,
+                ),
+            )
             extreme_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
         end
         for (offset_idx, (block_idx, score)) in enumerate(refinement_days)
             selected_block = blocks[block_idx]
-            load_rep[rep_period_id] = extract_rep_block(loaddata, selected_block.rows, ordered_zone; include_ni=true, add_hour=true)
-            af_rep[rep_period_id] = extract_rep_block(afdata, selected_block.rows, ordered_gen; include_ni=false, add_hour=false)
+            load_rep[rep_period_id] = extract_rep_block(
+                loaddata,
+                selected_block.rows,
+                ordered_zone;
+                include_ni = true,
+                add_hour = true,
+            )
+            af_rep[rep_period_id] = extract_rep_block(
+                afdata,
+                selected_block.rows,
+                ordered_gen;
+                include_ni = false,
+                add_hour = false,
+            )
             if drtsdata !== nothing
-                dr_rep[rep_period_id] = extract_rep_block(drtsdata, selected_block.rows, ordered_zone; include_ni=false, add_hour=false)
+                dr_rep[rep_period_id] = extract_rep_block(
+                    drtsdata,
+                    selected_block.rows,
+                    ordered_zone;
+                    include_ni = false,
+                    add_hour = false,
+                )
             end
             ndays[rep_period_id] = 1.0
-            push!(metadata, (rep_period_id, tp, k_eff + length(augmented_extremes) + offset_idx, selected_block.key[1], selected_block.key[2], ndays[rep_period_id], refinement_method_label, "refinement_day", "", score))
+            push!(
+                metadata,
+                (
+                    rep_period_id,
+                    tp,
+                    k_eff + length(augmented_extremes) + offset_idx,
+                    selected_block.key[1],
+                    selected_block.key[2],
+                    ndays[rep_period_id],
+                    refinement_method_label,
+                    "refinement_day",
+                    "",
+                    score,
+                ),
+            )
             refinement_rep_id_map[block_idx] = rep_period_id
             push!(rep_ids, rep_period_id)
             rep_period_id += 1
@@ -1101,22 +1548,28 @@ function build_endogenous_rep_periods(
             else
                 assigned_rep = cluster_rep_id_map[rep_indices[assignments[block_idx]]]
                 if haskey(cluster_rep_id_map, block_idx)
-                    assignment_type = clustering_method == "kmeans" ? "cluster_centroid_proxy" : "cluster_medoid"
+                    assignment_type =
+                        clustering_method == "kmeans" ? "cluster_centroid_proxy" :
+                        "cluster_medoid"
                 end
             end
-            push!(day_assignments, (
-                tp,
-                block.key[1],
-                block.key[2],
-                day_of_year_no_leap(block.key[1], block.key[2]),
-                assigned_rep,
-                assignment_type,
-            ))
+            push!(
+                day_assignments,
+                (
+                    tp,
+                    block.key[1],
+                    block.key[2],
+                    day_of_year_no_leap(block.key[1], block.key[2]),
+                    assigned_rep,
+                    assignment_type,
+                ),
+            )
         end
         rep_period_ids_by_time_period[tp] = rep_ids
     end
 
-    storage_linkage = link_storage_rep_days == 1 ? build_storage_rep_linkage(day_assignments) : nothing
+    storage_linkage =
+        link_storage_rep_days == 1 ? build_storage_rep_linkage(day_assignments) : nothing
 
     return Dict(
         "Load_rep" => load_rep,
@@ -1139,8 +1592,15 @@ function endogenous_rep_day_weights(
     ordered_zone,
     ordered_gen,
     config_set::AbstractDict;
-    drtsdata::Union{Nothing,DataFrame}=nothing,
+    drtsdata::Union{Nothing,DataFrame} = nothing,
 )
-    rep = build_endogenous_rep_periods(loaddata, afdata, ordered_zone, ordered_gen, config_set; drtsdata=drtsdata)
+    rep = build_endogenous_rep_periods(
+        loaddata,
+        afdata,
+        ordered_zone,
+        ordered_gen,
+        config_set;
+        drtsdata = drtsdata,
+    )
     return rep["N"]
 end

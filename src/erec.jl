@@ -13,10 +13,7 @@ function default_erec_settings()
         "reference_resource_mode" => "same_zone",
         "resource_types" => ["generator", "storage"],
         "resource_scope" => "built_only",
-        "custom_resources" => Dict{String,Any}(
-            "generators" => Any[],
-            "storages" => Any[],
-        ),
+        "custom_resources" => Dict{String,Any}("generators" => Any[], "storages" => Any[]),
         "write_outputs" => 1,
         "output_dir_name" => "output_erec",
         "erec_results_file" => "erec_results.csv",
@@ -59,10 +56,12 @@ function parse_postprocess_snapshot_mode(x)
     return v
 end
 
-snapshot_dir_from_output(output_path::AbstractString) = joinpath(output_path, POSTPROCESS_SNAPSHOT_DIRNAME)
+snapshot_dir_from_output(output_path::AbstractString) =
+    joinpath(output_path, POSTPROCESS_SNAPSHOT_DIRNAME)
 snapshot_settings_dir(snapshot_dir::AbstractString) = joinpath(snapshot_dir, "Settings")
 snapshot_base_input_dir(snapshot_dir::AbstractString) = joinpath(snapshot_dir, "base_input")
-snapshot_fixed_input_dir(snapshot_dir::AbstractString) = joinpath(snapshot_dir, "fixed_fleet_input")
+snapshot_fixed_input_dir(snapshot_dir::AbstractString) =
+    joinpath(snapshot_dir, "fixed_fleet_input")
 
 function write_yaml_file(path::AbstractString, data)
     open(path, "w") do io
@@ -110,28 +109,51 @@ function load_snapshot_input_tables(source_dir::AbstractString)
         end
     end
     if haskey(input_data, "Loaddata")
-        normalize_timeseries_time_columns!(input_data["Loaddata"]; context="snapshot/load_timeseries_regional")
-        input_data["NIdata"] = ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] : zeros(nrow(input_data["Loaddata"]))
+        normalize_timeseries_time_columns!(
+            input_data["Loaddata"];
+            context = "snapshot/load_timeseries_regional",
+        )
+        input_data["NIdata"] =
+            ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] :
+            zeros(nrow(input_data["Loaddata"]))
     end
     if haskey(input_data, "AFdata")
-        normalize_timeseries_time_columns!(input_data["AFdata"]; context="snapshot/gen_availability_timeseries")
+        normalize_timeseries_time_columns!(
+            input_data["AFdata"];
+            context = "snapshot/gen_availability_timeseries",
+        )
         if haskey(input_data, "Loaddata")
-            validate_aligned_time_columns!(input_data["Loaddata"], input_data["AFdata"], "snapshot/gen_availability_timeseries")
+            validate_aligned_time_columns!(
+                input_data["Loaddata"],
+                input_data["AFdata"],
+                "snapshot/gen_availability_timeseries",
+            )
         end
     end
     if haskey(input_data, "DRtsdata")
-        normalize_timeseries_time_columns!(input_data["DRtsdata"]; context="snapshot/dr_timeseries_regional")
+        normalize_timeseries_time_columns!(
+            input_data["DRtsdata"];
+            context = "snapshot/dr_timeseries_regional",
+        )
         if haskey(input_data, "Loaddata")
-            validate_aligned_time_columns!(input_data["Loaddata"], input_data["DRtsdata"], "snapshot/dr_timeseries_regional")
+            validate_aligned_time_columns!(
+                input_data["Loaddata"],
+                input_data["DRtsdata"],
+                "snapshot/dr_timeseries_regional",
+            )
         end
     end
     return input_data
 end
 
-function maybe_copy_settings_file(src_dir::AbstractString, dest_dir::AbstractString, filename::AbstractString)
+function maybe_copy_settings_file(
+    src_dir::AbstractString,
+    dest_dir::AbstractString,
+    filename::AbstractString,
+)
     src = joinpath(src_dir, filename)
     if isfile(src)
-        cp(src, joinpath(dest_dir, filename); force=true)
+        cp(src, joinpath(dest_dir, filename); force = true)
     end
     return nothing
 end
@@ -151,11 +173,11 @@ function save_postprocess_snapshot_bundle(
     base_input::Dict,
     fixed_input::Dict;
     mode::Int,
-    solved_model::Union{Nothing,Model}=nothing,
+    solved_model::Union{Nothing,Model} = nothing,
 )
     snapshot_dir = snapshot_dir_from_output(output_path)
     if isdir(snapshot_dir)
-        rm(snapshot_dir; recursive=true, force=true)
+        rm(snapshot_dir; recursive = true, force = true)
     end
     mkpath(snapshot_dir)
     mkpath(snapshot_settings_dir(snapshot_dir))
@@ -165,11 +187,31 @@ function save_postprocess_snapshot_bundle(
 
     write_yaml_file(joinpath(snapshot_dir, "resolved_model_settings.yml"), config_set)
     settings_src_dir = joinpath(case_path, "Settings")
-    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_model_settings.yml")
-    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_rep_day_settings.yml")
-    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_aggregation_settings.yml")
-    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), "HOPE_erec_settings.yml")
-    maybe_copy_settings_file(settings_src_dir, snapshot_settings_dir(snapshot_dir), string(config_set["solver"]) * "_settings.yml")
+    maybe_copy_settings_file(
+        settings_src_dir,
+        snapshot_settings_dir(snapshot_dir),
+        "HOPE_model_settings.yml",
+    )
+    maybe_copy_settings_file(
+        settings_src_dir,
+        snapshot_settings_dir(snapshot_dir),
+        "HOPE_rep_day_settings.yml",
+    )
+    maybe_copy_settings_file(
+        settings_src_dir,
+        snapshot_settings_dir(snapshot_dir),
+        "HOPE_aggregation_settings.yml",
+    )
+    maybe_copy_settings_file(
+        settings_src_dir,
+        snapshot_settings_dir(snapshot_dir),
+        "HOPE_erec_settings.yml",
+    )
+    maybe_copy_settings_file(
+        settings_src_dir,
+        snapshot_settings_dir(snapshot_dir),
+        string(config_set["solver"]) * "_settings.yml",
+    )
 
     metadata = Dict{String,Any}(
         "snapshot_version" => 1,
@@ -179,13 +221,25 @@ function save_postprocess_snapshot_bundle(
         "created_at" => Dates.format(now(), dateformat"yyyy-mm-ddTHH:MM:SS"),
         "save_postprocess_snapshot" => mode,
         "solver" => snapshot_yaml_value(get(config_set, "solver", nothing)),
-        "planning_reserve_mode" => snapshot_yaml_value(get(config_set, "planning_reserve_mode", nothing)),
-        "resource_aggregation" => snapshot_yaml_value(get(config_set, "resource_aggregation", get(config_set, "aggregated!", nothing))),
-        "endogenous_rep_day" => snapshot_yaml_value(get(config_set, "endogenous_rep_day", nothing)),
-        "external_rep_day" => snapshot_yaml_value(get(config_set, "external_rep_day", nothing)),
-        "representative_day!" => snapshot_yaml_value(get(config_set, "representative_day!", nothing)),
-        "flexible_demand" => snapshot_yaml_value(get(config_set, "flexible_demand", nothing)),
-        "unit_commitment" => snapshot_yaml_value(get(config_set, "unit_commitment", nothing)),
+        "planning_reserve_mode" =>
+            snapshot_yaml_value(get(config_set, "planning_reserve_mode", nothing)),
+        "resource_aggregation" => snapshot_yaml_value(
+            get(
+                config_set,
+                "resource_aggregation",
+                get(config_set, "aggregated!", nothing),
+            ),
+        ),
+        "endogenous_rep_day" =>
+            snapshot_yaml_value(get(config_set, "endogenous_rep_day", nothing)),
+        "external_rep_day" =>
+            snapshot_yaml_value(get(config_set, "external_rep_day", nothing)),
+        "representative_day!" =>
+            snapshot_yaml_value(get(config_set, "representative_day!", nothing)),
+        "flexible_demand" =>
+            snapshot_yaml_value(get(config_set, "flexible_demand", nothing)),
+        "unit_commitment" =>
+            snapshot_yaml_value(get(config_set, "unit_commitment", nothing)),
     )
     if solved_model !== nothing
         metadata["termination_status"] = string(termination_status(solved_model))
@@ -206,28 +260,51 @@ function save_postprocess_snapshot_bundle(
         x_ret_var = model_component_or_nothing(solved_model, :x_RET)
 
         if x_var !== nothing && nrow(base_input["Gendata_candidate"]) > 0
-            CSV.write(joinpath(solved_decisions_dir, "build_generator.csv"), DataFrame(
-                CandidateIndex = collect(1:nrow(base_input["Gendata_candidate"])),
-                BuildDecision = [Float64(value(x_var[nrow(base_input["Gendata"]) + i])) for i in 1:nrow(base_input["Gendata_candidate"])],
-            ))
+            CSV.write(
+                joinpath(solved_decisions_dir, "build_generator.csv"),
+                DataFrame(
+                    CandidateIndex = collect(1:nrow(base_input["Gendata_candidate"])),
+                    BuildDecision = [
+                        Float64(value(x_var[nrow(base_input["Gendata"])+i])) for
+                        i = 1:nrow(base_input["Gendata_candidate"])
+                    ],
+                ),
+            )
         end
         if z_var !== nothing && nrow(base_input["Estoragedata_candidate"]) > 0
-            CSV.write(joinpath(solved_decisions_dir, "build_storage.csv"), DataFrame(
-                CandidateIndex = collect(1:nrow(base_input["Estoragedata_candidate"])),
-                BuildDecision = [Float64(value(z_var[nrow(base_input["Storagedata"]) + i])) for i in 1:nrow(base_input["Estoragedata_candidate"])],
-            ))
+            CSV.write(
+                joinpath(solved_decisions_dir, "build_storage.csv"),
+                DataFrame(
+                    CandidateIndex = collect(1:nrow(base_input["Estoragedata_candidate"])),
+                    BuildDecision = [
+                        Float64(value(z_var[nrow(base_input["Storagedata"])+i])) for
+                        i = 1:nrow(base_input["Estoragedata_candidate"])
+                    ],
+                ),
+            )
         end
         if y_var !== nothing && nrow(base_input["Linedata_candidate"]) > 0
-            CSV.write(joinpath(solved_decisions_dir, "build_line.csv"), DataFrame(
-                CandidateIndex = collect(1:nrow(base_input["Linedata_candidate"])),
-                BuildDecision = [Float64(value(y_var[nrow(base_input["Linedata"]) + i])) for i in 1:nrow(base_input["Linedata_candidate"])],
-            ))
+            CSV.write(
+                joinpath(solved_decisions_dir, "build_line.csv"),
+                DataFrame(
+                    CandidateIndex = collect(1:nrow(base_input["Linedata_candidate"])),
+                    BuildDecision = [
+                        Float64(value(y_var[nrow(base_input["Linedata"])+i])) for
+                        i = 1:nrow(base_input["Linedata_candidate"])
+                    ],
+                ),
+            )
         end
         if x_ret_var !== nothing
-            CSV.write(joinpath(solved_decisions_dir, "retire_generator.csv"), DataFrame(
-                ExistingIndex = collect(1:nrow(base_input["Gendata"])),
-                RetirementDecision = [Float64(value(x_ret_var[i])) for i in 1:nrow(base_input["Gendata"])],
-            ))
+            CSV.write(
+                joinpath(solved_decisions_dir, "retire_generator.csv"),
+                DataFrame(
+                    ExistingIndex = collect(1:nrow(base_input["Gendata"])),
+                    RetirementDecision = [
+                        Float64(value(x_ret_var[i])) for i = 1:nrow(base_input["Gendata"])
+                    ],
+                ),
+            )
         end
 
         baseline_summary_dir = joinpath(snapshot_dir, "baseline_summary")
@@ -259,7 +336,11 @@ function save_postprocess_snapshot(
     mode::Int,
 )
     if get(config_set, "model_mode", "") != "GTEP"
-        throw(ArgumentError("save_postprocess_snapshot is currently implemented only for GTEP solved cases."))
+        throw(
+            ArgumentError(
+                "save_postprocess_snapshot is currently implemented only for GTEP solved cases.",
+            ),
+        )
     end
     fixed_input = build_fixed_fleet_input(base_input, solved_model)
     return save_postprocess_snapshot_bundle(
@@ -268,8 +349,8 @@ function save_postprocess_snapshot(
         config_set,
         base_input,
         fixed_input;
-        mode=mode,
-        solved_model=solved_model,
+        mode = mode,
+        solved_model = solved_model,
     )
 end
 
@@ -290,7 +371,11 @@ function load_postprocess_snapshot(snapshot_or_output_path::AbstractString)
     metadata_path = joinpath(snapshot_dir, "metadata.yml")
     config_path = joinpath(snapshot_dir, "resolved_model_settings.yml")
     if !isfile(metadata_path) || !isfile(config_path)
-        throw(ArgumentError("Incomplete postprocess snapshot in $snapshot_dir. Expected metadata.yml and resolved_model_settings.yml."))
+        throw(
+            ArgumentError(
+                "Incomplete postprocess snapshot in $snapshot_dir. Expected metadata.yml and resolved_model_settings.yml.",
+            ),
+        )
     end
 
     metadata = open(metadata_path) do io
@@ -321,7 +406,9 @@ parse_erec_binary(x, keyname::AbstractString) = begin
     v
 end
 
-to_float_erec(x, default::Float64=0.0) = ismissing(x) || x === nothing || string(x) == "" ? default : (x isa Number ? Float64(x) : parse(Float64, string(x)))
+to_float_erec(x, default::Float64 = 0.0) =
+    ismissing(x) || x === nothing || string(x) == "" ? default :
+    (x isa Number ? Float64(x) : parse(Float64, string(x)))
 
 function normalize_erec_resource_types(raw_types)
     if raw_types isa AbstractVector
@@ -332,18 +419,24 @@ function normalize_erec_resource_types(raw_types)
     allowed = Set(["generator", "storage"])
     bad = [v for v in vals if !(v in allowed)]
     if !isempty(bad)
-        throw(ArgumentError("Invalid EREC resource_types=$(bad). Allowed values: generator, storage."))
+        throw(
+            ArgumentError(
+                "Invalid EREC resource_types=$(bad). Allowed values: generator, storage.",
+            ),
+        )
     end
     return unique(vals)
 end
 
 function normalize_custom_erec_resources(raw_selection)
-    normalized = Dict(
-        "generator" => Set{Tuple{String,Int}}(),
-        "storage" => Set{Tuple{String,Int}}(),
-    )
+    normalized =
+        Dict("generator" => Set{Tuple{String,Int}}(), "storage" => Set{Tuple{String,Int}}())
     raw_selection === nothing && return normalized
-    raw_selection isa AbstractDict || throw(ArgumentError("Invalid custom_resources=$(raw_selection). Expected a dictionary with generator/storage selections."))
+    raw_selection isa AbstractDict || throw(
+        ArgumentError(
+            "Invalid custom_resources=$(raw_selection). Expected a dictionary with generator/storage selections.",
+        ),
+    )
 
     key_map = Dict(
         "generator" => "generator",
@@ -354,7 +447,11 @@ function normalize_custom_erec_resources(raw_selection)
 
     for (raw_key, raw_vals) in raw_selection
         key = lowercase(strip(string(raw_key)))
-        haskey(key_map, key) || throw(ArgumentError("Invalid custom_resources key=$(raw_key). Allowed keys: generators, storages."))
+        haskey(key_map, key) || throw(
+            ArgumentError(
+                "Invalid custom_resources key=$(raw_key). Allowed keys: generators, storages.",
+            ),
+        )
         target_type = key_map[key]
         vals = raw_vals isa AbstractVector ? raw_vals : [raw_vals]
         for raw_val in vals
@@ -370,7 +467,11 @@ function normalize_custom_erec_resources(raw_selection)
                     idx = try
                         parse(Int, label)
                     catch
-                        throw(ArgumentError("Invalid custom_resources entry=$(raw_val). Use integers for existing rows or labels like existing_12 / candidate_3."))
+                        throw(
+                            ArgumentError(
+                                "Invalid custom_resources entry=$(raw_val). Use integers for existing rows or labels like existing_12 / candidate_3.",
+                            ),
+                        )
                     end
                     source = "existing"
                 else
@@ -378,16 +479,26 @@ function normalize_custom_erec_resources(raw_selection)
                     idx = parse(Int, m.captures[2])
                 end
             end
-            idx >= 1 || throw(ArgumentError("Invalid custom_resources entry=$(raw_val). Resource index must be positive."))
+            idx >= 1 || throw(
+                ArgumentError(
+                    "Invalid custom_resources entry=$(raw_val). Resource index must be positive.",
+                ),
+            )
             push!(normalized[target_type], (source, idx))
         end
     end
     return normalized
 end
 
-function custom_erec_selected(custom_selection::Dict, resource_type::AbstractString, source::AbstractString, idx::Int)
+function custom_erec_selected(
+    custom_selection::Dict,
+    resource_type::AbstractString,
+    source::AbstractString,
+    idx::Int,
+)
     key = lowercase(strip(String(resource_type)))
-    return (String(source), Int(idx)) in get(custom_selection, key, Set{Tuple{String,Int}}())
+    return (String(source), Int(idx)) in
+           get(custom_selection, key, Set{Tuple{String,Int}}())
 end
 
 function resolve_case_path_for_erec(case::AbstractString)
@@ -396,19 +507,31 @@ function resolve_case_path_for_erec(case::AbstractString)
         case_path = case_path[6:end]
     end
     tried_paths = String[]
-    for candidate in (case_path, joinpath("ModelCases", case_path), joinpath("ModelCases", basename(case_path)))
+    for candidate in (
+        case_path,
+        joinpath("ModelCases", case_path),
+        joinpath("ModelCases", basename(case_path)),
+    )
         push!(tried_paths, candidate)
         if isdir(candidate)
             return candidate
         end
     end
-    throw(ArgumentError("EREC case directory does not exist: $case. Tried paths: $(tried_paths)"))
+    throw(
+        ArgumentError(
+            "EREC case directory does not exist: $case. Tried paths: $(tried_paths)",
+        ),
+    )
 end
 
 function build_erec_config(base_config::Dict, erec_settings::Dict)
     config = deepcopy(base_config)
     if get(config, "model_mode", "") != "GTEP"
-        throw(ArgumentError("EREC is currently implemented only for GTEP cases. Found model_mode=$(get(config, "model_mode", missing))."))
+        throw(
+            ArgumentError(
+                "EREC is currently implemented only for GTEP cases. Found model_mode=$(get(config, "model_mode", missing)).",
+            ),
+        )
     end
     config["planning_reserve_mode"] = 0
     config["summary_table"] = 0
@@ -424,15 +547,27 @@ function baseline_voll_for_erec(input_data::Dict)
 end
 
 function resolve_erec_voll(singlepar::DataFrame, erec_settings::Dict)
-    baseline_voll = ("VOLL" in names(singlepar)) ? to_float_erec(singlepar[1, "VOLL"], 100000.0) : 100000.0
+    baseline_voll =
+        ("VOLL" in names(singlepar)) ? to_float_erec(singlepar[1, "VOLL"], 100000.0) :
+        100000.0
     raw_override = get(erec_settings, "voll_override", nothing)
-    override_active = !(raw_override === nothing || ismissing(raw_override) || strip(string(raw_override)) == "" || lowercase(strip(string(raw_override))) == "baseline")
+    override_active = !(
+        raw_override === nothing ||
+        ismissing(raw_override) ||
+        strip(string(raw_override)) == "" ||
+        lowercase(strip(string(raw_override))) == "baseline"
+    )
     voll = override_active ? to_float_erec(raw_override, baseline_voll) : baseline_voll
     return voll, baseline_voll, override_active
 end
 
-function maybe_warn_erec_voll_mismatch(context::Symbol, baseline_voll::Float64, erec_voll::Float64, override_active::Bool)
-    if !override_active || isapprox(erec_voll, baseline_voll; atol=1.0e-9, rtol=0.0)
+function maybe_warn_erec_voll_mismatch(
+    context::Symbol,
+    baseline_voll::Float64,
+    erec_voll::Float64,
+    override_active::Bool,
+)
+    if !override_active || isapprox(erec_voll, baseline_voll; atol = 1.0e-9, rtol = 0.0)
         return nothing
     end
     if context == :solved_baseline
@@ -443,10 +578,19 @@ function maybe_warn_erec_voll_mismatch(context::Symbol, baseline_voll::Float64, 
     return nothing
 end
 
-function apply_erec_overrides!(input_data::Dict, erec_settings::Dict; voll_warning_context::Symbol=:none)
+function apply_erec_overrides!(
+    input_data::Dict,
+    erec_settings::Dict;
+    voll_warning_context::Symbol = :none,
+)
     singlepar = input_data["Singlepar"]
     voll, baseline_voll, override_active = resolve_erec_voll(singlepar, erec_settings)
-    maybe_warn_erec_voll_mismatch(voll_warning_context, baseline_voll, voll, override_active)
+    maybe_warn_erec_voll_mismatch(
+        voll_warning_context,
+        baseline_voll,
+        voll,
+        override_active,
+    )
     if "VOLL" in names(singlepar)
         singlepar[1, "VOLL"] = voll
     else
@@ -457,8 +601,10 @@ end
 
 function rep_period_weights_for_erec(config_set::Dict, input_data::Dict)
     loaddata = input_data["Loaddata"]
-    endogenous_rep_day, external_rep_day, representative_day_mode = resolve_rep_day_mode(config_set; context="EREC")
-    input_T, input_H_t, input_H_T, has_custom_time_periods = build_time_period_hours(loaddata)
+    endogenous_rep_day, external_rep_day, representative_day_mode =
+        resolve_rep_day_mode(config_set; context = "EREC")
+    input_T, input_H_t, input_H_T, has_custom_time_periods =
+        build_time_period_hours(loaddata)
     T = input_T
     H_t = input_H_t
     H_T = input_H_T
@@ -467,27 +613,32 @@ function rep_period_weights_for_erec(config_set::Dict, input_data::Dict)
         if external_rep_day == 1
             rep_weight_df = input_data["RepWeightData"]
             T = sort(unique(Int.(rep_weight_df[!, "Time Period"])))
-            H_t = [collect(1 + 24 * (t - 1):24 + 24 * (t - 1)) for t in T]
+            H_t = [collect((1+24*(t-1)):(24+24*(t-1))) for t in T]
             H_T = collect(unique(reduce(vcat, H_t)))
             for row in eachrow(rep_weight_df)
                 N[Int(row["Time Period"])] = Float64(row["Weight"])
             end
         else
             zonedata = input_data["Zonedata"]
-            ordered_zone = [string(zonedata[i, "Zone_id"]) for i in 1:nrow(zonedata)]
-            ordered_gen = ["G$(i)" for i in 1:(nrow(input_data["Gendata"]) + nrow(input_data["Gendata_candidate"]))]
+            ordered_zone = [string(zonedata[i, "Zone_id"]) for i = 1:nrow(zonedata)]
+            ordered_gen = [
+                "G$(i)" for i =
+                    1:(nrow(input_data["Gendata"])+nrow(input_data["Gendata_candidate"]))
+            ]
             rep_period_data = build_endogenous_rep_periods(
                 loaddata,
                 input_data["AFdata"],
                 ordered_zone,
                 ordered_gen,
                 config_set;
-                drtsdata=(haskey(input_data, "DRtsdata") ? input_data["DRtsdata"] : nothing),
-                generator_data=input_data["Gendata"],
-                candidate_generator_data=input_data["Gendata_candidate"],
+                drtsdata = (
+                    haskey(input_data, "DRtsdata") ? input_data["DRtsdata"] : nothing
+                ),
+                generator_data = input_data["Gendata"],
+                candidate_generator_data = input_data["Gendata_candidate"],
             )
             T = rep_period_data["T"]
-            H_t = [collect(1 + 24 * (t - 1):24 + 24 * (t - 1)) for t in T]
+            H_t = [collect((1+24*(t-1)):(24+24*(t-1))) for t in T]
             H_T = collect(unique(reduce(vcat, H_t)))
             N = rep_period_data["N"]
         end
@@ -500,12 +651,16 @@ end
 function compute_gtep_eue(config_set::Dict, input_data::Dict, model::Model)
     pr_status = primal_status(model)
     if !(pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT))
-        throw(ArgumentError("Cannot compute EUE because solved model does not have a feasible primal solution (primal_status=$(pr_status))."))
+        throw(
+            ArgumentError(
+                "Cannot compute EUE because solved model does not have a feasible primal solution (primal_status=$(pr_status)).",
+            ),
+        )
     end
     T, H_t, _, N, _ = rep_period_weights_for_erec(config_set, input_data)
     num_zone = nrow(input_data["Zonedata"])
     p_ls = value.(model[:p_LS])
-    return sum(N[t] * sum(p_ls[i, h] for i in 1:num_zone for h in H_t[t]) for t in T)
+    return sum(N[t] * sum(p_ls[i, h] for i = 1:num_zone for h in H_t[t]) for t in T)
 end
 
 function solve_gtep_for_erec(case_path::AbstractString, config_set::Dict, input_data::Dict)
@@ -515,7 +670,11 @@ function solve_gtep_for_erec(case_path::AbstractString, config_set::Dict, input_
     term_status = termination_status(solved_model)
     pr_status = primal_status(solved_model)
     if !(pr_status in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT))
-        throw(ArgumentError("EREC solve did not find a feasible primal solution. termination_status=$(term_status), primal_status=$(pr_status)"))
+        throw(
+            ArgumentError(
+                "EREC solve did not find a feasible primal solution. termination_status=$(term_status), primal_status=$(pr_status)",
+            ),
+        )
     end
     return solved_model
 end
@@ -523,7 +682,7 @@ end
 function add_erec_metadata!(df::DataFrame, source::AbstractString)
     df[!, "EREC_Source"] = fill(String(source), nrow(df))
     df[!, "EREC_OrigIndex"] = collect(1:nrow(df))
-    df[!, "EREC_Label"] = ["$(source)_$(i)" for i in 1:nrow(df)]
+    df[!, "EREC_Label"] = ["$(source)_$(i)" for i = 1:nrow(df)]
     return df
 end
 
@@ -536,13 +695,14 @@ function append_row_with_schema!(target_df::DataFrame, values::Dict{String,Any})
     for col in names(target_df)
         row_df[!, col] = [get(values, col, missing)]
     end
-    append!(target_df, row_df; cols=:setequal, promote=true)
+    append!(target_df, row_df; cols = :setequal, promote = true)
     return target_df
 end
 
 function rebuild_fixed_fleet_afdata(base_input::Dict, fixed_gendata::DataFrame)
     base_af = base_input["AFdata"]
-    time_cols = [col for col in ["Time Period", "Month", "Day", "Hours"] if col in names(base_af)]
+    time_cols =
+        [col for col in ["Time Period", "Month", "Day", "Hours"] if col in names(base_af)]
     fixed_af = copy(base_af[:, time_cols])
     num_gen_exist = nrow(base_input["Gendata"])
 
@@ -568,7 +728,13 @@ function rebuild_fixed_fleet_afdata(base_input::Dict, fixed_gendata::DataFrame)
     return fixed_af
 end
 
-function append_generator_af_column!(input_data::Dict, base_input::Dict, source::AbstractString, orig_idx::Int, fallback_af::Float64)
+function append_generator_af_column!(
+    input_data::Dict,
+    base_input::Dict,
+    source::AbstractString,
+    orig_idx::Int,
+    fallback_af::Float64,
+)
     afdata = input_data["AFdata"]
     base_af = base_input["AFdata"]
     num_gen_exist = nrow(base_input["Gendata"])
@@ -599,7 +765,7 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
     g_mr_exist = findall(x -> to_float_erec(x) > 0.0, gendata_exist[:, "Flag_mustrun"])
     g_ret_raw = findall(x -> to_float_erec(x) > 0.0, gendata_exist[:, "Flag_RET"])
     g_ret = Set(setdiff(g_ret_raw, g_mr_exist))
-    for i in 1:nrow(gendata_exist)
+    for i = 1:nrow(gendata_exist)
         scale = 1.0
         if i in g_ret
             scale = max(1.0 - Float64(value(solved_model[:x_RET][i])), 0.0)
@@ -611,8 +777,8 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
         end
     end
     gendata_exist = filter(row -> to_float_erec(row["Pmax (MW)"]) > 1.0e-9, gendata_exist)
-    for j in 1:nrow(gendata_cand)
-        build_val = Float64(value(solved_model[:x][num_gen_exist + j]))
+    for j = 1:nrow(gendata_cand)
+        build_val = Float64(value(solved_model[:x][num_gen_exist+j]))
         if build_val <= 1.0e-9
             continue
         end
@@ -642,13 +808,16 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
     storagedata_cand = base_input["Estoragedata_candidate"]
     add_erec_metadata!(storagedata_exist, "existing")
     num_sto_exist = nrow(storagedata_exist)
-    for i in 1:nrow(storagedata_exist)
-        storagedata_exist[i, "Capacity (MWh)"] = to_float_erec(storagedata_exist[i, "Capacity (MWh)"])
-        storagedata_exist[i, "Max Power (MW)"] = to_float_erec(storagedata_exist[i, "Max Power (MW)"])
+    for i = 1:nrow(storagedata_exist)
+        storagedata_exist[i, "Capacity (MWh)"] =
+            to_float_erec(storagedata_exist[i, "Capacity (MWh)"])
+        storagedata_exist[i, "Max Power (MW)"] =
+            to_float_erec(storagedata_exist[i, "Max Power (MW)"])
     end
-    storagedata_exist = filter(row -> to_float_erec(row["Max Power (MW)"]) > 1.0e-9, storagedata_exist)
-    for j in 1:nrow(storagedata_cand)
-        build_val = Float64(value(solved_model[:z][num_sto_exist + j]))
+    storagedata_exist =
+        filter(row -> to_float_erec(row["Max Power (MW)"]) > 1.0e-9, storagedata_exist)
+    for j = 1:nrow(storagedata_cand)
+        build_val = Float64(value(solved_model[:z][num_sto_exist+j]))
         if build_val <= 1.0e-9
             continue
         end
@@ -664,18 +833,21 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
                 values[col] = storagedata_cand[j, col]
             end
         end
-        values["Capacity (MWh)"] = to_float_erec(storagedata_cand[j, "Capacity (MWh)"]) * build_val
-        values["Max Power (MW)"] = to_float_erec(storagedata_cand[j, "Max Power (MW)"]) * build_val
+        values["Capacity (MWh)"] =
+            to_float_erec(storagedata_cand[j, "Capacity (MWh)"]) * build_val
+        values["Max Power (MW)"] =
+            to_float_erec(storagedata_cand[j, "Max Power (MW)"]) * build_val
         append_row_with_schema!(storagedata_exist, values)
     end
     fixed_input["Storagedata"] = storagedata_exist
-    fixed_input["Estoragedata_candidate"] = empty_df_like(base_input["Estoragedata_candidate"])
+    fixed_input["Estoragedata_candidate"] =
+        empty_df_like(base_input["Estoragedata_candidate"])
 
     linedata_exist = copy(base_input["Linedata"])
     linedata_cand = base_input["Linedata_candidate"]
     num_line_exist = nrow(linedata_exist)
-    for j in 1:nrow(linedata_cand)
-        build_val = Float64(value(solved_model[:y][num_line_exist + j]))
+    for j = 1:nrow(linedata_cand)
+        build_val = Float64(value(solved_model[:y][num_line_exist+j]))
         if build_val <= 1.0e-9
             continue
         end
@@ -685,10 +857,12 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
                 values[col] = linedata_cand[j, col]
             end
         end
-        values["Capacity (MW)"] = to_float_erec(linedata_cand[j, "Capacity (MW)"]) * build_val
+        values["Capacity (MW)"] =
+            to_float_erec(linedata_cand[j, "Capacity (MW)"]) * build_val
         append_row_with_schema!(linedata_exist, values)
     end
-    fixed_input["Linedata"] = filter(row -> to_float_erec(row["Capacity (MW)"]) > 1.0e-9, linedata_exist)
+    fixed_input["Linedata"] =
+        filter(row -> to_float_erec(row["Capacity (MW)"]) > 1.0e-9, linedata_exist)
     fixed_input["Linedata_candidate"] = empty_df_like(base_input["Linedata_candidate"])
 
     return fixed_input
@@ -701,15 +875,26 @@ function perturb_generator_capacity!(input_data::Dict, row_idx::Int, delta_mw::F
     ratio = pmax > 1.0e-9 ? pmin / pmax : 0.0
     new_pmax = pmax + delta_mw
     if new_pmax <= 0
-        throw(ArgumentError("Generator perturbation would create non-positive Pmax at row $(row_idx)."))
+        throw(
+            ArgumentError(
+                "Generator perturbation would create non-positive Pmax at row $(row_idx).",
+            ),
+        )
     end
     gendata[row_idx, "Pmax (MW)"] = new_pmax
     gendata[row_idx, "Pmin (MW)"] = max(pmin + ratio * delta_mw, 0.0)
     return input_data
 end
 
-function append_virtual_generator_capacity!(input_data::Dict, base_input::Dict, source::AbstractString, source_idx::Int, delta_mw::Float64)
-    source_df = source == "existing" ? base_input["Gendata"] : base_input["Gendata_candidate"]
+function append_virtual_generator_capacity!(
+    input_data::Dict,
+    base_input::Dict,
+    source::AbstractString,
+    source_idx::Int,
+    delta_mw::Float64,
+)
+    source_df =
+        source == "existing" ? base_input["Gendata"] : base_input["Gendata_candidate"]
     template = source_df[source_idx, :]
     gendata = input_data["Gendata"]
     template_pmax = to_float_erec(template["Pmax (MW)"])
@@ -735,17 +920,32 @@ function append_virtual_generator_capacity!(input_data::Dict, base_input::Dict, 
         end
     end
     append_row_with_schema!(gendata, values)
-    append_generator_af_column!(input_data, base_input, source, source_idx, to_float_erec(template["AF"], 1.0))
+    append_generator_af_column!(
+        input_data,
+        base_input,
+        source,
+        source_idx,
+        to_float_erec(template["AF"], 1.0),
+    )
     return input_data
 end
 
-function perturb_storage_capacity!(input_data::Dict, row_idx::Int, delta_mw::Float64, storage_duration_mode::AbstractString)
+function perturb_storage_capacity!(
+    input_data::Dict,
+    row_idx::Int,
+    delta_mw::Float64,
+    storage_duration_mode::AbstractString,
+)
     storagedata = input_data["Storagedata"]
     pmax = to_float_erec(storagedata[row_idx, "Max Power (MW)"])
     ecap = to_float_erec(storagedata[row_idx, "Capacity (MWh)"])
     new_pmax = pmax + delta_mw
     if new_pmax <= 0
-        throw(ArgumentError("Storage perturbation would create non-positive Max Power at row $(row_idx)."))
+        throw(
+            ArgumentError(
+                "Storage perturbation would create non-positive Max Power at row $(row_idx).",
+            ),
+        )
     end
     storagedata[row_idx, "Max Power (MW)"] = new_pmax
     if storage_duration_mode == "preserve"
@@ -754,13 +954,26 @@ function perturb_storage_capacity!(input_data::Dict, row_idx::Int, delta_mw::Flo
     elseif storage_duration_mode == "power_only"
         storagedata[row_idx, "Capacity (MWh)"] = ecap
     else
-        throw(ArgumentError("Unsupported storage_duration_mode=$(storage_duration_mode). Expected preserve or power_only."))
+        throw(
+            ArgumentError(
+                "Unsupported storage_duration_mode=$(storage_duration_mode). Expected preserve or power_only.",
+            ),
+        )
     end
     return input_data
 end
 
-function append_virtual_storage_capacity!(input_data::Dict, base_input::Dict, source::AbstractString, source_idx::Int, delta_mw::Float64, storage_duration_mode::AbstractString)
-    source_df = source == "existing" ? base_input["Storagedata"] : base_input["Estoragedata_candidate"]
+function append_virtual_storage_capacity!(
+    input_data::Dict,
+    base_input::Dict,
+    source::AbstractString,
+    source_idx::Int,
+    delta_mw::Float64,
+    storage_duration_mode::AbstractString,
+)
+    source_df =
+        source == "existing" ? base_input["Storagedata"] :
+        base_input["Estoragedata_candidate"]
     template = source_df[source_idx, :]
     storagedata = input_data["Storagedata"]
     template_pmax = to_float_erec(template["Max Power (MW)"])
@@ -778,7 +991,8 @@ function append_virtual_storage_capacity!(input_data::Dict, base_input::Dict, so
         elseif col == "Max Power (MW)"
             values[col] = delta_mw
         elseif col == "Capacity (MWh)"
-            values[col] = storage_duration_mode == "preserve" ? duration * delta_mw : template_ecap
+            values[col] =
+                storage_duration_mode == "preserve" ? duration * delta_mw : template_ecap
         elseif col in names(source_df)
             values[col] = template[col]
         end
@@ -787,7 +1001,11 @@ function append_virtual_storage_capacity!(input_data::Dict, base_input::Dict, so
     return input_data
 end
 
-function append_perfect_reference_generator!(input_data::Dict, zone_label, delta_mw::Float64)
+function append_perfect_reference_generator!(
+    input_data::Dict,
+    zone_label,
+    delta_mw::Float64,
+)
     gendata = input_data["Gendata"]
     values = Dict{String,Any}()
     for col in names(gendata)
@@ -836,7 +1054,13 @@ function solve_perturbed_eue(case_path::AbstractString, config_set::Dict, input_
     return compute_gtep_eue(config_set, input_data, solved_model)
 end
 
-function build_eval_targets(base_input::Dict, fixed_input::Dict, resource_types::Vector{String}, resource_scope::AbstractString; custom_resources::Dict=normalize_custom_erec_resources(nothing))
+function build_eval_targets(
+    base_input::Dict,
+    fixed_input::Dict,
+    resource_types::Vector{String},
+    resource_scope::AbstractString;
+    custom_resources::Dict = normalize_custom_erec_resources(nothing),
+)
     targets = DataFrame(
         ResourceType = String[],
         EvalMode = String[],
@@ -850,8 +1074,33 @@ function build_eval_targets(base_input::Dict, fixed_input::Dict, resource_types:
         BaselineEnergyMWh = Float64[],
     )
 
-    function append_target!(resource_type::AbstractString, eval_mode::AbstractString, fixed_row_idx::Int, label::AbstractString, source::AbstractString, source_idx::Int, technology::AbstractString, zone::AbstractString, baseline_power_mw::Float64, baseline_energy_mwh::Float64)
-        push!(targets, (String(resource_type), String(eval_mode), fixed_row_idx, String(label), String(source), source_idx, String(technology), String(zone), baseline_power_mw, baseline_energy_mwh))
+    function append_target!(
+        resource_type::AbstractString,
+        eval_mode::AbstractString,
+        fixed_row_idx::Int,
+        label::AbstractString,
+        source::AbstractString,
+        source_idx::Int,
+        technology::AbstractString,
+        zone::AbstractString,
+        baseline_power_mw::Float64,
+        baseline_energy_mwh::Float64,
+    )
+        push!(
+            targets,
+            (
+                String(resource_type),
+                String(eval_mode),
+                fixed_row_idx,
+                String(label),
+                String(source),
+                source_idx,
+                String(technology),
+                String(zone),
+                baseline_power_mw,
+                baseline_energy_mwh,
+            ),
+        )
     end
 
     if "generator" in resource_types
@@ -860,18 +1109,45 @@ function build_eval_targets(base_input::Dict, fixed_input::Dict, resource_types:
         for (i, row) in enumerate(eachrow(fixed_gendata))
             fixed_lookup[(string(row["EREC_Source"]), Int(row["EREC_OrigIndex"]))] = i
         end
-        for (source, source_df) in (("existing", base_input["Gendata"]), ("candidate", base_input["Gendata_candidate"]))
-            for i in 1:nrow(source_df)
-                if resource_scope == "custom" && !custom_erec_selected(custom_resources, "generator", source, i)
+        for (source, source_df) in (
+            ("existing", base_input["Gendata"]),
+            ("candidate", base_input["Gendata_candidate"]),
+        )
+            for i = 1:nrow(source_df)
+                if resource_scope == "custom" &&
+                   !custom_erec_selected(custom_resources, "generator", source, i)
                     continue
                 end
                 key = (source, i)
                 if haskey(fixed_lookup, key)
                     row_idx = fixed_lookup[key]
                     row = fixed_gendata[row_idx, :]
-                    append_target!("generator", "fixed", row_idx, string(row["EREC_Label"]), source, i, string(row["Type"]), string(row["Zone"]), to_float_erec(row["Pmax (MW)"]), 0.0)
-                elseif resource_scope in ("all", "custom") && to_float_erec(source_df[i, "Pmax (MW)"]) > 1.0e-9
-                    append_target!("generator", "virtual", 0, "$(source)_$(i)", source, i, string(source_df[i, "Type"]), string(source_df[i, "Zone"]), 0.0, 0.0)
+                    append_target!(
+                        "generator",
+                        "fixed",
+                        row_idx,
+                        string(row["EREC_Label"]),
+                        source,
+                        i,
+                        string(row["Type"]),
+                        string(row["Zone"]),
+                        to_float_erec(row["Pmax (MW)"]),
+                        0.0,
+                    )
+                elseif resource_scope in ("all", "custom") &&
+                       to_float_erec(source_df[i, "Pmax (MW)"]) > 1.0e-9
+                    append_target!(
+                        "generator",
+                        "virtual",
+                        0,
+                        "$(source)_$(i)",
+                        source,
+                        i,
+                        string(source_df[i, "Type"]),
+                        string(source_df[i, "Zone"]),
+                        0.0,
+                        0.0,
+                    )
                 end
             end
         end
@@ -883,38 +1159,87 @@ function build_eval_targets(base_input::Dict, fixed_input::Dict, resource_types:
         for (i, row) in enumerate(eachrow(fixed_storagedata))
             fixed_lookup[(string(row["EREC_Source"]), Int(row["EREC_OrigIndex"]))] = i
         end
-        for (source, source_df) in (("existing", base_input["Storagedata"]), ("candidate", base_input["Estoragedata_candidate"]))
-            for i in 1:nrow(source_df)
-                if resource_scope == "custom" && !custom_erec_selected(custom_resources, "storage", source, i)
+        for (source, source_df) in (
+            ("existing", base_input["Storagedata"]),
+            ("candidate", base_input["Estoragedata_candidate"]),
+        )
+            for i = 1:nrow(source_df)
+                if resource_scope == "custom" &&
+                   !custom_erec_selected(custom_resources, "storage", source, i)
                     continue
                 end
                 key = (source, i)
                 if haskey(fixed_lookup, key)
                     row_idx = fixed_lookup[key]
                     row = fixed_storagedata[row_idx, :]
-                    append_target!("storage", "fixed", row_idx, string(row["EREC_Label"]), source, i, string(row["Type"]), string(row["Zone"]), to_float_erec(row["Max Power (MW)"]), to_float_erec(row["Capacity (MWh)"]))
-                elseif resource_scope in ("all", "custom") && to_float_erec(source_df[i, "Max Power (MW)"]) > 1.0e-9
-                    append_target!("storage", "virtual", 0, "$(source)_$(i)", source, i, string(source_df[i, "Type"]), string(source_df[i, "Zone"]), 0.0, 0.0)
+                    append_target!(
+                        "storage",
+                        "fixed",
+                        row_idx,
+                        string(row["EREC_Label"]),
+                        source,
+                        i,
+                        string(row["Type"]),
+                        string(row["Zone"]),
+                        to_float_erec(row["Max Power (MW)"]),
+                        to_float_erec(row["Capacity (MWh)"]),
+                    )
+                elseif resource_scope in ("all", "custom") &&
+                       to_float_erec(source_df[i, "Max Power (MW)"]) > 1.0e-9
+                    append_target!(
+                        "storage",
+                        "virtual",
+                        0,
+                        "$(source)_$(i)",
+                        source,
+                        i,
+                        string(source_df[i, "Type"]),
+                        string(source_df[i, "Zone"]),
+                        0.0,
+                        0.0,
+                    )
                 end
             end
         end
     end
 
     if !(resource_scope in ("built_only", "all", "custom"))
-        throw(ArgumentError("Unsupported resource_scope=$(resource_scope). Expected built_only, all, or custom."))
+        throw(
+            ArgumentError(
+                "Unsupported resource_scope=$(resource_scope). Expected built_only, all, or custom.",
+            ),
+        )
     end
     return targets
 end
 
-function build_erec_results(base_input::Dict, fixed_input::Dict, case_path::AbstractString, config_set::Dict, erec_settings::Dict, baseline_eue::Float64)
+function build_erec_results(
+    base_input::Dict,
+    fixed_input::Dict,
+    case_path::AbstractString,
+    config_set::Dict,
+    erec_settings::Dict,
+    baseline_eue::Float64,
+)
     delta_mw = to_float_erec(get(erec_settings, "delta_mw", 1.0))
-    storage_duration_mode = lowercase(strip(string(get(erec_settings, "storage_duration_mode", "preserve"))))
+    storage_duration_mode =
+        lowercase(strip(string(get(erec_settings, "storage_duration_mode", "preserve"))))
     min_denom = to_float_erec(get(erec_settings, "min_denominator_eue_drop", 1.0e-6))
-    resource_types = normalize_erec_resource_types(get(erec_settings, "resource_types", ["generator", "storage"]))
-    resource_scope = lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
-    custom_resources = normalize_custom_erec_resources(get(erec_settings, "custom_resources", nothing))
+    resource_types = normalize_erec_resource_types(
+        get(erec_settings, "resource_types", ["generator", "storage"]),
+    )
+    resource_scope =
+        lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
+    custom_resources =
+        normalize_custom_erec_resources(get(erec_settings, "custom_resources", nothing))
     perfect_eue_by_zone = Dict{String,Float64}()
-    eval_targets = build_eval_targets(base_input, fixed_input, resource_types, resource_scope; custom_resources=custom_resources)
+    eval_targets = build_eval_targets(
+        base_input,
+        fixed_input,
+        resource_types,
+        resource_scope;
+        custom_resources = custom_resources,
+    )
 
     results = DataFrame(
         ResourceType = String[],
@@ -939,33 +1264,47 @@ function build_erec_results(base_input::Dict, fixed_input::Dict, case_path::Abst
         if !haskey(perfect_eue_by_zone, zone)
             ref_input = deepcopy(fixed_input)
             append_perfect_reference_generator!(ref_input, zone, delta_mw)
-            perfect_eue_by_zone[zone] = solve_perturbed_eue(case_path, config_set, ref_input)
+            perfect_eue_by_zone[zone] =
+                solve_perturbed_eue(case_path, config_set, ref_input)
         end
         perturbed_input = deepcopy(fixed_input)
         if target.EvalMode == "fixed"
-            perturb_generator_capacity!(perturbed_input, Int(target.FixedRowIndex), delta_mw)
+            perturb_generator_capacity!(
+                perturbed_input,
+                Int(target.FixedRowIndex),
+                delta_mw,
+            )
         else
-            append_virtual_generator_capacity!(perturbed_input, base_input, target.Source, Int(target.SourceIndex), delta_mw)
+            append_virtual_generator_capacity!(
+                perturbed_input,
+                base_input,
+                target.Source,
+                Int(target.SourceIndex),
+                delta_mw,
+            )
         end
         eue_resource = solve_perturbed_eue(case_path, config_set, perturbed_input)
         denom = baseline_eue - perfect_eue_by_zone[zone]
         erec = abs(denom) <= min_denom ? NaN : (baseline_eue - eue_resource) / denom
-        push!(results, (
-            "generator",
-            Int(target.FixedRowIndex),
-            target.Label,
-            target.Source,
-            Int(target.SourceIndex),
-            target.Technology,
-            zone,
-            Float64(target.BaselinePowerMW),
-            0.0,
-            delta_mw,
-            baseline_eue,
-            eue_resource,
-            perfect_eue_by_zone[zone],
-            erec,
-        ))
+        push!(
+            results,
+            (
+                "generator",
+                Int(target.FixedRowIndex),
+                target.Label,
+                target.Source,
+                Int(target.SourceIndex),
+                target.Technology,
+                zone,
+                Float64(target.BaselinePowerMW),
+                0.0,
+                delta_mw,
+                baseline_eue,
+                eue_resource,
+                perfect_eue_by_zone[zone],
+                erec,
+            ),
+        )
     end
 
     sto_targets = eval_targets[eval_targets.ResourceType .== "storage", :]
@@ -974,45 +1313,66 @@ function build_erec_results(base_input::Dict, fixed_input::Dict, case_path::Abst
         if !haskey(perfect_eue_by_zone, zone)
             ref_input = deepcopy(fixed_input)
             append_perfect_reference_generator!(ref_input, zone, delta_mw)
-            perfect_eue_by_zone[zone] = solve_perturbed_eue(case_path, config_set, ref_input)
+            perfect_eue_by_zone[zone] =
+                solve_perturbed_eue(case_path, config_set, ref_input)
         end
         perturbed_input = deepcopy(fixed_input)
         if target.EvalMode == "fixed"
-            perturb_storage_capacity!(perturbed_input, Int(target.FixedRowIndex), delta_mw, storage_duration_mode)
+            perturb_storage_capacity!(
+                perturbed_input,
+                Int(target.FixedRowIndex),
+                delta_mw,
+                storage_duration_mode,
+            )
         else
-            append_virtual_storage_capacity!(perturbed_input, base_input, target.Source, Int(target.SourceIndex), delta_mw, storage_duration_mode)
+            append_virtual_storage_capacity!(
+                perturbed_input,
+                base_input,
+                target.Source,
+                Int(target.SourceIndex),
+                delta_mw,
+                storage_duration_mode,
+            )
         end
         eue_resource = solve_perturbed_eue(case_path, config_set, perturbed_input)
         denom = baseline_eue - perfect_eue_by_zone[zone]
         erec = abs(denom) <= min_denom ? NaN : (baseline_eue - eue_resource) / denom
-        push!(results, (
-            "storage",
-            Int(target.FixedRowIndex),
-            target.Label,
-            target.Source,
-            Int(target.SourceIndex),
-            target.Technology,
-            zone,
-            Float64(target.BaselinePowerMW),
-            Float64(target.BaselineEnergyMWh),
-            delta_mw,
-            baseline_eue,
-            eue_resource,
-            perfect_eue_by_zone[zone],
-            erec,
-        ))
+        push!(
+            results,
+            (
+                "storage",
+                Int(target.FixedRowIndex),
+                target.Label,
+                target.Source,
+                Int(target.SourceIndex),
+                target.Technology,
+                zone,
+                Float64(target.BaselinePowerMW),
+                Float64(target.BaselineEnergyMWh),
+                delta_mw,
+                baseline_eue,
+                eue_resource,
+                perfect_eue_by_zone[zone],
+                erec,
+            ),
+        )
     end
 
     return results
 end
 
-function build_cc_export_tables(base_input::Dict, fixed_input::Dict, erec_results::DataFrame; resource_scope::AbstractString="built_only")
+function build_cc_export_tables(
+    base_input::Dict,
+    fixed_input::Dict,
+    erec_results::DataFrame;
+    resource_scope::AbstractString = "built_only",
+)
     gendata = if resource_scope == "all"
         g_existing = copy(base_input["Gendata"])
         g_candidate = copy(base_input["Gendata_candidate"])
         add_erec_metadata!(g_existing, "existing")
         add_erec_metadata!(g_candidate, "candidate")
-        vcat(g_existing, g_candidate; cols=:union)
+        vcat(g_existing, g_candidate; cols = :union)
     else
         copy(fixed_input["Gendata"])
     end
@@ -1021,7 +1381,7 @@ function build_cc_export_tables(base_input::Dict, fixed_input::Dict, erec_result
         s_candidate = copy(base_input["Estoragedata_candidate"])
         add_erec_metadata!(s_existing, "existing")
         add_erec_metadata!(s_candidate, "candidate")
-        vcat(s_existing, s_candidate; cols=:union)
+        vcat(s_existing, s_candidate; cols = :union)
     else
         copy(fixed_input["Storagedata"])
     end
@@ -1030,7 +1390,8 @@ function build_cc_export_tables(base_input::Dict, fixed_input::Dict, erec_result
     gen_rows = erec_results[erec_results.ResourceType .== "generator", :]
     sto_rows = erec_results[erec_results.ResourceType .== "storage", :]
 
-    if resource_scope == "all" && all(("Source" in names(gen_rows), "SourceIndex" in names(gen_rows)))
+    if resource_scope == "all" &&
+       all(("Source" in names(gen_rows), "SourceIndex" in names(gen_rows)))
         gen_lookup = Dict{Tuple{String,Int},Int}()
         for (i, row) in enumerate(eachrow(gendata))
             gen_lookup[(string(row["EREC_Source"]), Int(row["EREC_OrigIndex"]))] = i
@@ -1049,7 +1410,8 @@ function build_cc_export_tables(base_input::Dict, fixed_input::Dict, erec_result
         end
     end
 
-    if resource_scope == "all" && all(("Source" in names(sto_rows), "SourceIndex" in names(sto_rows)))
+    if resource_scope == "all" &&
+       all(("Source" in names(sto_rows), "SourceIndex" in names(sto_rows)))
         sto_lookup = Dict{Tuple{String,Int},Int}()
         for (i, row) in enumerate(eachrow(storagedata))
             sto_lookup[(string(row["EREC_Source"]), Int(row["EREC_OrigIndex"]))] = i
@@ -1097,7 +1459,7 @@ function run_erec_from_prepared_inputs(
     erec_settings::Dict,
     base_input::Dict,
     fixed_input::Dict;
-    baseline_model::Union{Nothing,Model}=nothing,
+    baseline_model::Union{Nothing,Model} = nothing,
 )
     baseline_config = build_erec_config(base_config, erec_settings)
     fixed_config = deepcopy(baseline_config)
@@ -1106,20 +1468,38 @@ function run_erec_from_prepared_inputs(
     fixed_model = solve_gtep_for_erec(solver_context_path, fixed_config, fixed_input)
     baseline_eue = compute_gtep_eue(fixed_config, fixed_input, fixed_model)
 
-    skip_if_zero = parse_erec_binary(get(erec_settings, "skip_if_eue_zero", 1), "skip_if_eue_zero")
-    if baseline_eue <= to_float_erec(get(erec_settings, "min_denominator_eue_drop", 1.0e-6), 1.0e-6) && skip_if_zero == 1
+    skip_if_zero =
+        parse_erec_binary(get(erec_settings, "skip_if_eue_zero", 1), "skip_if_eue_zero")
+    if baseline_eue <=
+       to_float_erec(get(erec_settings, "min_denominator_eue_drop", 1.0e-6), 1.0e-6) &&
+       skip_if_zero == 1
         erec_results = empty_erec_results_table()
     else
-        erec_results = build_erec_results(base_input, fixed_input, solver_context_path, fixed_config, erec_settings, baseline_eue)
+        erec_results = build_erec_results(
+            base_input,
+            fixed_input,
+            solver_context_path,
+            fixed_config,
+            erec_settings,
+            baseline_eue,
+        )
     end
 
-    resource_scope = lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
-    output_dir = joinpath(output_root, string(get(erec_settings, "output_dir_name", "output_erec")))
+    resource_scope =
+        lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
+    output_dir =
+        joinpath(output_root, string(get(erec_settings, "output_dir_name", "output_erec")))
     output_paths = Dict{String,String}()
     if parse_erec_binary(get(erec_settings, "write_outputs", 1), "write_outputs") == 1
         mkpath(output_dir)
-        results_path = joinpath(output_dir, string(get(erec_settings, "erec_results_file", "erec_results.csv")))
-        summary_path = joinpath(output_dir, string(get(erec_settings, "erec_summary_file", "erec_summary.csv")))
+        results_path = joinpath(
+            output_dir,
+            string(get(erec_settings, "erec_results_file", "erec_results.csv")),
+        )
+        summary_path = joinpath(
+            output_dir,
+            string(get(erec_settings, "erec_summary_file", "erec_summary.csv")),
+        )
         CSV.write(results_path, erec_results)
         summary_df = DataFrame(
             Metric = ["baseline_eue_mwh", "num_generator_results", "num_storage_results"],
@@ -1133,8 +1513,16 @@ function run_erec_from_prepared_inputs(
         output_paths["erec_results"] = results_path
         output_paths["erec_summary"] = summary_path
 
-        if parse_erec_binary(get(erec_settings, "write_cc_to_tables", 0), "write_cc_to_tables") == 1
-            cc_gendata, cc_storagedata = build_cc_export_tables(base_input, fixed_input, erec_results; resource_scope=resource_scope)
+        if parse_erec_binary(
+            get(erec_settings, "write_cc_to_tables", 0),
+            "write_cc_to_tables",
+        ) == 1
+            cc_gendata, cc_storagedata = build_cc_export_tables(
+                base_input,
+                fixed_input,
+                erec_results;
+                resource_scope = resource_scope,
+            )
             gendata_path = joinpath(output_dir, "gendata_with_erec_cc.csv")
             storagedata_path = joinpath(output_dir, "storagedata_with_erec_cc.csv")
             CSV.write(gendata_path, cc_gendata)
@@ -1176,7 +1564,7 @@ function calculate_erec(case::AbstractString; kwargs...)
     base_config = open(base_settings_path) do io
         YAML.load(io)
     end
-    endogenous_rep_day, _, _ = resolve_rep_day_mode(base_config; context="calculate_erec")
+    endogenous_rep_day, _, _ = resolve_rep_day_mode(base_config; context = "calculate_erec")
     if endogenous_rep_day == 1
         base_config["rep_day_settings"] = load_rep_day_settings(case_path, base_config)
     end
@@ -1192,25 +1580,40 @@ function calculate_erec(case::AbstractString; kwargs...)
         )
     end
 
-    resource_scope = lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
+    resource_scope =
+        lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
     if !(resource_scope in ("built_only", "all", "custom"))
-        throw(ArgumentError("EREC currently supports resource_scope = built_only, all, or custom."))
+        throw(
+            ArgumentError(
+                "EREC currently supports resource_scope = built_only, all, or custom.",
+            ),
+        )
     end
     if resource_scope == "custom"
         normalize_custom_erec_resources(get(erec_settings, "custom_resources", nothing))
     end
-    perturbation_mode = lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
+    perturbation_mode =
+        lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
     if perturbation_mode != "forward"
-        throw(ArgumentError("V1 EREC implementation currently supports only perturbation_mode = forward."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only perturbation_mode = forward.",
+            ),
+        )
     end
-    reference_mode = lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
+    reference_mode =
+        lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
     if reference_mode != "same_zone"
-        throw(ArgumentError("V1 EREC implementation currently supports only reference_resource_mode = same_zone."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only reference_resource_mode = same_zone.",
+            ),
+        )
     end
 
     baseline_config = build_erec_config(base_config, erec_settings)
     base_input = load_data(baseline_config, case_path)
-    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:case_input)
+    apply_erec_overrides!(base_input, erec_settings; voll_warning_context = :case_input)
 
     expansion_input = deepcopy(base_input)
     baseline_solved_model = solve_gtep_for_erec(case_path, baseline_config, expansion_input)
@@ -1224,15 +1627,31 @@ function calculate_erec(case::AbstractString; kwargs...)
         erec_settings,
         base_input,
         fixed_input;
-        baseline_model=baseline_solved_model,
+        baseline_model = baseline_solved_model,
     )
 end
 
 function calculate_erec(results::Dict; kwargs...)
-    haskey(results, "config") || throw(ArgumentError("calculate_erec(results::Dict) requires a results dictionary that includes key \"config\" from HOPE.run_hope()."))
-    haskey(results, "input") || throw(ArgumentError("calculate_erec(results::Dict) requires a results dictionary that includes key \"input\" from HOPE.run_hope()."))
-    haskey(results, "solved_model") || throw(ArgumentError("calculate_erec(results::Dict) requires a results dictionary that includes key \"solved_model\" from HOPE.run_hope()."))
-    haskey(results, "case_path") || throw(ArgumentError("calculate_erec(results::Dict) requires a results dictionary that includes key \"case_path\" from HOPE.run_hope()."))
+    haskey(results, "config") || throw(
+        ArgumentError(
+            "calculate_erec(results::Dict) requires a results dictionary that includes key \"config\" from HOPE.run_hope().",
+        ),
+    )
+    haskey(results, "input") || throw(
+        ArgumentError(
+            "calculate_erec(results::Dict) requires a results dictionary that includes key \"input\" from HOPE.run_hope().",
+        ),
+    )
+    haskey(results, "solved_model") || throw(
+        ArgumentError(
+            "calculate_erec(results::Dict) requires a results dictionary that includes key \"solved_model\" from HOPE.run_hope().",
+        ),
+    )
+    haskey(results, "case_path") || throw(
+        ArgumentError(
+            "calculate_erec(results::Dict) requires a results dictionary that includes key \"case_path\" from HOPE.run_hope().",
+        ),
+    )
 
     case_path = results["case_path"]
     base_config = deepcopy(results["config"])
@@ -1248,24 +1667,43 @@ function calculate_erec(results::Dict; kwargs...)
         )
     end
 
-    resource_scope = lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
+    resource_scope =
+        lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
     if !(resource_scope in ("built_only", "all", "custom"))
-        throw(ArgumentError("EREC currently supports resource_scope = built_only, all, or custom."))
+        throw(
+            ArgumentError(
+                "EREC currently supports resource_scope = built_only, all, or custom.",
+            ),
+        )
     end
     if resource_scope == "custom"
         normalize_custom_erec_resources(get(erec_settings, "custom_resources", nothing))
     end
-    perturbation_mode = lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
+    perturbation_mode =
+        lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
     if perturbation_mode != "forward"
-        throw(ArgumentError("V1 EREC implementation currently supports only perturbation_mode = forward."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only perturbation_mode = forward.",
+            ),
+        )
     end
-    reference_mode = lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
+    reference_mode =
+        lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
     if reference_mode != "same_zone"
-        throw(ArgumentError("V1 EREC implementation currently supports only reference_resource_mode = same_zone."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only reference_resource_mode = same_zone.",
+            ),
+        )
     end
 
     base_input = deepcopy(results["input"])
-    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:solved_baseline)
+    apply_erec_overrides!(
+        base_input,
+        erec_settings;
+        voll_warning_context = :solved_baseline,
+    )
     fixed_input = build_fixed_fleet_input(base_input, results["solved_model"])
     output_root = get(results, "output_path", case_path)
 
@@ -1277,7 +1715,7 @@ function calculate_erec(results::Dict; kwargs...)
         erec_settings,
         base_input,
         fixed_input;
-        baseline_model=results["solved_model"],
+        baseline_model = results["solved_model"],
     )
 end
 
@@ -1285,7 +1723,8 @@ function calculate_erec_from_output(output_path::AbstractString; kwargs...)
     snapshot = load_postprocess_snapshot(output_path)
     snapshot_dir = snapshot["snapshot_dir"]
     base_config = snapshot["config"]
-    case_path = get(snapshot["metadata"], "source_case_path", dirname(snapshot["output_path"]))
+    case_path =
+        get(snapshot["metadata"], "source_case_path", dirname(snapshot["output_path"]))
     erec_settings = load_erec_settings(snapshot_dir)
     for (k, v) in kwargs
         erec_settings[string(k)] = v
@@ -1298,24 +1737,43 @@ function calculate_erec_from_output(output_path::AbstractString; kwargs...)
         )
     end
 
-    resource_scope = lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
+    resource_scope =
+        lowercase(strip(string(get(erec_settings, "resource_scope", "built_only"))))
     if !(resource_scope in ("built_only", "all", "custom"))
-        throw(ArgumentError("EREC currently supports resource_scope = built_only, all, or custom."))
+        throw(
+            ArgumentError(
+                "EREC currently supports resource_scope = built_only, all, or custom.",
+            ),
+        )
     end
     if resource_scope == "custom"
         normalize_custom_erec_resources(get(erec_settings, "custom_resources", nothing))
     end
-    perturbation_mode = lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
+    perturbation_mode =
+        lowercase(strip(string(get(erec_settings, "perturbation_mode", "forward"))))
     if perturbation_mode != "forward"
-        throw(ArgumentError("V1 EREC implementation currently supports only perturbation_mode = forward."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only perturbation_mode = forward.",
+            ),
+        )
     end
-    reference_mode = lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
+    reference_mode =
+        lowercase(strip(string(get(erec_settings, "reference_resource_mode", "same_zone"))))
     if reference_mode != "same_zone"
-        throw(ArgumentError("V1 EREC implementation currently supports only reference_resource_mode = same_zone."))
+        throw(
+            ArgumentError(
+                "V1 EREC implementation currently supports only reference_resource_mode = same_zone.",
+            ),
+        )
     end
 
     base_input = snapshot["base_input"]
-    apply_erec_overrides!(base_input, erec_settings; voll_warning_context=:solved_baseline)
+    apply_erec_overrides!(
+        base_input,
+        erec_settings;
+        voll_warning_context = :solved_baseline,
+    )
 
     return run_erec_from_prepared_inputs(
         case_path,
@@ -1325,6 +1783,6 @@ function calculate_erec_from_output(output_path::AbstractString; kwargs...)
         erec_settings,
         base_input,
         snapshot["fixed_input"];
-        baseline_model=nothing,
+        baseline_model = nothing,
     )
 end

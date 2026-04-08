@@ -33,11 +33,11 @@ include("utils.jl");                #utility functions
 include("rep_day.jl");              #representative-day utilities
 include("aggregation.jl");          #resource aggregation settings/utilities
 include("network_utils.jl");        #network/DCOPF helper utilities
-include("read_input_data.jl");		#read input data module
-include("GTEP.jl");					#capacity expansion model
-include("PCM.jl");					#production cost model
-include("write_output.jl");			#write output module
-include("solver_config.jl");		#setting solver parameters
+include("read_input_data.jl");#read input data module
+include("GTEP.jl");#capacity expansion model
+include("PCM.jl");#production cost model
+include("write_output.jl");#write output module
+include("solver_config.jl");#setting solver parameters
 include("solve.jl");                #solve model function
 include("run.jl");                  #run module
 include("erec.jl");                 #EREC postprocessing module

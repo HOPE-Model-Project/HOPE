@@ -9,22 +9,25 @@ using DataFrames
         ),
     )
 
-    aggregated = HOPE.aggregate_gendata_gtep(DataFrame(
-        :Zone => ["APS_MD", "APS_MD"],
-        :Type => ["NGCT_CCS", "NGCT_CCS"],
-        Symbol("Pmax (MW)") => [10.0, 30.0],
-        Symbol("Pmin (MW)") => [1.0, 3.0],
-        Symbol("Cost (\$/MWh)") => [20.0, 40.0],
-        :EF => [0.5, 0.7],
-        :CC => [0.8, 0.9],
-        :AF => [0.6, 1.0],
-        :FOR => [0.1, 0.3],
-        :Flag_thermal => [1, 1],
-        :Flag_VRE => [0, 0],
-        :Flag_RET => [0, 1],
-        :Flag_mustrun => [0, 0],
-        :Flag_RPS => [0, 0],
-    ), basic_cfg)
+    aggregated = HOPE.aggregate_gendata_gtep(
+        DataFrame(
+            :Zone => ["APS_MD", "APS_MD"],
+            :Type => ["NGCT_CCS", "NGCT_CCS"],
+            Symbol("Pmax (MW)") => [10.0, 30.0],
+            Symbol("Pmin (MW)") => [1.0, 3.0],
+            Symbol("Cost (\$/MWh)") => [20.0, 40.0],
+            :EF => [0.5, 0.7],
+            :CC => [0.8, 0.9],
+            :AF => [0.6, 1.0],
+            :FOR => [0.1, 0.3],
+            :Flag_thermal => [1, 1],
+            :Flag_VRE => [0, 0],
+            :Flag_RET => [0, 1],
+            :Flag_mustrun => [0, 0],
+            :Flag_RPS => [0, 0],
+        ),
+        basic_cfg,
+    )
     @test nrow(aggregated) == 1
     @test aggregated[1, "FOR"] ≈ 0.25
     @test aggregated[1, "AF"] ≈ 0.9
@@ -35,16 +38,8 @@ using DataFrames
             :Type => ["WindOn", "WindOn"],
             Symbol("Pmax (MW)") => [10.0, 30.0],
         ),
-        DataFrame(
-            :Zone => ["APS_MD"],
-            :Type => ["WindOn"],
-            Symbol("Pmax (MW)") => [40.0],
-        ),
-        DataFrame(
-            :Zone => ["APS_MD"],
-            :Type => ["SolarPV"],
-            Symbol("Pmax (MW)") => [5.0],
-        ),
+        DataFrame(:Zone => ["APS_MD"], :Type => ["WindOn"], Symbol("Pmax (MW)") => [40.0]),
+        DataFrame(:Zone => ["APS_MD"], :Type => ["SolarPV"], Symbol("Pmax (MW)") => [5.0]),
         DataFrame(
             Symbol("Time Period") => [1, 1],
             :Hours => [1, 2],
@@ -58,18 +53,14 @@ using DataFrames
     @test aggregated_af[!, "G1"] ≈ [0.5, 0.7]
     @test aggregated_af[!, "G2"] == [0.1, 0.3]
 
-    @test HOPE.normalize_erec_resource_types(["generator", "storage", "generator"]) == ["generator", "storage"]
+    @test HOPE.normalize_erec_resource_types(["generator", "storage", "generator"]) ==
+          ["generator", "storage"]
     @test_throws ArgumentError HOPE.normalize_erec_resource_types(["generator", "bad_type"])
 
     base_input = Dict(
-        "Gendata" => DataFrame(
-            Symbol("Pmax (MW)") => [10.0, 20.0],
-            :AF => [0.9, 0.8],
-        ),
-        "Gendata_candidate" => DataFrame(
-            Symbol("Pmax (MW)") => [30.0, 40.0],
-            :AF => [0.6, 0.4],
-        ),
+        "Gendata" => DataFrame(Symbol("Pmax (MW)") => [10.0, 20.0], :AF => [0.9, 0.8]),
+        "Gendata_candidate" =>
+            DataFrame(Symbol("Pmax (MW)") => [30.0, 40.0], :AF => [0.6, 0.4]),
         "AFdata" => DataFrame(
             Symbol("Time Period") => [1, 1],
             :Hours => [1, 2],
@@ -128,14 +119,8 @@ using DataFrames
     @test perfect_row["EREC_Source"] == "reference"
 
     fixed_input = Dict(
-        "Gendata" => DataFrame(
-            :CC => [0.1, 0.2],
-            :Type => ["Hydro", "WindOn"],
-        ),
-        "Storagedata" => DataFrame(
-            :CC => [0.3],
-            :Type => ["Battery"],
-        ),
+        "Gendata" => DataFrame(:CC => [0.1, 0.2], :Type => ["Hydro", "WindOn"]),
+        "Storagedata" => DataFrame(:CC => [0.3], :Type => ["Battery"]),
     )
     erec_results = DataFrame(
         ResourceType = ["generator", "generator", "storage"],
@@ -143,7 +128,16 @@ using DataFrames
         EREC = [0.95, NaN, 0.85],
     )
 
-    cc_gendata, cc_storagedata = HOPE.build_cc_export_tables(Dict("Gendata" => DataFrame(), "Gendata_candidate" => DataFrame(), "Storagedata" => DataFrame(), "Estoragedata_candidate" => DataFrame()), fixed_input, erec_results)
+    cc_gendata, cc_storagedata = HOPE.build_cc_export_tables(
+        Dict(
+            "Gendata" => DataFrame(),
+            "Gendata_candidate" => DataFrame(),
+            "Storagedata" => DataFrame(),
+            "Estoragedata_candidate" => DataFrame(),
+        ),
+        fixed_input,
+        erec_results,
+    )
     @test cc_gendata[1, "CC"] == 0.95
     @test cc_gendata[2, "CC"] == 0.2
     @test cc_storagedata[1, "CC"] == 0.85
@@ -205,35 +199,54 @@ using DataFrames
         EREC = [0.91, 0.42, 0.77],
     )
 
-    cc_gendata_all, cc_storagedata_all = HOPE.build_cc_export_tables(base_input_all, fixed_input_all, erec_results_all; resource_scope="all")
+    cc_gendata_all, cc_storagedata_all = HOPE.build_cc_export_tables(
+        base_input_all,
+        fixed_input_all,
+        erec_results_all;
+        resource_scope = "all",
+    )
     @test nrow(cc_gendata_all) == 4
     @test nrow(cc_storagedata_all) == 2
     @test cc_gendata_all[2, "CC"] == 0.91
     @test cc_gendata_all[4, "CC"] == 0.42
     @test cc_storagedata_all[2, "CC"] == 0.77
 
-    custom_resources = HOPE.normalize_custom_erec_resources(Dict(
-        "generators" => ["existing_1", "candidate_2"],
-        "storages" => [1, "candidate_1"],
-    ))
+    custom_resources = HOPE.normalize_custom_erec_resources(
+        Dict(
+            "generators" => ["existing_1", "candidate_2"],
+            "storages" => [1, "candidate_1"],
+        ),
+    )
     @test ("existing", 1) in custom_resources["generator"]
     @test ("candidate", 2) in custom_resources["generator"]
     @test ("existing", 1) in custom_resources["storage"]
     @test ("candidate", 1) in custom_resources["storage"]
     @test_throws ArgumentError HOPE.normalize_custom_erec_resources(Dict("badkey" => [1]))
-    @test_throws ArgumentError HOPE.normalize_custom_erec_resources(Dict("generators" => ["badlabel"]))
+    @test_throws ArgumentError HOPE.normalize_custom_erec_resources(
+        Dict("generators" => ["badlabel"]),
+    )
 
     custom_targets = HOPE.build_eval_targets(
         base_input_all,
         fixed_input_all,
         ["generator", "storage"],
         "custom";
-        custom_resources=custom_resources,
+        custom_resources = custom_resources,
     )
     @test nrow(custom_targets) == 4
-    @test Set(custom_targets.Label) == Set(["existing_1", "candidate_2", "existing_1", "candidate_1"])
-    @test custom_targets[(custom_targets.ResourceType .== "generator") .& (custom_targets.Label .== "existing_1"), "EvalMode"][1] == "fixed"
+    @test Set(custom_targets.Label) ==
+          Set(["existing_1", "candidate_2", "existing_1", "candidate_1"])
+    @test custom_targets[
+        (custom_targets.ResourceType .== "generator") .& (custom_targets.Label .== "existing_1"),
+        "EvalMode",
+    ][1] == "fixed"
     @test custom_targets[custom_targets.Label .== "candidate_2", "EvalMode"][1] == "virtual"
-    @test custom_targets[(custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "existing_1"), "EvalMode"][1] == "fixed"
-    @test custom_targets[(custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "candidate_1"), "EvalMode"][1] == "virtual"
+    @test custom_targets[
+        (custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "existing_1"),
+        "EvalMode",
+    ][1] == "fixed"
+    @test custom_targets[
+        (custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "candidate_1"),
+        "EvalMode",
+    ][1] == "virtual"
 end
