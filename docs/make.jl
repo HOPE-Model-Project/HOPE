@@ -75,6 +75,6 @@ makedocs(;
 normalize_ascii_page_titles(joinpath(@__DIR__, "build"))
 
 deploydocs(;
-    repo="github.com/hope-model-project/HOPE.git",
+    repo="github.com/HOPE-Model-Project/HOPE.git",
     devbranch="main",
 )
