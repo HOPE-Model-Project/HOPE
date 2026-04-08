@@ -1,2 +1,0 @@
-VOLL,planning_reserve_margin,BigM,PT_RPS,PT_emis,PT_NI_DEV,Inv_bugt_gen,Inv_bugt_line,Inv_bugt_storage,alpha_storage_anchor,reg_up_requirement,reg_dn_requirement,spin_requirement,nspin_requirement,delta_reg,delta_spin,delta_nspin,theta_max
-100000.0,0.02,10000000000000.0,10000000000.0,10000000000.0,500.0,1e+16,1e+16,1e+16,0.5,0.01,0.01,0.03,0.02,0.0833333333333333,0.1666666666666666,0.5,1000.0

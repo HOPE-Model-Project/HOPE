@@ -1,6 +1,0 @@
-Zone,Bus_id,Type,Capacity (MWh),Max Power (MW),Charging efficiency,Discharging efficiency,Cost ($/MWh),EF,CC,Charging Rate,Discharging Rate
-Z1,1,BES,142.5,35.625,0.9,0.9,1.0,0.0,0.95,1.0,1.0
-Z1,6,BES,120.0,30.0,0.9,0.9,1.0,0.0,0.95,1.0,1.0
-Z2,12,BES,140.0,35.0,0.9,0.9,1.0,0.0,0.95,1.0,1.0
-Z3,18,BES,110.0,27.5,0.9,0.9,1.0,0.0,0.95,1.0,1.0
-Z4,24,BES,100.0,25.0,0.9,0.9,1.0,0.0,0.95,1.0,1.0

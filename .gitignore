@@ -1,9 +1,9 @@
 /Manifest.toml
 /docs/Manifest.toml
 /docs/build/
-/ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones/gen_availability_timeseries.csv
-/ModelCases/*/output*/
-/ModelCases/*/output*/**
+# ModelCases is maintained in a separate repository: https://github.com/HOPE-Model-Project/HOPEModelCases
+# Clone it locally and set HOPE_MODELCASES_PATH to its path.
+/ModelCases/
 /tools/**/raw_sources/*.zip
 /tools/**/raw_sources/**/*.zip
 /tools/**/raw_sources/**
@@ -13,15 +13,6 @@
 !/tools/**/raw_sources/**/
 !/tools/**/raw_sources/**/README.md
 **/__pycache__/
-*.pyc
-**/.DS_Store
-*.DS_Store
-
-# Germany PCM generated large nodal load tables
-/ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.csv
-/ModelCases/GERMANY_PCM_nodal*/Data_*/load_timeseries_nodal.*
-/ModelCases/GERMANY_PCM_nodal*/Data_*/load_btmpv_diagnostics.csv
-/ModelCases/GERMANY_PCM_nodal*/Data_*/load_sector_weight_diagnostics.csv
 
 # Generated preprocessing outputs and local analysis artifacts
 /tools/**/outputs/*.csv
