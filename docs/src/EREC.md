@@ -7,6 +7,7 @@ CurrentModule = HOPE
 HOPE supports Equivalent Reliability Enhancement Capability (`EREC`) as a postprocessing workflow for `GTEP` cases.
 
 The intended baseline setup for EREC calculation is:
+
 - `planning_reserve_mode: 0`
 - a sufficiently high `VOLL` in the baseline energy-only run
 - user-selected settings for chronology, `UC`, transmission, aggregation, and other model options
@@ -40,6 +41,7 @@ output_dir_name: output_erec
 ```
 
 Recommended interpretation:
+
 - `voll_override: null`
   preserve the `VOLL` already used by the baseline case or solved output; this is the recommended default, especially for `calculate_erec(results)` and `calculate_erec_from_output(...)`
 - `resource_types: [generator, storage]`
@@ -49,6 +51,7 @@ Recommended interpretation:
 - use `resource_scope: all` if you also want unbuilt candidates
 
 Important note on `voll_override`:
+
 - `EREC` is sensitive to the `VOLL` used in the baseline energy-limited redispatch.
 - When you reuse a solved case with `calculate_erec(results)` or `calculate_erec_from_output(output_path)`, the safest default is to keep the same `VOLL` used in the original solved baseline.
 - HOPE now preserves that baseline `VOLL` by default when `voll_override` is omitted or set to `null`.
@@ -103,6 +106,7 @@ save_postprocess_snapshot: 1       #Int, 0 do not save; 1 save minimal snapshot 
 ```
 
 Recommended meaning:
+
 - `0`: do not save a postprocess snapshot
 - `1`: save the minimal snapshot needed for later EREC/postprocessing
 - `2`: save the minimal snapshot plus extra solved-run details for debugging/reproducibility

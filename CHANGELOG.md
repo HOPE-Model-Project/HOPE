@@ -62,3 +62,7 @@ Initial release of the current HOPE Julia package.
 - Benchmark cases: IEEE-14, IEEE-118, RTS-24, Maryland, and PJM-MD100.
 - Multi-solver support: HiGHS, GLPK, Clp, Cbc; optional Gurobi and SCIP.
 - XLSX and CSV input data formats.
+
+[Unreleased]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/HOPE-Model-Project/HOPE/releases/tag/v1.0.0

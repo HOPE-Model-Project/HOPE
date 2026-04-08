@@ -5,8 +5,10 @@ CurrentModule = HOPE
 ```
 
 # Overview
+
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modular tool coded in the [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/).
 The HOPE currently supports these operational modes:
+
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
 Planned future modes:

@@ -4,6 +4,7 @@ CurrentModule = HOPE
 ```
 
 # Model Overview
+
 HOPE currently supports two operational model modes:
 
 1. `GTEP`: generation and transmission expansion planning

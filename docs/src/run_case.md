@@ -3,7 +3,9 @@ CurrentModule = HOPE
 ```
 
 # Run a Case in HOPE
+
 ## Using VS Code to Run a Case (Recommended)
+
 Install Visual Studio Code: download [VS Code](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VS Code and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
 **(1)** Open VS Code, click `File -> Open Folder...`, and navigate to your local `HOPE` repository directory.
@@ -37,6 +39,7 @@ The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 ![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
 
 Note:
+
 - `HOPE.run_hope(...)` accepts normalized case paths. For example, these are all valid:
   - `HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")`
   - `HOPE.run_hope("MD_PCM_Excel_case/")`
@@ -46,8 +49,11 @@ Note:
 **(7)** For future runs, you can usually skip steps 4 and 5 and just follow steps 1, 2, 3, and 6.
 
 ## Using System Terminal to Run a Case
+
 You can use a system terminal either on Windows or macOS to run a test case. See details below.
+
 ### Windows users
+
 **(1)** Open **Command Prompt** from Windows **Start** and navigate to your local `HOPE` repository directory.
 
 **(2)** Type `julia`. Julia will be opened as below:
@@ -77,6 +83,7 @@ The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 ![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
 Note:
+
 - `HOPE.run_hope(...)` accepts normalized case paths. For example, these are all valid:
   - `HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")`
   - `HOPE.run_hope("MD_PCM_Excel_case/")`

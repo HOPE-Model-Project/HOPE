@@ -8,6 +8,7 @@ CurrentModule = HOPE
 The `HOPE_model_settings.yml` file configures model switches and run controls.
 
 ---
+
 |**Parameter Name** | **Example**| **Description**|
 | :------------ | :-----------|:-----------|
 |`DataCase:` | `Data_100RPS/`| Input data folder under the case directory.|
@@ -33,9 +34,11 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 |`solver:`| `gurobi` | Solver name (`cbc`, `clp`, `glpk`, `gurobi`, `cplex`, etc.).|
 |`debug:` | `0` | `0` off; `1` conflict refiner; `2` penalty-based debug.|
 |`save_postprocess_snapshot:`| `1` | `0` do not save; `1` save minimal machine-readable snapshot in `output/postprocess_snapshot/` for later postprocessing such as EREC; `2` save full snapshot with additional solved-run details.|
+
 ---
 
 Notes:
+
 - Parameters like `VOLL`, `planning_reserve_margin`, reserve requirements, `theta_max`, and other numeric constants are read from `single_parameter` input (not from `HOPE_model_settings.yml`).
 - Use `endogenous_rep_day` and `external_rep_day` for new cases. `representative_day!` is still supported for backward compatibility.
 - Full chronology corresponds to `endogenous_rep_day = 0` and `external_rep_day = 0`.

@@ -5,17 +5,18 @@
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c)
 
-
-
-
 ## How to cite HOPE?
+
 You can cite the paper:
+
 ```
 Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimization Program for Electricity. SoftwareX, 29, 101982. https://doi.org/10.1016/j.softx.2024.101982
 ```
 
 # Overview
+
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
+
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
 3. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
@@ -31,10 +32,13 @@ Current HOPE model is also maintaining by researchers at MIT, including Shen Wan
 > **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
 
 # Preparation Phase
+
 ## 1. Install Julia
+
 Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
+
 Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose **"Clone"** (recommended) or **"Download ZIP"**.
 ![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`).
@@ -57,9 +61,10 @@ This is the **recommended setup** — HOPE will find the cases automatically wit
 >[!NOTE]
 >If you prefer to store model cases elsewhere, clone `HOPEModelCases` to any path and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE. See the [HOPEModelCases README](https://github.com/HOPE-Model-Project/HOPEModelCases) for details.
 
-
 # Run a Case in HOPE
+
 ## Using VScode to Run a Case (Recommend)
+
 Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) and [install](https://code.visualstudio.com/docs/setup/setup-overview) it. A short video tutorial on how to install VScode and add Julia to it can be found [here](https://www.youtube.com/watch?v=oi5dZxPGNlk).
 
 **(1)** Open the VScode, click the 'File' tab, select 'Open Folder...', and navigate to your home working directory:`/yourpath/home`
@@ -68,7 +73,6 @@ Install Visual Studio Code: Download [VScode](https://code.visualstudio.com/) an
 >The `home` directory could be any folder where you save your HOPE project. The `home` directory in the example below is named `Maryland-Electric-Sector-Transition`.
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/c8acf95d-909d-44e2-8ded-61635367dc53)
-
 
 **(2)** In the VScode TERMINAL, type `Julia` and press the "Enter" button. Julia will be opened as below:
 
@@ -96,8 +100,11 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/o
 **(7)**  For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.
 
 ## Using System Terminal to Run a Case
+
 You can use a system terminal () either with a "Windows system" or a "Mac system" to run a test case. See details below.
+
 ### Windows users
+
 **(1)** Open **Command Prompt** from Windows **Start** and navigate to your home path:`/yourpath/home`.
 
 **(2)** Type `julia`. Julia will be opened as below:
@@ -119,16 +126,14 @@ The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/o
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/99790827-4337-4991-a320-85ae2bd10be2)
 
-
 **(7)** For your future new runs, you can skip steps 4 and 5, and just follow steps 1,2,3,6.
-
 
 #### Mac users
 
 # Run your case
+
 Follow these steps:
 ![image](https://github.com/swang22/HOPE/assets/125523842/bc0ef4d9-b9b1-468a-a9a0-a0b2aa3d4340)
-
 
 # Solvers
 
@@ -187,9 +192,11 @@ Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for
 [Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf)
 
 ## Acknowledgement
+
 This project is funded by [Maryland Energy Administration](https://energy.maryland.gov/Pages/default.aspx)
 
 # Program Sponsors
+
 <img src="https://github.com/swang22/HOPE/assets/125523842/6abb8305-ca8f-4506-8e59-5f82e2893118" width="200" height="70" />
 <br clear="both"/>
 <img src="https://github.com/swang22/HOPE/assets/125523842/a0c7ee3e-1ac5-4a59-9698-d654b542d64e" width="320" height="160" />
