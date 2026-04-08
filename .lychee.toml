@@ -1,11 +1,16 @@
 exclude = [
   '@ref',
+  '^https://doi.org/10\..*$',
   '^https://github.com/.*/releases/tag/v.*$',
   '^https://github.com/swang22/HOPE/assets/.*$',
-  '^https://doi.org/10\..*$',
-  '^https://hobbsgroup\.johnshopkins\.edu/.*$'
+  '^https://hobbsgroup\.johnshopkins\.edu/.*$',
+  '^https://www\.ferc\.gov/.*$',
+  '^https://www\.jhu\.edu/.*$',
+  '^https://www\.mdpi\.com/.*$',
+  '^http://127\.0\.0\.1/.*$'
 ]
 
 exclude_path = [
-  "docs/build"
+  "docs/build",
+  "tools"
 ]

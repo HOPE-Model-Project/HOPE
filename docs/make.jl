@@ -2,10 +2,10 @@ using HOPE
 using Documenter
 import DataStructures: OrderedDict
 
-DocMeta.setdocmeta!(HOPE, :DocTestSetup, :(using HOPE); recursive=true)
+DocMeta.setdocmeta!(HOPE, :DocTestSetup, :(using HOPE); recursive = true)
 
 function normalize_ascii_page_titles(build_dir::AbstractString)
-    for file in readdir(build_dir; join=true)
+    for file in readdir(build_dir; join = true)
         if isfile(file) && endswith(file, ".html")
             text = read(file, String)
             text = replace(text, " · HOPE.jl" => " - HOPE.jl")
@@ -35,46 +35,37 @@ pages = OrderedDict(
         "GTEP" => "GTEP.md",
         "PCM" => "PCM.md",
     ],
-    "Input Data Explanation" => [
-        "GTEP Inputs" => "GTEP_inputs.md",
-        "PCM Inputs" => "PCM_inputs.md",
-    ],
+    "Input Data Explanation" =>
+        ["GTEP Inputs" => "GTEP_inputs.md", "PCM Inputs" => "PCM_inputs.md"],
     "Model Settings" => [
         "HOPE Settings" => "hope_model_settings.md",
         "Representative Days" => "rep_day.md",
         "Resource Aggregation" => "resource_aggregation.md",
         "Solver Settings" => "solver_settings.md",
     ],
-    "Postprocessing" => [
-        "EREC" => "EREC.md",
-    ],
-    "Reference" => [
-        "API Reference" => "95-reference.md",
-    ],
+    "Postprocessing" => ["EREC" => "EREC.md"],
+    "Reference" => ["API Reference" => "95-reference.md"],
     "Project" => [
         "Contributing" => "90-contributing.md",
         "Developer Guide" => "91-developer.md",
-    ]
+    ],
 )
 
 makedocs(;
-    modules=[HOPE],
-    authors="Shen Wang, Mahdi Mehrtash, Zoe Song and contributors",
-    clean=false,
-    remotes=nothing,
-    sitename="HOPE.jl",
-    format=Documenter.HTML(;
-        prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://hope-model-project.github.io/HOPE/",
-        edit_link="main",
-        assets = ["assets/favicon.ico", "assets/hope-docs-brand.css"]
+    modules = [HOPE],
+    authors = "Shen Wang, Mahdi Mehrtash, Zoe Song and contributors",
+    clean = false,
+    remotes = nothing,
+    sitename = "HOPE.jl",
+    format = Documenter.HTML(;
+        prettyurls = get(ENV, "CI", "false") == "true",
+        canonical = "https://hope-model-project.github.io/HOPE/",
+        edit_link = "main",
+        assets = ["assets/favicon.ico", "assets/hope-docs-brand.css"],
     ),
-    pages=[p for p in pages]
+    pages = [p for p in pages],
 )
 
 normalize_ascii_page_titles(joinpath(@__DIR__, "build"))
 
-deploydocs(;
-    repo="github.com/HOPE-Model-Project/HOPE.git",
-    devbranch="main",
-)
+deploydocs(; repo = "github.com/HOPE-Model-Project/HOPE.git", devbranch = "main")

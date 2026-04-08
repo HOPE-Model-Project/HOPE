@@ -1,4 +1,7 @@
 {
+  "MD003": {
+    "style": "atx"
+  },
   "MD007": {
     "indent": 2,
     "start_indented": false
@@ -7,13 +10,11 @@
     "line_length": 1000,
     "tables": false
   },
-  "MD003": {
-    "style": "atx"
-  },
   "MD024": {
     "siblings_only": true
   },
   "MD025": false,
+  "MD029": false,
   "MD033": false,
   "MD036": false,
   "MD040": false,

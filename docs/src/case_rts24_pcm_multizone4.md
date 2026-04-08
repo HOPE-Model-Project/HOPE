@@ -5,9 +5,7 @@ Data path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case/Data_RTS24_PCM
 
 ## Dashboard
 
-Interactive dashboard for this case: [HOPE Dashboard](http://127.0.0.1:8050/)
-
-Dashboard note: this local view is currently configured around the nodal PCM outputs from `RTS24_PCM_multizone4_congested_1month_case`. Start it from the repo root with `python tools/hope_dashboard/app.py`.
+Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser.
 
 ### How to Read This Dashboard
 

@@ -10,9 +10,7 @@ Dashboard demo case path: `ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case`
 
 ## Dashboard
 
-Interactive dashboard for this case: [HOPE Dashboard](http://127.0.0.1:8050/)
-
-Dashboard note: start it from the repo root with `python tools/hope_dashboard/app.py`. The dashboard default is currently pinned to `GERMANY_PCM_nodal_jan_2day_rescaled_case`, which is the solved 2-day Germany nodal demo case.
+Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser.
 
 ## Current Build Summary
 

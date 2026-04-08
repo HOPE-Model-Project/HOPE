@@ -765,7 +765,7 @@ The current HOPE representative-day design was informed by the following literat
 
 5. "Representative days and hours with piecewise linear transitions for power system planning," *Electric Power Systems Research*, 2024. DOI: [10.1016/j.epsr.2024.110788](https://doi.org/10.1016/j.epsr.2024.110788)
 
-6. Energy Planning Model documentation, "Representative Days." [https://esmap-world-bank-group.github.io/EPM/docs/input_representative_days.html](https://esmap-world-bank-group.github.io/EPM/docs/input_representative_days.html)
+6. Shivakumar et al., "Energy Planning Model (EPM)." World Bank ESMAP, 2021. [https://openknowledge.worldbank.org/handle/10986/36218](https://openknowledge.worldbank.org/handle/10986/36218)
 
 7. GenX.jl documentation, "Time-domain Reduction." [https://genxproject.github.io/GenX.jl/stable/Model_Reference/TDR/](https://genxproject.github.io/GenX.jl/stable/Model_Reference/TDR/)
 

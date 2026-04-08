@@ -5,9 +5,7 @@ Data path: `ModelCases/ISONE_PCM_250bus_case/Data_ISONE_PCM_250bus`
 
 ## Dashboard
 
-Interactive dashboard for this case: [HOPE Dashboard](http://127.0.0.1:8050/)
-
-Dashboard note: start it from the repo root with `python tools/hope_dashboard/app.py`, then select `ISONE_PCM_250bus_case` from the case dropdown. The dashboard is pinned to the finalized reference output through `ModelCases/ISONE_PCM_250bus_case/dashboard_output.txt`, which currently points to `output_nocarbon_check`.
+Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser. The dashboard is pinned to the finalized reference output through `ModelCases/ISONE_PCM_250bus_case/dashboard_output.txt`, which currently points to `output_nocarbon_check`.
 
 ## Current Build Summary
 

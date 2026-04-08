@@ -441,6 +441,7 @@ This is the input dataset for carbon policies.
 ## rpspolicies
 
 This is the input dataset for renewable portfolio standard (RPS) policies. It defines renewable credits trading relationship between different states (i.e., the states must be neighboring states) and the renewable credit requirement for each state.
+
 ---
 |**Column Name** | **Description**|
 | :------------ | :-----------|
