@@ -56,5 +56,6 @@ jobs:
         run: julia --project=docs docs/make.jl
         env:
           JULIA_PKG_SERVER: ""
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GKSwstype: "100"
