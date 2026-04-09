@@ -70,10 +70,10 @@ body {
 
 .dashboard-toolbar.toolbar-collapsed .dashboard-subtitle,
 .dashboard-toolbar.toolbar-collapsed .dashboard-help,
+.dashboard-toolbar.toolbar-collapsed .custom-case-panel,
 .dashboard-toolbar.toolbar-collapsed .case-summary-strip,
 .dashboard-toolbar.toolbar-collapsed .kpi-strip,
-.dashboard-toolbar.toolbar-collapsed .constraint-detail,
-.dashboard-toolbar.toolbar-collapsed .toolbar-row-bottom {
+.dashboard-toolbar.toolbar-collapsed .constraint-detail {
   display: none !important;
 }
 
@@ -141,10 +141,18 @@ body {
 .dashboard-help-list {
   margin: 0;
   padding-left: 18px;
+  columns: 2;
+  column-gap: 28px;
 }
 
 .dashboard-help-list li {
   margin: 0 0 6px 0;
+  break-inside: avoid;
+}
+
+.dashboard-help-list li b {
+  color: var(--hope-ink);
+  font-weight: 800;
 }
 
 .dashboard-status {
@@ -202,7 +210,7 @@ body {
 .toolbar-row-top {
   margin-bottom: 14px;
   position: relative;
-  padding-right: 420px;
+  padding-right: 560px;
   min-height: 40px;
   flex-wrap: nowrap;
 }
@@ -255,6 +263,16 @@ body {
   margin-left: auto;
   justify-content: stretch;
   align-content: start;
+}
+
+/* Always-visible selector row (stays up even when controls collapsed) */
+.toolbar-row-selectors {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px 16px;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--hope-border, rgba(215, 224, 234, 0.7));
+  margin-top: 2px;
 }
 
 .toolbar-block {
@@ -353,42 +371,40 @@ body {
 .map-panel-body {
   position: relative;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   width: 100%;
   height: 100%;
   min-height: 0;
+  gap: 0;
 }
 
 .map-panel-chrome {
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  z-index: 3;
+  flex: 0 0 auto;
+  width: 260px;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: flex-start;
-  gap: 8px;
-  width: 150px;
-  padding: 12px 10px 10px 10px;
+  gap: 0;
+  padding: 14px 10px 12px 12px;
   box-sizing: border-box;
-  border: 1px solid rgba(196, 208, 222, 0.72);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(247, 250, 255, 0.9) 100%);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(6px);
-  pointer-events: none;
+  border-right: 1.5px solid rgba(196, 208, 222, 0.60);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98) 0%, rgba(240, 246, 255, 0.97) 100%);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .map-panel-toolbar {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: stretch;
+  gap: 0;
   flex-wrap: nowrap;
   padding: 0;
-  flex: 0 0 auto;
-  pointer-events: auto;
+  width: 100%;
 }
 
 .map-panel-toolbar-label {
@@ -420,6 +436,7 @@ body {
 
 .map-panel-graph {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -454,10 +471,9 @@ body {
 }
 
 .map-zone-legend-items {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -478,11 +494,50 @@ body {
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
-.map-zone-legend-swatch {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
+/* Zone toggle pill buttons */
+.map-zone-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  width: 100%;
+  padding: 3px 8px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1.5px solid rgba(96, 125, 163, 0.40);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 248, 252, 0.96) 100%);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.07);
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s, box-shadow 0.12s, transform 0.1s;
+}
+
+.map-zone-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+}
+
+.map-zone-pill-hidden {
+  opacity: 0.35;
+  text-decoration: line-through;
   box-shadow: none;
+  background: rgba(245, 248, 252, 0.60);
+}
+
+.hope-dashboard.theme-dark .map-zone-pill {
+  background: linear-gradient(180deg, rgba(28, 40, 61, 0.95) 0%, rgba(20, 30, 48, 0.95) 100%);
+  border-color: rgba(78, 95, 120, 0.50);
+}
+
+.hope-dashboard.theme-dark .map-zone-pill-hidden {
+  background: rgba(15, 23, 38, 0.55);
+}
+
+.map-zone-legend-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   flex: 0 0 auto;
 }
 
@@ -496,13 +551,7 @@ body {
   white-space: nowrap;
 }
 
-.map-panel-chrome > * {
-  pointer-events: auto;
-}
-
-.map-panel-chrome {
-  flex-direction: column;
-}
+/* chrome is now in-flow; pointer-events inherit normally */
 
 .hope-button {
   height: 38px;
@@ -751,9 +800,8 @@ body {
 }
 
 .hope-dashboard.theme-dark .map-panel-chrome {
-  border-color: rgba(94, 115, 145, 0.54);
-  background: linear-gradient(180deg, rgba(18, 26, 43, 0.9) 0%, rgba(15, 23, 38, 0.88) 100%);
-  box-shadow: 0 14px 28px rgba(2, 8, 23, 0.28);
+  border-right-color: rgba(94, 115, 145, 0.45);
+  background: linear-gradient(180deg, rgba(18, 26, 43, 0.98) 0%, rgba(15, 23, 38, 0.97) 100%);
 }
 
 .hope-dashboard.theme-dark .map-zone-legend-swatch {
@@ -787,6 +835,12 @@ body {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.96) 100%);
   box-shadow: var(--hope-shadow);
+  overflow: hidden;
+}
+
+/* Map panel: flush body so the chrome sidebar fills edge-to-edge */
+.panel-card-map .panel-inner {
+  padding: 0;
   overflow: hidden;
 }
 
@@ -955,7 +1009,8 @@ body {
   }
 
   .toolbar-row-bottom,
-  .toolbar-row-controls {
+  .toolbar-row-controls,
+  .toolbar-row-selectors {
       justify-content: flex-start;
     }
 
@@ -987,3 +1042,341 @@ body {
     }
   }
 
+/* ── Custom Case Path Panel ──────────────────────────────────── */
+.custom-case-panel {
+  margin: 0 0 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hope-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 250, 255, 0.94) 100%);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+}
+
+.custom-case-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.custom-case-text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 38px;
+}
+
+.custom-case-status {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hope-muted);
+  min-height: 18px;
+}
+
+.hope-dashboard.theme-dark .custom-case-panel {
+  background: linear-gradient(180deg, rgba(22, 33, 52, 0.96) 0%, rgba(15, 23, 38, 0.96) 100%);
+  border-color: rgba(94, 115, 145, 0.56);
+}
+
+.hope-dashboard.theme-dark .custom-case-panel input[type="text"] {
+  background: #f8fbff !important;
+  color: #0f172a !important;
+  border-color: rgba(160, 177, 201, 0.78) !important;
+}
+
+/* ── Panel accent borders ─────────────────────────────────────── */
+.panel-card-map    > .panel-drag-handle { border-top: 3px solid #2563eb; }
+.panel-card-ranking > .panel-drag-handle { border-top: 3px solid #7c3aed; }
+.panel-card-timeseries > .panel-drag-handle { border-top: 3px solid #0f766e; }
+
+/* ── Export dropdown menu ─────────────────────────────────────── */
+.export-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.export-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9999;
+  flex-direction: column;
+  min-width: 180px;
+  background: var(--hope-card-strong, #fff);
+  border: 1px solid rgba(196, 208, 222, 0.85);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.13);
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.export-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--hope-ink, #1e293b);
+  transition: background 0.15s;
+}
+
+.export-menu-item:hover {
+  background: rgba(37, 99, 235, 0.09);
+}
+
+.hope-dashboard.theme-dark .export-menu-dropdown {
+  background: rgba(18, 26, 43, 0.98);
+  border-color: rgba(78, 95, 120, 0.55);
+}
+
+.hope-dashboard.theme-dark .export-menu-item {
+  color: #e5edf7;
+}
+
+.hope-dashboard.theme-dark .export-menu-item:hover {
+  background: rgba(77, 163, 255, 0.10);
+}
+
+/* ── Mini LMP histogram ───────────────────────────────────────── */
+.map-histogram-mini {
+  width: 100%;
+  height: 130px;
+  margin-top: 6px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ── Dark mode: dot-grid texture overlay ─────────────────────── */
+.hope-dashboard.theme-dark {
+  background-image:
+    radial-gradient(rgba(100, 130, 170, 0.08) 1px, transparent 1px),
+    radial-gradient(circle at top left, rgba(77, 163, 255, 0.12), transparent 26%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.10), transparent 22%),
+    linear-gradient(180deg, #0b1220 0%, #0f1726 38%, #101a2d 100%);
+  background-size: 24px 24px, auto, auto, auto;
+}
+
+/* ── Map chrome two-column layout ────────────────────────────── */
+.map-chrome-controls {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  overflow: visible;
+}
+
+.map-chrome-zone-col {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+
+/* ── Map control panel sections ──────────────────────────────── */
+.map-ctrl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0 7px;
+  border-bottom: 1px solid rgba(215, 224, 234, 0.60);
+}
+
+.map-ctrl-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.map-ctrl-section-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #2563eb;
+  line-height: 1;
+}
+
+/* Fancy compact Dash dropdowns inside the chrome panel */
+.map-ctrl-dropdown .Select-control {
+  min-height: 30px !important;
+  height: 30px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 9px !important;
+  border: 1.5px solid rgba(37, 99, 235, 0.30) !important;
+  background: linear-gradient(180deg, #fff 0%, #f0f5ff 100%) !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+
+.map-ctrl-dropdown .Select-control:hover {
+  border-color: rgba(37, 99, 235, 0.60) !important;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.14) !important;
+}
+
+.map-ctrl-dropdown.is-focused .Select-control,
+.map-ctrl-dropdown .Select-control.is-focused {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+.map-ctrl-dropdown .Select-value,
+.map-ctrl-dropdown .Select-placeholder {
+  line-height: 28px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 0 8px !important;
+  color: #1e293b !important;
+}
+
+.map-ctrl-dropdown .Select-arrow-zone {
+  width: 24px !important;
+}
+
+.map-ctrl-dropdown .Select-arrow {
+  border-top-color: #2563eb !important;
+}
+
+/* ensure dropdown menus escape the chrome overflow context */
+.map-ctrl-dropdown .Select-menu-outer {
+  z-index: 99999 !important;
+  font-size: 12px !important;
+  min-width: 170px !important;
+  border-radius: 10px !important;
+  border: 1.5px solid rgba(37, 99, 235, 0.22) !important;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14) !important;
+  overflow: hidden;
+}
+
+.map-ctrl-dropdown .VirtualizedSelectOption {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 7px 10px !important;
+}
+
+.map-ctrl-dropdown .VirtualizedSelectFocusedOption {
+  background: rgba(37, 99, 235, 0.10) !important;
+  color: #1d4ed8 !important;
+}
+
+/* dark-mode chrome */
+.hope-dashboard.theme-dark .map-panel-chrome {
+  border-right-color: rgba(94, 115, 145, 0.45) !important;
+  background: linear-gradient(180deg, rgba(18, 26, 43, 0.98) 0%, rgba(15, 23, 38, 0.97) 100%) !important;
+}
+
+.hope-dashboard.theme-dark .map-ctrl-section {
+  border-bottom-color: rgba(78, 95, 120, 0.38);
+}
+
+.hope-dashboard.theme-dark .map-ctrl-section-label {
+  color: #60a5fa;
+}
+
+.hope-dashboard.theme-dark .map-ctrl-dropdown .Select-control {
+  background: linear-gradient(180deg, rgba(28,40,62,0.95) 0%, rgba(20,30,50,0.95) 100%) !important;
+  border-color: rgba(96, 165, 250, 0.28) !important;
+  color: #e5edf7 !important;
+}
+
+.hope-dashboard.theme-dark .map-ctrl-dropdown .Select-value,
+.hope-dashboard.theme-dark .map-ctrl-dropdown .Select-placeholder {
+  color: #e5edf7 !important;
+}
+
+.hope-dashboard.theme-dark .map-ctrl-dropdown .Select-arrow {
+  border-top-color: #60a5fa !important;
+}
+
+/* ── Floating hour / timeline panel ──────────────────────────── */
+.hour-panel {
+  position: fixed;
+  top: 200px;
+  left: 14px;
+  z-index: 400;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 780px;
+  max-width: calc(100% - 28px);
+  border-radius: 16px;
+  border: 1.5px solid rgba(196, 208, 222, 0.80);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97) 0%, rgba(245, 249, 255, 0.95) 100%);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.13), 0 2px 8px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hour-panel-collapsed {
+  width: 40px !important;
+}
+
+.hour-panel-tab {
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  font-size: 16px;
+  border: none;
+  border-right: 1.5px solid rgba(37, 99, 235, 0.4);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 0;
+  writing-mode: vertical-rl;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.hour-panel-tab:hover {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.hour-panel-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 16px 14px 14px;
+  overflow: hidden;
+}
+
+.hour-panel-collapsed .hour-panel-body {
+  display: none;
+}
+
+.hour-panel-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2563eb;
+  margin-right: auto;
+}
+
+.hour-finder-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--hope-ink);
+}
+
+/* dark mode hour panel */
+.hope-dashboard.theme-dark .hour-panel {
+  border-color: rgba(94, 115, 145, 0.58);
+  background: linear-gradient(160deg, rgba(20, 30, 50, 0.96) 0%, rgba(15, 23, 38, 0.94) 100%);
+}
+
+.hope-dashboard.theme-dark .hour-panel-tab {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
+  border-right-color: rgba(96, 165, 250, 0.30);
+}
+
+.hope-dashboard.theme-dark .hour-panel-title {
+  color: #60a5fa;
+}

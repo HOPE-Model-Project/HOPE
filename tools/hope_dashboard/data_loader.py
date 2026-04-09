@@ -28,6 +28,9 @@ class CaseData:
 
 _CACHE: Dict[str, CaseData] = {}
 
+# Repo root — two levels up: tools/hope_dashboard → tools → repo root
+_REPO_ROOT: Path = Path(__file__).resolve().parents[2]
+
 
 def resolve_dashboard_output_dir(case_dir: Path) -> Path:
     pointer_candidates = [
@@ -147,11 +150,12 @@ def _build_layout(busdata: pd.DataFrame) -> tuple[Dict[str, Tuple[float, float]]
 
 
 def load_case(case_path: str, refresh: bool = False) -> CaseData:
-    key = str(Path(case_path).resolve())
+    _p = Path(case_path)
+    case_dir = (_p if _p.is_absolute() else _REPO_ROOT / _p).resolve()
+    key = str(case_dir)
     if not refresh and key in _CACHE:
         return _CACHE[key]
 
-    case_dir = Path(case_path).resolve()
     if not case_dir.exists():
         raise FileNotFoundError(f"Case path not found: {case_dir}")
 

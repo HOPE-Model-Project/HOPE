@@ -445,17 +445,61 @@
     });
   }
 
+  function initHourPanel() {
+    const panel = document.getElementById("hour-panel");
+    if (!panel || panel.dataset.hopeHourPanelReady === "1") { return; }
+    panel.dataset.hopeHourPanelReady = "1";
+
+    const handle = panel.querySelector(".hour-header-row");
+    if (!handle) { return; }
+    handle.style.cursor = "grab";
+
+    let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    handle.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("input,button,.Select-control,.Select-menu-outer,.rc-slider")) { return; }
+      // Compute viewport-relative position from fixed element
+      const rect = panel.getBoundingClientRect();
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      startLeft = rect.left; startTop = rect.top;
+      panel.style.top = startTop + "px";
+      panel.style.left = startLeft + "px";
+      panel.style.zIndex = "600";
+      handle.setPointerCapture(e.pointerId);
+      handle.style.cursor = "grabbing";
+      e.preventDefault();
+    });
+    handle.addEventListener("pointermove", function (e) {
+      if (!dragging) { return; }
+      const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+      const maxTop  = Math.max(0, window.innerHeight - panel.offsetHeight);
+      panel.style.left = clamp(startLeft + e.clientX - startX, 0, maxLeft) + "px";
+      panel.style.top  = clamp(startTop  + e.clientY - startY, 0, maxTop)  + "px";
+    });
+    function stopDrag(e) {
+      if (!dragging) { return; }
+      dragging = false;
+      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      handle.style.cursor = "grab";
+    }
+    handle.addEventListener("pointerup", stopDrag);
+    handle.addEventListener("pointercancel", stopDrag);
+  }
+
   document.addEventListener("DOMContentLoaded", initPanels);
   document.addEventListener("DOMContentLoaded", initResetButton);
   document.addEventListener("DOMContentLoaded", initLayoutButtons);
   document.addEventListener("DOMContentLoaded", initScreenshotButton);
   document.addEventListener("DOMContentLoaded", initMapClickBridge);
+  document.addEventListener("DOMContentLoaded", initHourPanel);
   document.addEventListener("dashrendered", function () {
     initPanels();
     initResetButton();
     initLayoutButtons();
     initScreenshotButton();
     initMapClickBridge();
+    initHourPanel();
   });
   setInterval(function () {
     initPanels();
@@ -463,5 +507,6 @@
     initLayoutButtons();
     initScreenshotButton();
     initMapClickBridge();
+    initHourPanel();
   }, 1200);
 })();

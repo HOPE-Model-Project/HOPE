@@ -12,7 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 from plotly.subplots import make_subplots
-from dash import Dash, Input, Output, State, dcc, html, ctx, no_update
+from dash import ALL, Dash, Input, Output, State, dcc, html, ctx, no_update
 
 from data_loader import CaseData, load_case, resolve_dashboard_output_dir
 
@@ -26,9 +26,9 @@ LOAD_ZONE_GEOJSON_PATHS = (
 )
 GERMANY_TSO_ZONES = frozenset({"50Hertz", "Amprion", "TenneT", "TransnetBW"})
 GRID_LAYOUT_DEFAULT = [
-    {"top": "12px", "left": "0px", "width": "61%", "height": "560px", "zIndex": 3},
-    {"top": "12px", "left": "63%", "width": "37%", "height": "560px", "zIndex": 2},
-    {"top": "598px", "left": "0px", "width": "100%", "height": "340px", "zIndex": 1},
+    {"top": "12px", "left": "0px", "width": "61%", "height": "680px", "zIndex": 3},
+    {"top": "12px", "left": "63%", "width": "37%", "height": "680px", "zIndex": 2},
+    {"top": "716px", "left": "0px", "width": "100%", "height": "340px", "zIndex": 1},
 ]
 
 
@@ -123,20 +123,20 @@ def _hex_to_rgba(color: str, alpha: float) -> str:
 
 def _load_zone_color(load_zone: str) -> str:
     palette = {
-        "ME": "#90caf9",
-        "VT": "#80cbc4",
-        "NH": "#a5d6a7",
-        "CT": "#ffab91",
-        "WCMA": "#ce93d8",
-        "RI": "#f48fb1",
-        "SEMA": "#ffe082",
-        "NEMA/Boston": "#ffcc80",
-        "50Hertz": "#8ecae6",
-        "Amprion": "#f4a261",
-        "TenneT": "#98c379",
-        "TransnetBW": "#c084fc",
+        "ME": "#1565c0",
+        "VT": "#00695c",
+        "NH": "#2e7d32",
+        "CT": "#bf360c",
+        "WCMA": "#6a1b9a",
+        "RI": "#ad1457",
+        "SEMA": "#e65100",
+        "NEMA/Boston": "#f57f17",
+        "50Hertz": "#0077b6",
+        "Amprion": "#d4500a",
+        "TenneT": "#2d7a2d",
+        "TransnetBW": "#7c3aed",
     }
-    return palette.get(str(load_zone), "#cbd5e1")
+    return palette.get(str(load_zone), "#64748b")
 
 def _load_zone_label_text(load_zone: str) -> str:
     labels = {
@@ -186,30 +186,34 @@ def _format_capacity_mw(capacity_mw: float) -> str:
     return f"{capacity_mw:.0f} MW"
 
 
-def _map_zone_legend(case: CaseData, map_overlays: list[str] | None) -> html.Div:
+def _map_zone_legend(case: CaseData, map_overlays: list[str] | None, hidden_zones: list[str] | None = None) -> html.Div:
     overlays = set(map_overlays or [])
     if "load_zone_boundaries" not in overlays:
         return html.Div(className="map-zone-legend map-zone-legend-hidden")
     zone_names = _ordered_load_zone_names(case)
     if not zone_names:
         return html.Div(className="map-zone-legend map-zone-legend-hidden")
+    hidden = set(hidden_zones or [])
     return html.Div(
         [
-            html.Span("Zone Key", className="map-zone-legend-title"),
+            html.Span("Zone Key  (click to toggle)", className="map-zone-legend-title"),
             html.Div(
                 [
-                    html.Span(
+                    html.Button(
                         [
                             html.Span(
                                 className="map-zone-legend-swatch",
                                 style={
-                                    "backgroundColor": _hex_to_rgba(_load_zone_color(zone_name), 0.38),
-                                    "border": f"1px solid {_hex_to_rgba(_load_zone_color(zone_name), 0.92)}",
+                                    "backgroundColor": _hex_to_rgba(_load_zone_color(zone_name), 0.85),
+                                    "border": f"1.5px solid {_hex_to_rgba(_load_zone_color(zone_name), 1.0)}",
                                 },
                             ),
                             html.Span(zone_name, className="map-zone-legend-name"),
                         ],
-                        className="map-zone-legend-item",
+                        id={"type": "zone-toggle", "zone": zone_name},
+                        n_clicks=0,
+                        className=("map-zone-pill map-zone-pill-hidden" if zone_name in hidden else "map-zone-pill"),
+                        style={"borderColor": _hex_to_rgba(_load_zone_color(zone_name), 1.0)},
                     )
                     for zone_name in zone_names
                 ],
@@ -540,11 +544,13 @@ def _network_figure(
     theme: str,
     selected_line: int | None,
     map_overlays: list[str] | None,
+    hidden_zones: list[str] | None = None,
 ) -> go.Figure:
     hourly_line = case.line_hourly[case.line_hourly["Hour"] == hour].copy()
     hourly_node = case.nodal_price[case.nodal_price["Hour"] == hour].copy()
     palette = _theme_palette(theme)
     map_overlays = map_overlays or []
+    _hidden = set(hidden_zones or [])
     layer_col = {
         "LMP": "LMP",
         "Energy": "Energy",
@@ -574,8 +580,10 @@ def _network_figure(
         load_zone_polygons = _load_zone_polygons(case) if "load_zone_boundaries" in map_overlays else []
         if load_zone_polygons:
             for polygon in load_zone_polygons:
+                if str(polygon["name"]) in _hidden:
+                    continue
                 base_color = polygon["color"]
-                fill_color = _hex_to_rgba(base_color, 0.08 if theme == "dark" else 0.045)
+                fill_color = _hex_to_rgba(base_color, 0.14 if theme == "dark" else 0.18)
                 line_color = _hex_to_rgba("#cbd5e1", 0.62) if theme == "dark" else _hex_to_rgba("#5b6473", 0.82)
                 fig.add_trace(
                     go.Scattergeo(
@@ -594,7 +602,7 @@ def _network_figure(
             seen_labels: set[str] = set()
             for polygon in load_zone_polygons:
                 zone_name = str(polygon["name"])
-                if zone_name in seen_labels:
+                if zone_name in seen_labels or zone_name in _hidden:
                     continue
                 seen_labels.add(zone_name)
                 label_polygons.append(polygon)
@@ -639,6 +647,8 @@ def _network_figure(
     else:
         # Zone panels.
         for z, (x0, y0, x1, y1) in case.zone_rect.items():
+            if str(z) in _hidden:
+                continue
             fill = case.zone_colors.get(z, "#f1f5f9")
             fig.add_shape(
                 type="rect",
@@ -788,11 +798,15 @@ def _network_figure(
             f"{gen_text}"
         )
 
-    cmin = float(np.nanmin(node_color)) if node_color else 0.0
-    cmax = float(np.nanmax(node_color)) if node_color else 1.0
-    if abs(cmax - cmin) <= 1.0e-9:
-        cmin -= 1.0
-        cmax += 1.0
+    if node_color:
+        arr = np.array(node_color, dtype=float)
+        _mean = float(np.nanmean(arr))
+        _spread = float(max(np.nanmax(arr) - _mean, _mean - np.nanmin(arr), 1e-9))
+        # Centre colorscale on the hourly mean so small spreads still show spatial variation
+        cmin = _mean - _spread
+        cmax = _mean + _spread
+    else:
+        cmin, cmax = 0.0, 1.0
 
     label_text = [b if b in highlighted_buses else "" for b in node_ids]
     if has_geo:
@@ -808,7 +822,7 @@ def _network_figure(
                     colorscale="RdYlBu_r",
                     cmin=cmin,
                     cmax=cmax,
-                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=0.94, outlinewidth=0),
+                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=1.0, xanchor="left", outlinewidth=0),
                     line=dict(color=palette["text"], width=0.7),
                 ),
                 hoverinfo="text",
@@ -840,7 +854,7 @@ def _network_figure(
         lat_pad = max(0.05, 0.012 * lat_span)
         fig.update_layout(
             autosize=True,
-            margin=dict(l=2, r=10, t=2, b=2),
+            margin=dict(l=2, r=56, t=2, b=2),
             paper_bgcolor=palette["card"],
             font=dict(family=APP_FONT, size=12, color=palette["text"]),
             geo=dict(
@@ -877,7 +891,7 @@ def _network_figure(
                     colorscale="RdYlBu_r",
                     cmin=cmin,
                     cmax=cmax,
-                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=0.94, outlinewidth=0),
+                    colorbar=dict(title=map_layer, thickness=10, len=0.72, y=0.5, x=1.0, xanchor="left", outlinewidth=0),
                     line=dict(color=palette["text"], width=0.8),
                 ),
                 hoverinfo="text",
@@ -888,7 +902,7 @@ def _network_figure(
 
         fig.update_layout(
             autosize=True,
-            margin=dict(l=4, r=4, t=4, b=4),
+            margin=dict(l=4, r=56, t=4, b=4),
             plot_bgcolor=palette["plot"],
             paper_bgcolor=palette["card"],
             font=dict(family=APP_FONT, size=12, color=palette["text"]),
@@ -927,21 +941,12 @@ def _timeseries_figure(case: CaseData, selected_bus: str, compare_bus: str, ref_
     fig.add_trace(
         go.Scatter(
             x=merged["Hour"],
-            y=merged["LMP"],
-            mode="lines",
-            name=f"Bus {selected_bus} LMP",
-            line=dict(color="#2563eb", width=2.0),
-        ),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=merged["Hour"],
             y=merged["Energy_ref"],
             mode="lines",
-            name=f"Energy component (bus {ref_bus})",
-            line=dict(color="#64748b", width=1.8),
+            name=f"Energy (bus {ref_bus})",
+            stackgroup="price",
+            line=dict(color="#64748b", width=0),
+            fillcolor="rgba(100,116,139,0.42)",
         ),
         row=1,
         col=1,
@@ -951,8 +956,10 @@ def _timeseries_figure(case: CaseData, selected_bus: str, compare_bus: str, ref_
             x=merged["Hour"],
             y=merged["Congestion"],
             mode="lines",
-            name=f"Congestion component (vs bus {ref_bus})",
-            line=dict(color="#d97706", width=1.7, dash="dot"),
+            name=f"Congestion (vs bus {ref_bus})",
+            stackgroup="price",
+            line=dict(color="#d97706", width=0),
+            fillcolor="rgba(217,119,6,0.40)",
         ),
         row=1,
         col=1,
@@ -962,8 +969,22 @@ def _timeseries_figure(case: CaseData, selected_bus: str, compare_bus: str, ref_
             x=merged["Hour"],
             y=merged["Loss"],
             mode="lines",
-            name="Loss component",
-            line=dict(color="#0f766e", width=1.5, dash="dash"),
+            name="Loss",
+            stackgroup="price",
+            line=dict(color="#0f766e", width=0),
+            fillcolor="rgba(15,118,110,0.38)",
+        ),
+        row=1,
+        col=1,
+    )
+    # LMP total as a bold line overlay (no stackgroup)
+    fig.add_trace(
+        go.Scatter(
+            x=merged["Hour"],
+            y=merged["LMP"],
+            mode="lines",
+            name=f"Bus {selected_bus} LMP",
+            line=dict(color="#2563eb", width=2.2),
         ),
         row=1,
         col=1,
@@ -1330,7 +1351,8 @@ app = Dash(__name__, assets_folder=str(Path(__file__).with_name("assets")))
 app.title = "HOPE Dashboard - PCM Nodal Market View"
 
 
-def _panel_card(title: str, inner: html.Div) -> html.Div:
+def _panel_card(title: str, inner: html.Div, accent_class: str = "") -> html.Div:
+    card_class = "panel-card" + (f" {accent_class}" if accent_class else "")
     return html.Div(
         [
             html.Div(
@@ -1345,7 +1367,7 @@ def _panel_card(title: str, inner: html.Div) -> html.Div:
                 className="panel-inner",
             ),
         ],
-        className="panel-card",
+        className=card_class,
     )
 
 
@@ -1361,23 +1383,76 @@ def _panel_outer_style(index: int) -> dict:
     }
 
 
-def _map_overlay_control() -> html.Div:
+def _map_control_panel() -> html.Div:
+    def _section(label: str, *children) -> html.Div:
+        return html.Div(
+            [html.Span(label, className="map-ctrl-section-label"), *children],
+            className="map-ctrl-section",
+        )
+
     return html.Div(
         [
-            html.Span("Overlay", className="map-panel-toolbar-label"),
-            dcc.Checklist(
-                id="map-overlay-checklist",
-                options=[
-                    {"label": "Load Zones", "value": "load_zone_boundaries"},
-                ],
-                value=["load_zone_boundaries"],
-                className="toolbar-checklist map-panel-checklist",
-                inputClassName="toolbar-checklist-input",
-                labelClassName="toolbar-checklist-label",
+            # ── Layer & Ranking ───────────────────────────────────
+            _section(
+                "Layer",
+                dcc.Dropdown(
+                    id="map-layer-dropdown",
+                    options=[
+                        {"label": "LMP", "value": "LMP"},
+                        {"label": "Energy", "value": "Energy"},
+                        {"label": "Congestion", "value": "Congestion"},
+                        {"label": "Loss", "value": "Loss"},
+                    ],
+                    value="LMP",
+                    clearable=False,
+                    className="map-ctrl-dropdown",
+                ),
+            ),
+            _section(
+                "Ranking",
+                dcc.Dropdown(
+                    id="rank-metric-dropdown",
+                    options=[
+                        {"label": "Congestion Rent", "value": "congestion_rent"},
+                        {"label": "Shadow Price", "value": "shadow_price"},
+                        {"label": "Loading %", "value": "loading_pct"},
+                        {"label": "Line Loss", "value": "line_loss"},
+                    ],
+                    value="congestion_rent",
+                    clearable=False,
+                    className="map-ctrl-dropdown",
+                ),
+            ),
+            # ── Bus selectors ─────────────────────────────────────
+            _section("Focus Bus",
+                dcc.Dropdown(id="bus-dropdown", className="map-ctrl-dropdown"),
+            ),
+            _section("Compare Bus",
+                dcc.Dropdown(id="compare-bus-dropdown", className="map-ctrl-dropdown"),
+            ),
+            _section("Reference Bus",
+                dcc.Dropdown(id="ref-bus-dropdown", className="map-ctrl-dropdown"),
+            ),
+            # ── Overlay ───────────────────────────────────────────
+            _section(
+                "Overlay",
+                dcc.Checklist(
+                    id="map-overlay-checklist",
+                    options=[{"label": "Load Zones", "value": "load_zone_boundaries"}],
+                    value=["load_zone_boundaries"],
+                    className="toolbar-checklist map-panel-checklist",
+                    inputClassName="toolbar-checklist-input",
+                    labelClassName="toolbar-checklist-label",
+                ),
             ),
         ],
         className="map-panel-toolbar",
     )
+
+
+def _map_overlay_control() -> html.Div:
+    """Legacy shim — the full control panel is now _map_control_panel()."""
+    return _map_control_panel()
 
 
 def _empty_map_zone_legend() -> html.Div:
@@ -1440,26 +1515,51 @@ app.layout = html.Div(
                             n_clicks=0,
                             className="hope-button hope-button-secondary",
                         ),
-                        html.Button(
-                            "Export Hour CSV",
-                            id="export-hour",
-                            n_clicks=0,
-                            className="hope-button hope-button-secondary",
-                        ),
-                        html.Button(
-                            "Export Analysis CSV",
-                            id="export-analysis",
-                            n_clicks=0,
-                            className="hope-button hope-button-secondary",
-                        ),
-                        html.Button(
-                            "Screenshot PNG",
-                            id="screenshot-dashboard",
-                            n_clicks=0,
-                            className="hope-button hope-button-secondary",
+                        html.Div(
+                            [
+                                html.Button(
+                                    "\u2193 Export",
+                                    id="export-menu-toggle",
+                                    n_clicks=0,
+                                    className="hope-button hope-button-secondary",
+                                ),
+                                html.Div(
+                                    [
+                                        html.Button(
+                                            "Export Hour CSV",
+                                            id="export-hour",
+                                            n_clicks=0,
+                                            className="export-menu-item",
+                                        ),
+                                        html.Button(
+                                            "Export Analysis CSV",
+                                            id="export-analysis",
+                                            n_clicks=0,
+                                            className="export-menu-item",
+                                        ),
+                                        html.Button(
+                                            "Screenshot PNG",
+                                            id="screenshot-dashboard",
+                                            n_clicks=0,
+                                            className="export-menu-item",
+                                        ),
+                                    ],
+                                    id="export-menu-dropdown",
+                                    className="export-menu-dropdown",
+                                    style={"display": "none"},
+                                ),
+                            ],
+                            className="export-menu-wrapper",
                         ),
                         html.Div(
                             [
+                                html.Button(
+                                    "+ Case Path",
+                                    id="custom-case-toggle",
+                                    n_clicks=0,
+                                    className="hope-button hope-button-secondary toolbar-action-button",
+                                    title="Add a custom local case directory path",
+                                ),
                                 html.Button(
                                     "Hide Controls",
                                     id="controls-toggle",
@@ -1484,6 +1584,36 @@ app.layout = html.Div(
                     ],
                     className="toolbar-row toolbar-row-top",
                 ),
+                html.Div(
+                    [
+                        html.Span(
+                            "Enter the absolute path to any HOPE PCM nodal case directory:",
+                            style={"fontSize": "13px", "color": "var(--hope-muted)", "marginBottom": "8px", "display": "block"},
+                        ),
+                        html.Div(
+                            [
+                                dcc.Input(
+                                    id="custom-case-input",
+                                    type="text",
+                                    placeholder="e.g. C:/Users/you/MyCase  or  /home/you/MyCase",
+                                    debounce=False,
+                                    className="hope-text-input custom-case-text-input",
+                                ),
+                                html.Button(
+                                    "Add Case",
+                                    id="add-custom-case",
+                                    n_clicks=0,
+                                    className="hope-button hope-button-primary",
+                                ),
+                            ],
+                            className="custom-case-input-row",
+                        ),
+                        html.Div(id="custom-case-status", className="custom-case-status"),
+                    ],
+                    id="custom-case-panel",
+                    className="custom-case-panel",
+                    style={"display": "none"},
+                ),
                 html.Div(id="status", className="dashboard-status-row"),
                 html.Div(id="case-summary"),
                 html.Div(
@@ -1494,14 +1624,20 @@ app.layout = html.Div(
                         ),
                         html.Ul(
                             [
-                                html.Li("LMP Spread is the system-wide maximum minus minimum bus LMP at the selected hour."),
-                                html.Li("Use the Interesting Hours controls or the << / < / > / >> buttons to jump quickly between the most important hours or move through time."),
-                                html.Li("Basis is the Focus Bus LMP minus the Compare Bus LMP, so it is a pair-specific price difference."),
-                                html.Li("Focus Bus is the main bus you analyze; Compare Bus is the second bus used for basis and price-difference comparison."),
-                                html.Li("Constraint / Line Ranking shows the most important lines at the selected hour by the chosen ranking metric."),
-                                html.Li("Top Bus Congestion Contributors shows how the selected line affects bus congestion prices: positive bars increase bus prices and negative bars reduce them."),
-                                html.Li("Click a bus on the network map to set it as the Focus Bus, or Shift+click a bus to set it as the Compare Bus."),
-                                html.Li("Use the map and the basis chart together: click a ranked line, then inspect which buses separate the most over time."),
+                                html.Li([html.B("Loading a case: "), "Select a case from the dropdown and click Load Case. To load a case not in the list, click + Case Path to enter a custom directory path."]),
+                                html.Li([html.B("Map sidebar: "), "The left panel of the network map contains Layer, Ranking, Focus/Compare/Reference Bus selectors, and Overlay toggle. All map controls live here — no separate toolbar needed."]),
+                                html.Li([html.B("Layer: "), "Switch between LMP, Energy, Congestion, and Loss coloring on the map nodes."]),
+                                html.Li([html.B("Ranking: "), "Choose the metric used to rank lines in the Constraint / Line Ranking chart (Congestion Rent, Shadow Price, Loading %, Line Loss)."]),
+                                html.Li([html.B("Focus Bus / Compare Bus / Reference Bus: "), "Focus Bus is the main bus being analyzed. Compare Bus is used for basis (price difference) calculation. Reference Bus sets the energy component baseline."]),
+                                html.Li([html.B("Zone Key: "), "Click any zone pill to toggle that zone's boundary overlay on the map. Zones shown with a strikethrough are currently hidden."]),
+                                html.Li([html.B("LMP Spread: "), "System-wide maximum minus minimum bus LMP at the selected hour."]),
+                                html.Li([html.B("Timeline panel: "), "The floating ⏱ panel at the lower-left controls the selected hour. Drag it by its title bar to reposition. Click the blue tab to collapse/expand. Use << / < / > / >> to step through hours, or use Interesting Hours + Jump To to navigate directly to high-impact hours."]),
+                                html.Li([html.B("Clicking the map: "), "Click a bus node to set it as Focus Bus. Shift+click a bus to set it as Compare Bus."]),
+                                html.Li([html.B("Constraint / Line Ranking: "), "Shows the most congested lines at the selected hour. Click a bar to select that line and update the LMP map highlight and detail strip."]),
+                                html.Li([html.B("Top Bus Congestion Contributors: "), "Shows how the selected line's shadow price distributes across buses. Positive bars increase bus LMP; negative bars reduce it."]),
+                                html.Li([html.B("Export: "), "Use the Export menu to download the current hour's data as CSV, a full basis analysis CSV, or a screenshot PNG of the dashboard."]),
+                                html.Li([html.B("Dark Mode: "), "Toggle dark/light theme using the Dark Mode button in the top right."]),
+                                html.Li([html.B("Panel layout: "), "Drag panels by their title bars to reposition. Resize from the bottom-right corner. Save Layout / Restore Saved persists your arrangement."]),
                             ],
                             className="dashboard-help-list",
                         ),
@@ -1512,13 +1648,49 @@ app.layout = html.Div(
                 ),
                 html.Div(id="kpi"),
                 html.Div(id="line-detail"),
+            ],
+            id="dashboard-toolbar",
+            className="dashboard-toolbar",
+            style={
+                "position": "sticky",
+                "top": "0",
+                "zIndex": 5000,
+                "overflow": "visible",
+                "padding": "14px 16px",
+                "marginBottom": "10px",
+            },
+        ),
+        dcc.Store(id="case-store", data=DEFAULT_CASE),
+        dcc.Store(id="theme-store", data="light"),
+        dcc.Store(id="selected-line-store", data=None),
+        dcc.Store(id="map-click-store", data=None),
+        dcc.Store(id="custom-cases-store", data=[]),
+        dcc.Store(id="zone-hidden-store", data=[]),
+        dcc.Store(id="hour-panel-collapsed", data=False),
+        dcc.Download(id="download-hour"),
+        dcc.Download(id="download-analysis"),
+        html.Div(
+            id="panel-canvas",
+            className="panel-canvas",
+            style={"position": "relative", "height": "1800px", "minHeight": "1800px", "marginTop": "8px", "paddingBottom": "420px"},
+            children=[
+                # ── Floating hour / timeline panel ─────────────────────
                 html.Div(
                     [
+                        # Collapse tab on the left edge
+                        html.Button(
+                            "⏱",
+                            id="hour-panel-tab",
+                            n_clicks=0,
+                            className="hour-panel-tab",
+                            title="Toggle timeline panel",
+                        ),
+                        # Panel body
                         html.Div(
                             [
                                 html.Div(
                                     [
-                                        html.Label("Hour", style={"fontWeight": 700, "fontSize": "13px"}),
+                                        html.Span("Timeline", className="hour-panel-title"),
                                         html.Div(
                                             [
                                                 html.Button("<<", id="hour-prev-day", n_clicks=0, className="hope-button hope-button-secondary hour-step-button"),
@@ -1545,7 +1717,7 @@ app.layout = html.Div(
                                     [
                                         html.Div(
                                             [
-                                                html.Label("Interesting Hours", style={"fontWeight": 700, "fontSize": "13px"}),
+                                                html.Label("Interesting Hours", className="hour-finder-label"),
                                                 dcc.Dropdown(
                                                     id="hour-rank-metric",
                                                     options=[
@@ -1562,7 +1734,7 @@ app.layout = html.Div(
                                         ),
                                         html.Div(
                                             [
-                                                html.Label("Jump To", style={"fontWeight": 700, "fontSize": "13px"}),
+                                                html.Label("Jump To", className="hour-finder-label"),
                                                 dcc.Dropdown(
                                                     id="interesting-hour-dropdown",
                                                     options=[],
@@ -1576,86 +1748,13 @@ app.layout = html.Div(
                                     className="hour-finder-row",
                                 ),
                             ],
-                            className="toolbar-block toolbar-block-hour",
-                        ),
-                        html.Div(
-                            [
-                                html.Div(
-                                    [html.Label("Focus Bus", style={"fontWeight": 700, "fontSize": "13px"}), dcc.Dropdown(id="bus-dropdown")],
-                                    className="toolbar-block toolbar-block-select",
-                                ),
-                                html.Div(
-                                    [html.Label("Compare Bus", style={"fontWeight": 700, "fontSize": "13px"}), dcc.Dropdown(id="compare-bus-dropdown")],
-                                    className="toolbar-block toolbar-block-select",
-                                ),
-                                html.Div(
-                                    [html.Label("Reference Bus", style={"fontWeight": 700, "fontSize": "13px"}), dcc.Dropdown(id="ref-bus-dropdown")],
-                                    className="toolbar-block toolbar-block-select",
-                                ),
-                                html.Div(
-                                    [
-                                        html.Label("Map Layer", style={"fontWeight": 700, "fontSize": "13px"}),
-                                        dcc.Dropdown(
-                                            id="map-layer-dropdown",
-                                            options=[
-                                                {"label": "LMP", "value": "LMP"},
-                                                {"label": "Energy", "value": "Energy"},
-                                                {"label": "Congestion", "value": "Congestion"},
-                                                {"label": "Loss", "value": "Loss"},
-                                            ],
-                                            value="LMP",
-                                            clearable=False,
-                                        ),
-                                    ],
-                                    className="toolbar-block toolbar-block-toggle",
-                                ),
-                                html.Div(
-                                    [
-                                        html.Label("Ranking Metric", style={"fontWeight": 700, "fontSize": "13px"}),
-                                        dcc.Dropdown(
-                                            id="rank-metric-dropdown",
-                                            options=[
-                                                {"label": "Congestion Rent", "value": "congestion_rent"},
-                                                {"label": "Shadow Price", "value": "shadow_price"},
-                                                {"label": "Loading", "value": "loading_pct"},
-                                                {"label": "Line Loss", "value": "line_loss"},
-                                            ],
-                                            value="congestion_rent",
-                                            clearable=False,
-                                        ),
-                                    ],
-                                    className="toolbar-block toolbar-block-toggle",
-                                ),
-
-                            ],
-                            className="toolbar-row toolbar-row-controls",
+                            id="hour-panel-body",
+                            className="hour-panel-body",
                         ),
                     ],
-                    className="toolbar-row toolbar-row-bottom",
+                    id="hour-panel",
+                    className="hour-panel",
                 ),
-            ],
-            id="dashboard-toolbar",
-            className="dashboard-toolbar",
-            style={
-                "position": "sticky",
-                "top": "0",
-                "zIndex": 5000,
-                "overflow": "visible",
-                "padding": "14px 16px",
-                "marginBottom": "10px",
-            },
-        ),
-        dcc.Store(id="case-store", data=DEFAULT_CASE),
-        dcc.Store(id="theme-store", data="light"),
-        dcc.Store(id="selected-line-store", data=None),
-        dcc.Store(id="map-click-store", data=None),
-        dcc.Download(id="download-hour"),
-        dcc.Download(id="download-analysis"),
-        html.Div(
-            id="panel-canvas",
-            className="panel-canvas",
-            style={"position": "relative", "height": "1800px", "minHeight": "1800px", "marginTop": "8px", "paddingBottom": "420px"},
-            children=[
                 html.Div(
                     id="panel-network",
                     className="floating-panel",
@@ -1664,13 +1763,21 @@ app.layout = html.Div(
                         "Nodal Network Map",
                         html.Div(
                             [
+                                # ── Left sidebar: controls, zone key, histogram ──
                                 html.Div(
                                     [
-                                        _map_overlay_control(),
+                                        _map_control_panel(),
+                                        html.Div(style={"height": "10px"}),
                                         _empty_map_zone_legend(),
+                                        dcc.Graph(
+                                            id="lmp-histogram",
+                                            className="map-histogram-mini",
+                                            config={"displayModeBar": False, "responsive": True},
+                                        ),
                                     ],
                                     className="map-panel-chrome",
                                 ),
+                                # ── Map ──────────────────────────────────────────
                                 dcc.Graph(
                                     id="network-graph",
                                     className="map-panel-graph",
@@ -1680,6 +1787,7 @@ app.layout = html.Div(
                             ],
                             className="map-panel-body",
                         ),
+                        accent_class="panel-card-map",
                     ),
                 ),
                 html.Div(
@@ -1693,6 +1801,7 @@ app.layout = html.Div(
                             style={"height": "100%", "width": "100%"},
                             config={"displayModeBar": False, "responsive": True},
                         ),
+                        accent_class="panel-card-ranking",
                     ),
                 ),
                 html.Div(
@@ -1706,6 +1815,7 @@ app.layout = html.Div(
                             style={"height": "100%", "width": "100%"},
                             config={"displayModeBar": False, "responsive": True},
                         ),
+                        accent_class="panel-card-timeseries",
                     ),
                 ),
             ],
@@ -1754,6 +1864,29 @@ def toggle_controls_panel(n_clicks: int):
     class_name = "dashboard-toolbar toolbar-collapsed" if collapsed else "dashboard-toolbar"
     button_text = "Show Controls" if collapsed else "Hide Controls"
     return class_name, button_text
+
+
+@app.callback(
+    Output("hour-panel", "className"),
+    Output("hour-panel-tab", "children"),
+    Input("hour-panel-tab", "n_clicks"),
+)
+def toggle_hour_panel(n_clicks: int):
+    collapsed = (n_clicks or 0) % 2 == 1
+    cls = "hour-panel hour-panel-collapsed" if collapsed else "hour-panel"
+    icon = "▶" if collapsed else "⏱"
+    return cls, icon
+
+
+@app.callback(
+    Output("export-menu-dropdown", "style"),
+    Input("export-menu-toggle", "n_clicks"),
+    prevent_initial_call=True,
+)
+def toggle_export_menu(n_clicks: int):
+    if (n_clicks or 0) % 2 == 1:
+        return {"display": "flex"}
+    return {"display": "none"}
 
 
 @app.callback(
@@ -1870,11 +2003,70 @@ def update_case_summary(case_path: str):
     Output("map-zone-legend", "className"),
     Input("case-store", "data"),
     Input("map-overlay-checklist", "value"),
+    Input("zone-hidden-store", "data"),
 )
-def update_map_zone_legend(case_path: str, map_overlays: list[str] | None):
+def update_map_zone_legend(case_path: str, map_overlays: list[str] | None, hidden_zones: list[str] | None):
     case = load_case(case_path, refresh=False)
-    legend = _map_zone_legend(case, map_overlays)
-    return legend.children, legend.className
+    overlays = set(map_overlays or [])
+    if "load_zone_boundaries" not in overlays:
+        return [], "map-zone-legend map-zone-legend-hidden"
+    zone_names = _ordered_load_zone_names(case)
+    if not zone_names:
+        return [], "map-zone-legend map-zone-legend-hidden"
+    hidden = set(hidden_zones or [])
+    return [
+        html.Span("Zone Key  (click to toggle)", className="map-zone-legend-title"),
+        html.Div(
+            [
+                html.Button(
+                    [
+                        html.Span(
+                            className="map-zone-legend-swatch",
+                            style={
+                                "backgroundColor": _hex_to_rgba(_load_zone_color(zn), 0.85),
+                                "border": f"1.5px solid {_hex_to_rgba(_load_zone_color(zn), 1.0)}",
+                            },
+                        ),
+                        html.Span(zn, className="map-zone-legend-name"),
+                    ],
+                    id={"type": "zone-toggle", "zone": zn},
+                    n_clicks=0,
+                    className=("map-zone-pill map-zone-pill-hidden" if zn in hidden else "map-zone-pill"),
+                    style={"borderColor": _hex_to_rgba(_load_zone_color(zn), 1.0)},
+                )
+                for zn in zone_names
+            ],
+            className="map-zone-legend-items",
+        ),
+    ], "map-zone-legend"
+
+
+@app.callback(
+    Output("zone-hidden-store", "data"),
+    Input({"type": "zone-toggle", "zone": ALL}, "n_clicks"),
+    State("zone-hidden-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_zone_visibility(_all_n_clicks, hidden_zones):
+    triggered = ctx.triggered_id
+    if not triggered or not isinstance(triggered, dict):
+        return hidden_zones or []
+    zone_name = triggered.get("zone", "")
+    hidden = set(hidden_zones or [])
+    if zone_name in hidden:
+        hidden.discard(zone_name)
+    else:
+        hidden.add(zone_name)
+    return list(hidden)
+
+
+@app.callback(
+    Output("zone-hidden-store", "data", allow_duplicate=True),
+    Input("case-store", "data"),
+    prevent_initial_call=True,
+)
+def reset_zone_hidden_on_case_change(_case_path: str):
+    return []
 
 
 @app.callback(
@@ -2061,8 +2253,9 @@ def export_analysis_snapshot(
     Input("case-store", "data"),
     Input("theme-store", "data"),
     Input("selected-line-store", "data"),
+    Input("zone-hidden-store", "data"),
 )
-def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer: str, rank_metric: str, map_overlays: list[str] | None, case_path: str, theme: str, selected_line: int | None):
+def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer: str, rank_metric: str, map_overlays: list[str] | None, case_path: str, theme: str, selected_line: int | None, hidden_zones: list[str] | None):
     case = load_case(case_path, refresh=False)
     bus_list = sorted(case.nodal_price["Bus"].astype(str).unique().tolist())
     if bus is None:
@@ -2079,10 +2272,100 @@ def refresh_views(hour: int, bus: str, ref_bus: str, compare_bus: str, map_layer
         selected_line = int(hourly_line.sort_values(metric_col, ascending=False).iloc[0]["Line"]) if not hourly_line.empty else None
     kpi = _kpi_block(case, int(hour), str(bus), str(compare_bus))
     line_detail = _selected_line_detail(case, int(hour), selected_line, str(rank_metric))
-    network_fig = _network_figure(case, int(hour), str(bus), str(compare_bus), str(ref_bus), str(map_layer), str(theme), selected_line, map_overlays)
+    network_fig = _network_figure(case, int(hour), str(bus), str(compare_bus), str(ref_bus), str(map_layer), str(theme), selected_line, map_overlays, hidden_zones)
     ts_fig = _timeseries_figure(case, str(bus), str(compare_bus), str(ref_bus), str(theme))
     line_fig = _line_ranking_figure(case, int(hour), str(rank_metric), str(theme), selected_line)
     return kpi, line_detail, network_fig, ts_fig, line_fig
+
+
+@app.callback(
+    Output("lmp-histogram", "figure"),
+    Input("hour-slider", "value"),
+    Input("case-store", "data"),
+    Input("theme-store", "data"),
+)
+def update_lmp_histogram(hour: int, case_path: str, theme: str):
+    case = load_case(case_path, refresh=False)
+    palette = _theme_palette(theme)
+    hourly = case.nodal_price[case.nodal_price["Hour"] == int(hour)]["LMP"].dropna()
+    if hourly.empty:
+        return go.Figure()
+    fig = go.Figure(
+        go.Histogram(
+            x=hourly,
+            nbinsx=20,
+            marker_color="#2563eb",
+            opacity=0.75,
+        )
+    )
+    fig.update_layout(
+        margin=dict(l=28, r=8, t=24, b=28),
+        height=130,
+        paper_bgcolor=palette["card"],
+        plot_bgcolor=palette["card"],
+        font=dict(family=APP_FONT, size=10, color=palette["text"]),
+        title=dict(text="LMP dist.", font=dict(size=10), x=0.5),
+        bargap=0.05,
+        showlegend=False,
+    )
+    fig.update_xaxes(
+        gridcolor=palette["grid"],
+        title_text="$/MWh",
+        title_font=dict(size=9),
+        tickfont=dict(size=9),
+    )
+    fig.update_yaxes(
+        gridcolor=palette["grid"],
+        title_text="nodes",
+        title_font=dict(size=9),
+        tickfont=dict(size=9),
+    )
+    return fig
+
+
+@app.callback(
+    Output("custom-case-panel", "style"),
+    Output("custom-case-toggle", "children"),
+    Input("custom-case-toggle", "n_clicks"),
+)
+def toggle_custom_case_panel(n_clicks: int):
+    visible = (n_clicks or 0) % 2 == 1
+    style = {"display": "block"} if visible else {"display": "none"}
+    label = "Hide Case Input" if visible else "+ Case Path"
+    return style, label
+
+
+@app.callback(
+    Output("case-path", "options"),
+    Output("custom-case-status", "children"),
+    Output("custom-cases-store", "data"),
+    Input("add-custom-case", "n_clicks"),
+    State("custom-case-input", "value"),
+    State("custom-cases-store", "data"),
+    prevent_initial_call=True,
+)
+def add_custom_case_path(_n_clicks: int, path_str: str, existing_custom: list):
+    if not path_str or not path_str.strip():
+        return no_update, "Please enter a case directory path.", no_update
+    case_dir = Path(path_str.strip()).resolve()
+    if not case_dir.exists():
+        return no_update, f"Path not found: {case_dir}", no_update
+    output_dir = resolve_dashboard_output_dir(case_dir)
+    if not (output_dir / "power_price_decomposition_nodal.csv").exists():
+        return no_update, "Missing power_price_decomposition_nodal.csv — run the case with nodal model first.", no_update
+    if not (output_dir / "Analysis" / "Summary_Congestion_Line_Hourly.csv").exists():
+        return no_update, "Missing Analysis/Summary_Congestion_Line_Hourly.csv — set summary_table: 1 and rerun.", no_update
+    case_str = str(case_dir)
+    if any(str(opt.get("value", "")) == case_str for opt in AVAILABLE_CASE_OPTIONS):
+        return no_update, f"Already in list: {case_dir.name}", no_update
+    if case_str in (existing_custom or []):
+        return no_update, f"Already added: {case_dir.name}", no_update
+    new_custom = list(existing_custom or []) + [case_str]
+    all_options = AVAILABLE_CASE_OPTIONS + [
+        {"label": f"[Custom] {Path(p).name}", "value": p}
+        for p in new_custom
+    ]
+    return all_options, f"✓ Added: {case_dir.name}", new_custom
 
 
 if __name__ == "__main__":
