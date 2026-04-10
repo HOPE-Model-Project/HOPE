@@ -26,7 +26,7 @@ Explore HOPE results interactively — no installation required:
 | **PCM Dashboard** | Hourly nodal LMP, congestion, and line analytics | [▶ Open](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard) |
 | **GTEP Dashboard** | Capacity expansion map, investment costs, and technology mix | [▶ Open](https://huggingface.co/spaces/HOPE-Model-Project/hope-gtep-dashboard) |
 
-Both dashboards can also be run locally — see [Run a case](@ref) for instructions.
+Both dashboards can also be run locally — see [Run a Case in HOPE](@ref) for instructions.
 
 # Model Cases Library
 
