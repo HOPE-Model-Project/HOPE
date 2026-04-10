@@ -1,0 +1,173 @@
+/*
+ * HOPE GTEP Dashboard — supplemental styles
+ * Builds on top of dashboard.css (auto-served by Dash from assets/).
+ * GTEP-specific overrides and additions only.
+ */
+
+/* ── KPI pill variants for GTEP ────────────────────────────────────────────── */
+.kpi-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--hope-border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(247,250,255,0.94) 100%);
+  color: var(--hope-ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+  white-space: nowrap;
+}
+
+.kpi-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 2px 0 4px;
+}
+
+.theme-dark .kpi-pill {
+  background: linear-gradient(180deg, rgba(30,40,60,0.94) 0%, rgba(20,30,50,0.94) 100%);
+  border-color: var(--hope-border);
+}
+
+/* ── GTEP toolbar row — narrower right-pad (fewer action buttons) ─────────── */
+#gtep-root .toolbar-row-top {
+  padding-right: 180px;
+}
+
+/* ── Panel cards reuse PCM styles — just ensure map-panel-body is flex-row ── */
+#gtep-root .map-panel-body {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: calc(100% - 40px); /* subtract drag handle */
+  overflow: hidden;
+}
+
+#gtep-root .map-panel-chrome {
+  flex: 0 0 auto;
+  width: 240px;
+  min-width: 200px;
+  max-width: 260px;
+  border-right: 1px solid var(--hope-border);
+  overflow-y: auto;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+
+#gtep-root .map-panel-graph {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* dark mode chrome border */
+#gtep-root .theme-dark .map-panel-chrome {
+  border-right-color: rgba(78, 95, 120, 0.55);
+}
+
+/* ── Panel inner — no extra padding on map panels ────────────────────────── */
+#gtep-root .panel-card-map .panel-inner {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── Map control section labels ──────────────────────────────────────────── */
+#gtep-root .map-ctrl-section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hope-muted);
+  margin-bottom: 5px;
+}
+
+#gtep-root .map-ctrl-section {
+  margin-bottom: 10px;
+}
+
+#gtep-root .map-ctrl-dropdown {
+  font-size: 13px;
+}
+
+/* ── Checklist / radioitems ─────────────────────────────────────────────── */
+#gtep-root .toolbar-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#gtep-root .toolbar-checklist-label {
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+#gtep-root .toolbar-checklist-input {
+  accent-color: var(--hope-brand-2);
+  cursor: pointer;
+}
+
+/* ── Legend annotation for new-build hatch bars ──────────────────────────── */
+.gtep-legend-note {
+  font-size: 11px;
+  color: var(--hope-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ── Dispatch zero-line emphasis ─────────────────────────────────────────── */
+/* Plotly handles this via layout.yaxis.zerolinewidth, nothing extra needed */
+
+/* ── Panel title typography ──────────────────────────────────────────────── */
+#gtep-root .panel-drag-handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hope-muted);
+  padding: 8px 14px;
+  cursor: grab;
+  user-select: none;
+  border-bottom: 1px solid var(--hope-border);
+  height: 38px;
+  box-sizing: border-box;
+}
+
+#gtep-root .panel-drag-handle .panel-handle-glyph {
+  font-size: 15px;
+  letter-spacing: -2px;
+  opacity: 0.45;
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────────────────── */
+#gtep-root.theme-dark {
+  background:
+    radial-gradient(circle at top left, rgba(77,163,255,0.12), transparent 26%),
+    radial-gradient(circle at top right, rgba(34,197,94,0.10), transparent 22%),
+    linear-gradient(180deg, #0b1220 0%, #0f1726 38%, #101a2d 100%);
+}
+
+#gtep-root.theme-dark .dashboard-toolbar {
+  background: linear-gradient(135deg, rgba(18,26,43,0.98) 0%, rgba(12,20,36,0.98) 100%);
+  border-color: rgba(78,95,120,0.55);
+}
+
+#gtep-root.theme-dark .panel-card {
+  background: rgba(18,26,43,0.96);
+  border-color: rgba(78,95,120,0.55);
+}
+
+#gtep-root.theme-dark .panel-drag-handle {
+  border-bottom-color: rgba(78,95,120,0.55);
+  color: #9fb1c7;
+}

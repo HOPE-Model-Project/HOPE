@@ -1,6 +1,10 @@
 {
   "chat.tools.terminal.autoApprove": {
-    "julia": true
+    "julia": true,
+    "/^cd \"e:\\\\MIT Dropbox\\\\Shen Wang\\\\MIT\\\\RA\\\\HOPE_project\\\\tools\\\\hope_dashboard\"; python -c \"import ast, sys; ast\\.parse\\(open\\('app\\.py'\\)\\.read\\(\\)\\); print\\('app\\.py OK'\\); ast\\.parse\\(open\\('data_loader\\.py'\\)\\.read\\(\\)\\); print\\('data_loader\\.py OK'\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   },
   "julia.environmentPath": "e:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project"
 }

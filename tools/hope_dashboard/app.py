@@ -29,7 +29,53 @@ GRID_LAYOUT_DEFAULT = [
     {"top": "12px", "left": "0px", "width": "61%", "height": "680px", "zIndex": 3},
     {"top": "12px", "left": "63%", "width": "37%", "height": "680px", "zIndex": 2},
     {"top": "716px", "left": "0px", "width": "100%", "height": "340px", "zIndex": 1},
+    {"top": "1076px", "left": "0px", "width": "100%", "height": "420px", "zIndex": 1},
 ]
+
+_TECH_COLORS: dict[str, str] = {
+    # Nuclear — orange
+    "Nuc":               "#f97316",
+    "NuC":               "#f97316",
+    "Nuclear":           "#f97316",
+    # Natural gas — grey family
+    "NGCC_CCS":          "#374151",
+    "NGCC":              "#6b7280",
+    "NGCT_CCS":          "#78716c",
+    "NGCT":              "#9ca3af",
+    "Thermal":           "#92400e",
+    # Solid fuels
+    "Coal":              "#1c1917",
+    "Oil":               "#57534e",
+    "MSW":               "#6366f1",
+    # Biomass / landfill gas
+    "Bio":               "#84cc16",
+    "Landfill_NG":       "#a3e635",
+    # Renewables — blues for water/wind, bright yellow for solar
+    "Hydro":             "#1d4ed8",
+    "PHS":               "#5b21b6",
+    "WindOff":           "#38bdf8",
+    "OffshoreWind":      "#38bdf8",
+    "Wind":              "#60a5fa",
+    "WindOn":            "#60a5fa",
+    "SolarPV":           "#facc15",
+    "Solar":             "#facc15",
+    # Storage — purples
+    "Battery":           "#7c3aed",
+    "Battery_discharge": "#7c3aed",
+    "Battery_charge":    "#c4b5fd",
+    "ES":                "#6d28d9",
+    "ES_discharge":      "#6d28d9",
+    "ES_charge":         "#ddd6fe",
+    # Demand response
+    "Loadshifting":      "#a855f7",
+    "Loadshift":         "#a855f7",
+    "DR":                "#a855f7",
+}
+_TECH_COLOR_DEFAULT = "#9ca3af"
+
+
+def _tech_color(tech: str) -> str:
+    return _TECH_COLORS.get(str(tech), _TECH_COLOR_DEFAULT)
 
 
 def _discover_dashboard_cases() -> list[dict]:
@@ -1347,6 +1393,107 @@ def _resolve_selected_line(case: CaseData, hour: int, rank_metric: str, selected
     return int(hourly_line.sort_values(metric_col, ascending=False).iloc[0]["Line"])
 
 
+def _gen_mix_figure(case: CaseData, hour: int, theme: str, selected_zone: str | None) -> go.Figure:
+    palette = _theme_palette(theme)
+
+    def _empty_fig(msg: str) -> go.Figure:
+        f = go.Figure()
+        f.add_annotation(
+            x=0.5, y=0.5, xref="paper", yref="paper",
+            text=msg, showarrow=False,
+            font=dict(family=APP_FONT, size=13, color=palette["muted"]),
+        )
+        f.update_layout(paper_bgcolor=palette["card"], margin=dict(l=8, r=8, t=8, b=8))
+        return f
+
+    if case.gen_hourly.empty:
+        return _empty_fig("No generation output data (power_hourly.csv not found for this case).")
+
+    hourly = case.gen_hourly[case.gen_hourly["Hour"] == int(hour)].copy()
+    hourly = hourly[hourly["MW"] > 1e-6]
+
+    show_zone = str(selected_zone).strip() if selected_zone else "All"
+    if show_zone != "All":
+        hourly = hourly[hourly["Zone"] == show_zone]
+
+    if hourly.empty:
+        suffix = f" in zone {show_zone}" if show_zone != "All" else ""
+        return _empty_fig(f"No generation > 0 at hour {hour}{suffix}.")
+
+    zones = sorted(hourly["Zone"].astype(str).unique())
+    n_zones = len(zones)
+
+    def _pie_trace(zone_df: pd.DataFrame, zone_name: str, hour: int) -> go.Pie:
+        d = zone_df.groupby("Technology")["MW"].sum().reset_index()
+        d = d[d["MW"] > 1e-6].sort_values("MW", ascending=False)
+        return go.Pie(
+            labels=d["Technology"].tolist(),
+            values=d["MW"].tolist(),
+            marker_colors=[_tech_color(t) for t in d["Technology"]],
+            name=zone_name,
+            showlegend=False,
+            textinfo="label+percent",
+            hovertemplate=f"Zone {zone_name}<br>%{{label}}: %{{value:.1f}} MW (%{{percent}})<extra></extra>",
+            hole=0.32,
+            sort=False,
+        )
+
+    if n_zones == 1:
+        d = hourly.groupby("Technology")["MW"].sum().reset_index()
+        d = d[d["MW"] > 1e-6].sort_values("MW", ascending=False)
+        fig = go.Figure(
+            go.Pie(
+                labels=d["Technology"].tolist(),
+                values=d["MW"].tolist(),
+                marker_colors=[_tech_color(t) for t in d["Technology"]],
+                textinfo="label+percent",
+                hovertemplate="%{label}: %{value:.1f} MW (%{percent})<extra></extra>",
+                hole=0.38,
+                sort=False,
+            )
+        )
+        fig.update_layout(
+            title=dict(
+                text=f"Generation Mix — Zone {zones[0]}, Hour {hour}",
+                font=dict(family=APP_FONT, size=13, color=palette["text"]),
+                x=0.5,
+            ),
+            paper_bgcolor=palette["card"],
+            font=dict(family=APP_FONT, size=11, color=palette["text"]),
+            margin=dict(l=16, r=16, t=52, b=16),
+            showlegend=False,
+        )
+        return fig
+
+    # Multiple zones — one pie subplot per zone.
+    n_cols = min(4, n_zones)
+    n_rows = (n_zones + n_cols - 1) // n_cols
+    specs = [[{"type": "pie"} for _ in range(n_cols)] for _ in range(n_rows)]
+    fig = make_subplots(rows=n_rows, cols=n_cols, specs=specs, subplot_titles=zones)
+    for i, zone in enumerate(zones):
+        row = i // n_cols + 1
+        col = i % n_cols + 1
+        zone_df = hourly[hourly["Zone"] == zone]
+        if zone_df.empty:
+            continue
+        fig.add_trace(_pie_trace(zone_df, zone, hour), row=row, col=col)
+    fig.update_layout(
+        title=dict(
+            text=f"Generation Mix by Zone — Hour {hour}",
+            font=dict(family=APP_FONT, size=13, color=palette["text"]),
+            x=0.5,
+        ),
+        paper_bgcolor=palette["card"],
+        font=dict(family=APP_FONT, size=10, color=palette["text"]),
+        margin=dict(l=8, r=8, t=56, b=8),
+        showlegend=False,
+    )
+    for ann in fig.layout.annotations:
+        ann.font.color = palette["text"]
+        ann.font.size = 11
+    return fig
+
+
 app = Dash(__name__, assets_folder=str(Path(__file__).with_name("assets")))
 app.title = "HOPE Dashboard - PCM Nodal Market View"
 
@@ -1818,6 +1965,41 @@ app.layout = html.Div(
                         accent_class="panel-card-timeseries",
                     ),
                 ),
+                html.Div(
+                    id="panel-genmix",
+                    className="floating-panel",
+                    style=_panel_outer_style(3),
+                    children=_panel_card(
+                        "Generation Mix",
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Label(
+                                            "Zone",
+                                            style={"fontSize": "12px", "color": "var(--hope-muted)", "marginRight": "8px"},
+                                        ),
+                                        dcc.Dropdown(
+                                            id="gen-zone-select",
+                                            options=[{"label": "All Zones", "value": "All"}],
+                                            value="All",
+                                            clearable=False,
+                                            style={"width": "220px", "fontSize": "13px"},
+                                        ),
+                                    ],
+                                    style={"display": "flex", "alignItems": "center", "padding": "6px 10px 4px 10px", "gap": "6px"},
+                                ),
+                                dcc.Graph(
+                                    id="gen-mix-graph",
+                                    style={"height": "calc(100% - 44px)", "width": "100%"},
+                                    config={"displayModeBar": False, "responsive": True},
+                                ),
+                            ],
+                            style={"height": "100%", "display": "flex", "flexDirection": "column"},
+                        ),
+                        accent_class="panel-card-genmix",
+                    ),
+                ),
             ],
         ),
     ],
@@ -1836,10 +2018,11 @@ app.layout = html.Div(
     Output("panel-network", "style"),
     Output("panel-ranking", "style"),
     Output("panel-timeseries", "style"),
+    Output("panel-genmix", "style"),
     Input("reset-layout", "n_clicks"),
 )
 def reset_panel_layout(_n_clicks: int):
-    return _panel_outer_style(0), _panel_outer_style(1), _panel_outer_style(2)
+    return _panel_outer_style(0), _panel_outer_style(1), _panel_outer_style(2), _panel_outer_style(3)
 
 
 @app.callback(
@@ -2368,13 +2551,35 @@ def add_custom_case_path(_n_clicks: int, path_str: str, existing_custom: list):
     return all_options, f"✓ Added: {case_dir.name}", new_custom
 
 
+@app.callback(
+    Output("gen-zone-select", "options"),
+    Output("gen-zone-select", "value"),
+    Input("case-store", "data"),
+)
+def update_gen_zone_options(case_path: str):
+    case = load_case(case_path, refresh=False)
+    base = [{"label": "All Zones", "value": "All"}]
+    if not case.gen_hourly.empty:
+        zones = sorted(case.gen_hourly["Zone"].astype(str).unique())
+        base += [{"label": z, "value": z} for z in zones]
+    return base, "All"
+
+
+@app.callback(
+    Output("gen-mix-graph", "figure"),
+    Input("hour-slider", "value"),
+    Input("case-store", "data"),
+    Input("theme-store", "data"),
+    Input("gen-zone-select", "value"),
+)
+def update_gen_mix(hour: int, case_path: str, theme: str, selected_zone: str):
+    """Generation mix pie chart — intentionally independent from all map/bus/line selections."""
+    case = load_case(case_path, refresh=False)
+    return _gen_mix_figure(case, int(hour or 1), str(theme), selected_zone)
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=8050)
-
-
-
-
-
 
 
 

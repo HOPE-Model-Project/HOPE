@@ -21,6 +21,7 @@ class CaseData:
     node_driver_hourly: pd.DataFrame
     system_hourly: pd.DataFrame
     nodal_price: pd.DataFrame
+    gen_hourly: pd.DataFrame  # cols: Zone, Technology, Hour, MW  (pre-aggregated by zone+tech+hour)
     zone_colors: Dict[str, str]
     bus_xy: Dict[str, Tuple[float, float]]
     zone_rect: Dict[str, Tuple[float, float, float, float]]
@@ -244,6 +245,30 @@ def load_case(case_path: str, refresh: bool = False) -> CaseData:
             .rename(columns={"LineLoss_MW": "TransmissionLoss_MW"})
         )
 
+    # Load generation hourly output (power_hourly.csv), pre-aggregated by Zone+Technology+Hour.
+    power_hourly_path = output_dir / "power_hourly.csv"
+    _empty_gen = pd.DataFrame(columns=["Zone", "Technology", "Hour", "MW"])
+    if power_hourly_path.exists():
+        try:
+            raw_gen = pd.read_csv(power_hourly_path)
+            hour_cols = [c for c in raw_gen.columns if re.match(r"^h\d+$", c)]
+            if hour_cols and "Technology" in raw_gen.columns and "Zone" in raw_gen.columns:
+                id_cols = [c for c in ["Technology", "Zone", "Bus", "EC_Category"] if c in raw_gen.columns]
+                melted = raw_gen.melt(id_vars=id_cols, value_vars=hour_cols, var_name="_hl", value_name="MW")
+                melted["Hour"] = melted["_hl"].str[1:].astype(int)
+                melted["MW"] = pd.to_numeric(melted["MW"], errors="coerce").fillna(0.0)
+                gen_hourly = (
+                    melted.groupby(["Zone", "Technology", "Hour"], as_index=False)["MW"].sum()
+                )
+                gen_hourly["Zone"] = gen_hourly["Zone"].astype(str)
+                gen_hourly["Technology"] = gen_hourly["Technology"].astype(str)
+            else:
+                gen_hourly = _empty_gen.copy()
+        except Exception:
+            gen_hourly = _empty_gen.copy()
+    else:
+        gen_hourly = _empty_gen.copy()
+
     bus_xy, zone_rect = _build_layout(busdata)
     zone_colors = _default_zone_colors(busdata["Zone_id"].astype(str).unique().tolist())
 
@@ -258,6 +283,7 @@ def load_case(case_path: str, refresh: bool = False) -> CaseData:
         node_driver_hourly=node_driver_hourly,
         system_hourly=system_hourly,
         nodal_price=nodal_price,
+        gen_hourly=gen_hourly,
         zone_colors=zone_colors,
         bus_xy=bus_xy,
         zone_rect=zone_rect,
