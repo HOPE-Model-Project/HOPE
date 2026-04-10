@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
-import urllib.request
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -26,7 +26,8 @@ APP_FONT = (
     "'Segoe UI Variable', 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
 )
 DEFAULT_GTEP_CASE = "ModelCases/MD_GTEP_clean_case"
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_mc_env = os.environ.get("HOPE_MODELCASES_PATH")
+_REPO_ROOT = Path(_mc_env).parent if _mc_env else Path(__file__).resolve().parents[2]
 
 # Technology display order + colours
 TECH_COLOR: dict[str, str] = {
@@ -414,51 +415,25 @@ _IPM_ZONE_MAP: dict[str, str] = {
 _IPM_REGION_TO_ZONE: dict[str, str] = {v: k for k, v in _IPM_ZONE_MAP.items()}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IPM region boundary data (downloaded once from PowerGenome GeoJSON)
+# IPM region boundary data — pre-converted to WGS84 (no pyproj needed at runtime)
 # ─────────────────────────────────────────────────────────────────────────────
 
-_GEOJSON_URL = (
-    "https://raw.githubusercontent.com/PowerGenome/PowerGenome/master/"
-    "data/ipm_regions_simple.geojson"
-)
-# Local cache path so subsequent restarts don't re-download
-_GEOJSON_CACHE = Path(__file__).with_name("data") / "ipm_regions_simple.geojson"
+# Pre-converted WGS84 file bundled with the dashboard (coordinates already lon/lat)
+_GEOJSON_WGS84 = Path(__file__).with_name("data") / "ipm_regions_wgs84.geojson"
 
 
 @lru_cache(maxsize=1)
 def _load_ipm_boundaries() -> dict[str, list[tuple[list[float], list[float]]]]:
     """Return {IPM_Region: [(lats, lons), ...]} in WGS84, one ring tuple per polygon ring.
 
-    Source CRS: EPSG:3310 (CA Albers). Converted to WGS84 via pyproj.
-    Falls back to empty dict if download/conversion fails.
+    Reads from the pre-converted ipm_regions_wgs84.geojson (coordinates already in WGS84).
+    Falls back to empty dict if the file is missing or malformed.
     """
-    try:
-        from pyproj import Transformer
-        transformer = Transformer.from_crs("EPSG:3310", "EPSG:4326", always_xy=True)
-    except Exception:
+    if not _GEOJSON_WGS84.exists():
         return {}
-
-    # Try local cache first, else download
-    raw: bytes | None = None
-    if _GEOJSON_CACHE.exists():
-        try:
-            raw = _GEOJSON_CACHE.read_bytes()
-        except Exception:
-            raw = None
-    if raw is None:
-        try:
-            with urllib.request.urlopen(_GEOJSON_URL, timeout=15) as r:
-                raw = r.read()
-            try:
-                _GEOJSON_CACHE.parent.mkdir(parents=True, exist_ok=True)
-                _GEOJSON_CACHE.write_bytes(raw)
-            except Exception:
-                pass
-        except Exception:
-            return {}
-
     try:
-        data = json.loads(raw)
+        with open(_GEOJSON_WGS84) as f:
+            data = json.load(f)
     except Exception:
         return {}
 
@@ -474,10 +449,9 @@ def _load_ipm_boundaries() -> dict[str, list[tuple[list[float], list[float]]]]:
         else:
             continue
         for ring in ring_groups:
-            xs = [c[0] for c in ring]
-            ys = [c[1] for c in ring]
-            lons_wgs, lats_wgs = transformer.transform(xs, ys)
-            rings_out.append((list(lats_wgs), list(lons_wgs)))
+            lons_r = [c[0] for c in ring]
+            lats_r = [c[1] for c in ring]
+            rings_out.append((lats_r, lons_r))
         if rings_out:
             result[name] = rings_out
     return result
@@ -1940,4 +1914,7 @@ def gtep_add_custom_case(_n_clicks: int, path_str: str, existing_custom: list):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8051)
+    _host = os.environ.get("DASH_HOST", "127.0.0.1")
+    _port = int(os.environ.get("DASH_PORT", "8051"))
+    _debug = os.environ.get("DASH_DEBUG", "true").lower() == "true"
+    app.run(debug=_debug, host=_host, port=_port)

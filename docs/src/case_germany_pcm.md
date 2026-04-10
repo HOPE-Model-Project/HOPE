@@ -10,7 +10,19 @@ Dashboard demo case path: `ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case`
 
 ## Dashboard
 
-Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser.
+A live demo is hosted on Hugging Face Spaces:
+
+> **[HOPE PCM Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard)**
+
+The demo runs the Germany 2-day nodal PCM case with bundled output data — no installation required.
+
+To run locally from the repo root:
+
+```powershell
+python tools/hope_dashboard/app.py
+```
+
+Then open `http://127.0.0.1:8050/` in your browser.
 
 ## Current Build Summary
 

@@ -3,6 +3,22 @@
 Case path: `ModelCases/PJM_MD100_GTEP_case`
 Data path: `ModelCases/PJM_MD100_GTEP_case/Data_PJM_GTEP_subzones`
 
+## Dashboard
+
+A live demo is hosted on Hugging Face Spaces:
+
+> **[HOPE GTEP Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-gtep-dashboard)**
+
+The demo runs the PJM MD100 GTEP case with bundled output data — no installation required.
+
+To run locally from the repo root:
+
+```powershell
+python tools/hope_dashboard/gtep_app.py
+```
+
+Then open `http://127.0.0.1:8051/` in your browser.
+
 ## Model Setup Snapshot
 
 | Setting | Value |

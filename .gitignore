@@ -4,6 +4,9 @@
 # ModelCases is maintained in a separate repository: https://github.com/HOPE-Model-Project/HOPEModelCases
 # Clone it locally and set HOPE_MODELCASES_PATH to its path.
 /ModelCases/
+# Hugging Face Spaces staging folders (packed copies of model case data — do not commit)
+/tools/hope_dashboard/deploy/hf-*/
+/tools/hope_dashboard/deploy/deploy_*/
 /tools/**/raw_sources/*.zip
 /tools/**/raw_sources/**/*.zip
 /tools/**/raw_sources/**

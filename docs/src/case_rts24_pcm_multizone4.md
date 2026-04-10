@@ -5,7 +5,19 @@ Data path: `ModelCases/RTS24_PCM_multizone4_congested_1month_case/Data_RTS24_PCM
 
 ## Dashboard
 
-Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser.
+A live demo is hosted on Hugging Face Spaces:
+
+> **[HOPE PCM Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard)**
+
+The demo runs the RTS-24 multizone congestion case with bundled output data — no installation required.
+
+To run the dashboard locally from the repo root:
+
+```bash
+python tools/hope_dashboard/app.py
+```
+
+Then open `http://127.0.0.1:8050/` in your browser.
 
 ### How to Read This Dashboard
 

@@ -17,6 +17,17 @@ Planned future modes:
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear or mixed-integer linear programming and can be solved with open-source (e.g., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
+# Interactive Dashboards
+
+Explore HOPE results interactively — no installation required:
+
+| Dashboard | Description | Link |
+| :-- | :-- | :-- |
+| **PCM Dashboard** | Hourly nodal LMP, congestion, and line analytics | [▶ Open](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard) |
+| **GTEP Dashboard** | Capacity expansion map, investment costs, and technology mix | [▶ Open](https://huggingface.co/spaces/HOPE-Model-Project/hope-gtep-dashboard) |
+
+Both dashboards can also be run locally — see [Run a case](@ref) for instructions.
+
 # Model Cases Library
 
 Input data and configuration files for running HOPE are maintained in a separate repository: [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases). It includes cases spanning a range of test systems (IEEE 14/118, RTS-24, ISO-NE, PJM, Germany) and study questions including expansion planning, production cost modeling, resource aggregation, and holistic planning runs.

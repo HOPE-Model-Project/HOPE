@@ -5,7 +5,19 @@ Data path: `ModelCases/ISONE_PCM_250bus_case/Data_ISONE_PCM_250bus`
 
 ## Dashboard
 
-Interactive dashboard for this case: start it from the repo root with `python tools/hope_dashboard/app.py`, then open `http://127.0.0.1:8050/` in your browser. The dashboard is pinned to the finalized reference output through `ModelCases/ISONE_PCM_250bus_case/dashboard_output.txt`, which currently points to `output_nocarbon_check`.
+A live demo is hosted on Hugging Face Spaces:
+
+> **[HOPE PCM Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard)**
+
+The demo runs the ISO-NE 250-bus case with bundled output data — no installation required.
+
+To run the dashboard locally from the repo root:
+
+```bash
+python tools/hope_dashboard/app.py
+```
+
+Then open `http://127.0.0.1:8050/` in your browser. The dashboard is pinned to the finalized reference output through `ModelCases/ISONE_PCM_250bus_case/dashboard_output.txt`, which currently points to `output_nocarbon_check`.
 
 ## Current Build Summary
 

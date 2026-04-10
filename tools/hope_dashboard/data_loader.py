@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import math
 from dataclasses import dataclass
@@ -29,8 +30,11 @@ class CaseData:
 
 _CACHE: Dict[str, CaseData] = {}
 
-# Repo root — two levels up: tools/hope_dashboard → tools → repo root
-_REPO_ROOT: Path = Path(__file__).resolve().parents[2]
+# Repo root: respect HOPE_MODELCASES_PATH env var (used in Docker/HF Spaces)
+# If set, ModelCases is that path, so repo root is its parent.
+# Otherwise fall back to two levels up from this file (tools/hope_dashboard → tools → repo root).
+_mc_env = os.environ.get("HOPE_MODELCASES_PATH")
+_REPO_ROOT: Path = Path(_mc_env).parent if _mc_env else Path(__file__).resolve().parents[2]
 
 
 def resolve_dashboard_output_dir(case_dir: Path) -> Path:

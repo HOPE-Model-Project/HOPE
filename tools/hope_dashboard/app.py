@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from functools import lru_cache
 import json
@@ -79,7 +80,8 @@ def _tech_color(tech: str) -> str:
 
 
 def _discover_dashboard_cases() -> list[dict]:
-    root = Path(__file__).resolve().parents[2] / "ModelCases"
+    _mc_env = os.environ.get("HOPE_MODELCASES_PATH")
+    root = Path(_mc_env) if _mc_env else Path(__file__).resolve().parents[2] / "ModelCases"
     options: list[dict] = []
     pcm_pattern = re.compile(
         r"^\s*model_mode\s*:\s*['\"]?PCM['\"]?(?:\s+#.*)?\s*$",
@@ -2579,7 +2581,10 @@ def update_gen_mix(hour: int, case_path: str, theme: str, selected_zone: str):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8050)
+    _host = os.environ.get("DASH_HOST", "127.0.0.1")
+    _port = int(os.environ.get("DASH_PORT", "8050"))
+    _debug = os.environ.get("DASH_DEBUG", "true").lower() == "true"
+    app.run(debug=_debug, host=_host, port=_port)
 
 
 

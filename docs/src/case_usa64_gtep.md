@@ -3,6 +3,22 @@
 Case path: `ModelCases/USA_64zone_GTEP_case`
 Data path: `ModelCases/USA_64zone_GTEP_case/Data_USA64_GTEP`
 
+## Dashboard
+
+A live demo is hosted on Hugging Face Spaces:
+
+> **[HOPE GTEP Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-gtep-dashboard)**
+
+The demo runs the USA 64-zone GTEP case with bundled output data — no installation required.
+
+To run the dashboard locally from the repo root:
+
+```bash
+python tools/hope_dashboard/gtep_app.py
+```
+
+Then open `http://127.0.0.1:8051/` in your browser and select `USA_64zone_GTEP_case` from the case dropdown.
+
 ## Model Setup Snapshot
 
 | Setting | Value |
