@@ -21,7 +21,7 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 2. `PCM` mode: a production cost model
 3. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
 4. `OPF` mode: (under development): an optimal power flow model
-5. `HOPE-AI` mode: (under development): an AI agent helps connect all HOPE modules and enables complex modeling workflows. The current HOPE-AI framework is powered by [PowerAgent](https://github.com/Power-Agent), while more specialized agents are under development.
+5. `HOPE-AI` mode: an AI agent helps connect all HOPE modules and enables complex modeling workflows. The current HOPE-AI framework is powered by [PowerAgent](https://github.com/Power-Agent), while more specialized agents are under development.
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
