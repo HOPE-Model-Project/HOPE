@@ -490,3 +490,798 @@ def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     )
 
 
+# ---------------------------------------------------------------------------
+# Settings management
+# ---------------------------------------------------------------------------
+
+# Settings keys with their allowed/type info for validation
+_INT_SETTING_KEYS = {
+    "carbon_policy": (0, 1, 2),
+    "planning_reserve_mode": (0, 1, 2),
+    "operation_reserve_mode": (0, 1, 2),
+    "network_model": (0, 1, 2, 3),
+    "unit_commitment": (0, 1, 2),
+    "debug": (0, 1, 2),
+}
+
+_BINARY_SETTING_KEYS = (
+    "resource_aggregation",
+    "endogenous_rep_day",
+    "external_rep_day",
+    "flexible_demand",
+    "inv_dcs_bin",
+    "summary_table",
+    "save_postprocess_snapshot",
+    "clean_energy_policy",
+    "transmission_expansion",
+    "transmission_loss",
+    "write_shadow_prices",
+)
+
+_SOLVER_OPTIONS = ("cbc", "clp", "highs", "scip", "gurobi", "cplex")
+_MODEL_MODE_OPTIONS = ("GTEP", "PCM")
+
+# Known contradictions: (key_a, value_a, key_b, value_b, message)
+_CONTRADICTIONS = [
+    ("network_model", 0, "write_shadow_prices", 1,
+     "write_shadow_prices=1 requires network_model > 0 to recover meaningful LMPs."),
+    ("network_model", 0, "transmission_loss", 1,
+     "transmission_loss=1 has no effect when network_model=0 (copper plate)."),
+    ("network_model", 0, "transmission_expansion", 1,
+     "transmission_expansion=1 has no effect when network_model=0 (copper plate) in PCM."),
+    ("endogenous_rep_day", 1, "external_rep_day", 1,
+     "endogenous_rep_day and external_rep_day cannot both be 1; pick one."),
+    ("unit_commitment", 0, "operation_reserve_mode", 2,
+     "operation_reserve_mode=2 (NSPIN) requires unit_commitment >= 1."),
+]
+
+
+def hope_update_settings(
+    case_id: str = "md_gtep_clean",
+    changes: dict[str, Any] | None = None,
+    backup: bool = True,
+) -> dict[str, Any]:
+    """Patch fields in a case's HOPE_model_settings.yml and return the updated settings."""
+    if changes is None or len(changes) == 0:
+        return error_result("no_changes", "No changes provided. Pass a non-empty 'changes' dict.")
+
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    if not settings_path.is_file():
+        return error_result(
+            "settings_not_found",
+            f"Settings file not found: {settings_path}",
+            case_id=case_id,
+        )
+
+    settings = read_yaml(settings_path)
+
+    # Optionally back up original
+    if backup:
+        backup_path = settings_path.with_suffix(".yml.bak")
+        import shutil as _shutil
+        _shutil.copy2(settings_path, backup_path)
+
+    # Validate and apply changes
+    rejected: list[dict[str, Any]] = []
+    applied: dict[str, Any] = {}
+
+    for key, value in changes.items():
+        if key == "model_mode":
+            if value not in _MODEL_MODE_OPTIONS:
+                rejected.append({"key": key, "value": value,
+                                  "reason": f"Must be one of {_MODEL_MODE_OPTIONS}"})
+                continue
+        elif key == "solver":
+            if value not in _SOLVER_OPTIONS:
+                rejected.append({"key": key, "value": value,
+                                  "reason": f"Must be one of {_SOLVER_OPTIONS}"})
+                continue
+        elif key in _INT_SETTING_KEYS:
+            allowed = _INT_SETTING_KEYS[key]
+            if int(value) not in allowed:
+                rejected.append({"key": key, "value": value,
+                                  "reason": f"Must be one of {allowed}"})
+                continue
+            value = int(value)
+        elif key in _BINARY_SETTING_KEYS:
+            if int(value) not in (0, 1):
+                rejected.append({"key": key, "value": value, "reason": "Must be 0 or 1"})
+                continue
+            value = int(value)
+
+        old_value = settings.get(key)
+        settings[key] = value
+        applied[key] = {"old": old_value, "new": value}
+
+    # Write updated settings
+    with settings_path.open("w", encoding="utf-8") as f:
+        yaml.dump(settings, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    # Run validation on the new settings
+    warnings = _validate_settings_dict(settings)
+
+    return success_result(
+        case_id=case_id,
+        settings_path=str(settings_path),
+        applied=applied,
+        rejected=rejected,
+        validation_warnings=warnings,
+        message=(
+            f"Applied {len(applied)} change(s) to settings."
+            + (f" Backed up original to {settings_path.with_suffix('.yml.bak')}." if backup else "")
+            + (f" {len(warnings)} validation warning(s)." if warnings else "")
+        ),
+    )
+
+
+def _validate_settings_dict(settings: dict[str, Any]) -> list[str]:
+    """Return a list of warning strings for contradictory or suspicious settings."""
+    warnings: list[str] = []
+
+    for key_a, val_a, key_b, val_b, msg in _CONTRADICTIONS:
+        a = settings.get(key_a)
+        b = settings.get(key_b)
+        if a is not None and b is not None:
+            try:
+                if int(a) == val_a and int(b) == val_b:
+                    warnings.append(f"{key_a}={val_a} + {key_b}={val_b}: {msg}")
+            except (TypeError, ValueError):
+                pass
+
+    # PCM-only flags in GTEP mode
+    model_mode = settings.get("model_mode", "")
+    if model_mode == "GTEP":
+        for key in ("unit_commitment", "write_shadow_prices"):
+            if settings.get(key, 0):
+                warnings.append(
+                    f"{key}=1 has no effect in GTEP mode (model_mode='GTEP')."
+                )
+
+    # Nodal model without reference_bus
+    if settings.get("network_model", 0) in (2, 3) and not settings.get("reference_bus"):
+        warnings.append("network_model=2 or 3 requires 'reference_bus' to be set.")
+
+    return warnings
+
+
+def hope_validate_case(case_id: str = "md_gtep_clean") -> dict[str, Any]:
+    """Check a case's settings for contradictions and suspicious combinations."""
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    if not settings_path.is_file():
+        return error_result("settings_not_found", f"Settings file not found: {settings_path}")
+
+    settings = read_yaml(settings_path)
+    warnings = _validate_settings_dict(settings)
+
+    # Check existence of referenced solver settings file
+    solver = settings.get("solver", "highs")
+    solver_settings_path = case_path / "Settings" / f"{solver}_settings.yml"
+    if not solver_settings_path.is_file():
+        warnings.append(
+            f"Solver settings file not found: Settings/{solver}_settings.yml. "
+            "Solver will use default parameters."
+        )
+
+    # Check DataCase folder exists
+    data_case = settings.get("DataCase", "")
+    if data_case:
+        data_path = case_path / data_case
+        if not data_path.is_dir():
+            warnings.append(f"DataCase folder does not exist: {data_path}")
+
+    return success_result(
+        case_id=case_id,
+        settings_path=str(settings_path),
+        model_mode=settings.get("model_mode"),
+        solver=settings.get("solver"),
+        DataCase=settings.get("DataCase"),
+        validation_warnings=warnings,
+        is_valid=len(warnings) == 0,
+        message=(
+            "No issues found." if not warnings
+            else f"{len(warnings)} potential issue(s) detected. See 'validation_warnings'."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Output reading helpers
+# ---------------------------------------------------------------------------
+
+def hope_read_output(
+    case_id: str = "md_gtep_clean",
+    filename: str = "system_cost.csv",
+    filters: dict[str, str] | None = None,
+    max_rows: int = 200,
+) -> dict[str, Any]:
+    """Read any CSV from a case's output/ directory with optional column filters."""
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    output_dir = output_dir_for_case(case_path)
+    # Allow subdirectory paths like "postprocess_snapshot/metadata.yml"
+    csv_path = output_dir / filename
+    if not csv_path.is_file():
+        available = list_top_level_output_csvs(output_dir)
+        return error_result(
+            "file_not_found",
+            f"Output file not found: {csv_path}",
+            case_id=case_id,
+            requested_file=filename,
+            available_files=available,
+        )
+
+    rows = read_csv_rows(csv_path)
+
+    # Apply column filters
+    if filters:
+        filtered = []
+        for row in rows:
+            if all(str(row.get(k, "")).strip() == str(v).strip() for k, v in filters.items()):
+                filtered.append(row)
+        rows = filtered
+
+    truncated = len(rows) > max_rows
+    columns = list(rows[0].keys()) if rows else []
+
+    return success_result(
+        case_id=case_id,
+        filename=filename,
+        columns=columns,
+        row_count=len(rows),
+        truncated=truncated,
+        rows=rows[:max_rows],
+        message=(
+            f"{len(rows)} row(s) returned"
+            + (" (truncated)" if truncated else "")
+            + (f" after filtering by {filters}" if filters else "")
+            + "."
+        ),
+    )
+
+
+def hope_emission_compliance(case_id: str = "md_gtep_clean") -> dict[str, Any]:
+    """Parse carbon emission and RPS compliance results from a completed HOPE run."""
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    output_dir = output_dir_for_case(case_path)
+    if not output_dir.is_dir():
+        return error_result("output_not_found", f"Output directory not found: {output_dir}")
+
+    result: dict[str, Any] = {"case_id": case_id, "ok": True}
+
+    # --- Carbon emissions ---
+    carbon_path = output_dir / "carbon_emissions.csv"
+    if carbon_path.is_file():
+        carbon_rows = read_csv_rows(carbon_path)
+        carbon_summary = []
+        for row in carbon_rows:
+            emissions = parse_float(row.get("Emission (Ton)") or row.get("Emissions (tons)") or row.get("CO2 (tons)"))
+            cap = parse_float(row.get("Carbon_Cap (Ton)") or row.get("Allowance (tons)"))
+            penalty = parse_float(row.get("Carbon_Penalty ($)") or row.get("Penalty ($)"))
+            carbon_summary.append({
+                "state": row.get("State", row.get("Zone", "")),
+                "emissions_tons": emissions,
+                "cap_tons": cap,
+                "violation_tons": round(emissions - cap, 2) if (emissions is not None and cap is not None and emissions > cap) else 0.0,
+                "in_compliance": (emissions is None or cap is None or emissions <= cap),
+                "penalty_dollars": penalty,
+            })
+        result["carbon"] = carbon_summary
+        result["carbon_violations"] = [r for r in carbon_summary if not r["in_compliance"]]
+    else:
+        result["carbon"] = None
+        result["carbon_note"] = "carbon_emissions.csv not found (carbon policy may be disabled)."
+
+    # --- RPS compliance ---
+    rps_path = output_dir / "rps_target.csv"
+    if rps_path.is_file():
+        rps_rows = read_csv_rows(rps_path)
+        rps_summary = []
+        for row in rps_rows:
+            target = parse_float(row.get("RPS_Target") or row.get("RPS (fraction)") or row.get("RPS Target"))
+            actual = parse_float(row.get("Actual_RPS") or row.get("Actual RPS") or row.get("RPS_Actual"))
+            penalty = parse_float(row.get("Penalty ($)") or row.get("RPS_Penalty ($)"))
+            rps_summary.append({
+                "state": row.get("State", row.get("Zone", row.get("From_state", ""))),
+                "rps_target": target,
+                "rps_actual": actual,
+                "in_compliance": (target is None or actual is None or actual >= target),
+                "shortfall": round(target - actual, 4) if (target is not None and actual is not None and actual < target) else 0.0,
+                "penalty_dollars": penalty,
+            })
+        result["rps"] = rps_summary
+        result["rps_violations"] = [r for r in rps_summary if not r["in_compliance"]]
+    else:
+        result["rps"] = None
+        result["rps_note"] = "rps_target.csv not found (RPS policy may be disabled)."
+
+    # --- System emissions from system_emissions.csv ---
+    sys_em_path = output_dir / "system_emissions.csv"
+    if sys_em_path.is_file():
+        result["system_emissions"] = read_csv_rows(sys_em_path)
+
+    total_violations = len(result.get("carbon_violations") or []) + len(result.get("rps_violations") or [])
+    result["message"] = (
+        "All policies in compliance." if total_violations == 0
+        else f"{total_violations} compliance violation(s) found."
+    )
+    return result
+
+
+def hope_nodal_prices(
+    case_id: str = "md_gtep_clean",
+    zone_or_bus: str | None = None,
+    hour_start: int | None = None,
+    hour_end: int | None = None,
+    max_rows: int = 500,
+) -> dict[str, Any]:
+    """Read nodal/zonal LMPs from a completed HOPE run, with optional zone and hour filters."""
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    output_dir = output_dir_for_case(case_path)
+
+    # Try nodal first, then zonal price files
+    candidate_files = ["nodal_prices.csv", "zonal_prices.csv", "lmp.csv"]
+    price_path: Path | None = None
+    for fname in candidate_files:
+        p = output_dir / fname
+        if p.is_file():
+            price_path = p
+            break
+
+    if price_path is None:
+        available = list_top_level_output_csvs(output_dir)
+        return error_result(
+            "price_file_not_found",
+            "No price file found. network_model must be > 0 and write_shadow_prices=1 to generate LMPs.",
+            case_id=case_id,
+            tried_files=candidate_files,
+            available_files=available,
+        )
+
+    rows = read_csv_rows(price_path)
+
+    # Filter by zone/bus
+    if zone_or_bus is not None:
+        zone_key = zone_or_bus.strip()
+        rows = [
+            r for r in rows
+            if any(str(r.get(col, "")).strip() == zone_key
+                   for col in ("Bus_id", "Zone", "Bus", "Node"))
+        ]
+
+    # Filter by hour range
+    if hour_start is not None or hour_end is not None:
+        def _hour(r: dict[str, str]) -> int | None:
+            v = r.get("Hours") or r.get("Hour") or r.get("hours")
+            return int(v) if v else None
+
+        filtered = []
+        for r in rows:
+            h = _hour(r)
+            if h is None:
+                filtered.append(r)
+                continue
+            if hour_start is not None and h < hour_start:
+                continue
+            if hour_end is not None and h > hour_end:
+                continue
+            filtered.append(r)
+        rows = filtered
+
+    truncated = len(rows) > max_rows
+    columns = list(rows[0].keys()) if rows else []
+
+    return success_result(
+        case_id=case_id,
+        price_file=price_path.name,
+        columns=columns,
+        row_count=len(rows),
+        truncated=truncated,
+        rows=rows[:max_rows],
+        message=(
+            f"{len(rows)} row(s) returned from {price_path.name}"
+            + (" (truncated)" if truncated else "")
+            + "."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Scenario comparison
+# ---------------------------------------------------------------------------
+
+def hope_compare_cases(case_ids: list[str]) -> dict[str, Any]:
+    """
+    Compare system cost, capacity builds, and emissions across multiple cases.
+    Returns side-by-side diffs for each metric.
+    """
+    if len(case_ids) < 2:
+        return error_result("too_few_cases", "Provide at least 2 case_ids to compare.")
+
+    resolved: list[tuple[str, Path]] = []
+    for cid in case_ids:
+        case_path, err = resolve_case(cid)
+        if err is not None:
+            return error_result(
+                "invalid_case_id",
+                f"Could not resolve case '{cid}': {err.get('message', '')}",
+            )
+        resolved.append((cid, case_path))
+
+    comparison: dict[str, Any] = {
+        "ok": True,
+        "cases": case_ids,
+        "system_cost": {},
+        "capacity_mw_by_tech": {},
+        "storage_mwh_by_tech": {},
+        "total_emissions_tons": {},
+    }
+
+    for cid, case_path in resolved:
+        output_dir = output_dir_for_case(case_path)
+
+        # System cost
+        total, zone_costs = parse_system_cost_summary(output_dir)
+        comparison["system_cost"][cid] = {
+            "total_dollars": total,
+            "by_zone": zone_costs,
+        }
+
+        # Generation capacity builds (Candidate only, FIN MW)
+        cap_path = output_dir / "capacity.csv"
+        tech_capacity: dict[str, float] = {}
+        if cap_path.is_file():
+            for row in read_csv_rows(cap_path):
+                tech = row.get("Technology", "Unknown")
+                fin = parse_float(row.get("Capacity_FIN (MW)"))
+                new_b = parse_float(row.get("New_Build", "0") or "0")
+                if (fin or 0.0) > 0.0 or (new_b or 0.0) > 0.0:
+                    tech_capacity[tech] = tech_capacity.get(tech, 0.0) + (fin or 0.0)
+        comparison["capacity_mw_by_tech"][cid] = tech_capacity
+
+        # Storage builds
+        es_path = output_dir / "es_capacity.csv"
+        stor_capacity: dict[str, float] = {}
+        if es_path.is_file():
+            for row in read_csv_rows(es_path):
+                tech = row.get("Technology", "Unknown")
+                e_mwh = parse_float(row.get("EnergyCapacity (MWh)"))
+                if (e_mwh or 0.0) > 0.0:
+                    stor_capacity[tech] = stor_capacity.get(tech, 0.0) + (e_mwh or 0.0)
+        comparison["storage_mwh_by_tech"][cid] = stor_capacity
+
+        # Emissions
+        sys_em_path = output_dir / "system_emissions.csv"
+        total_emissions: float | None = None
+        if sys_em_path.is_file():
+            for row in read_csv_rows(sys_em_path):
+                zone = (row.get("Zone") or "").strip().lower()
+                if zone in ("total", "system", "all"):
+                    total_emissions = parse_float(
+                        row.get("CO2 (tons)") or row.get("Emissions (tons)") or row.get("Emission (Ton)")
+                    )
+                    break
+        comparison["total_emissions_tons"][cid] = total_emissions
+
+    # Build diffs relative to first case
+    baseline_id = case_ids[0]
+    baseline_cost = comparison["system_cost"][baseline_id]["total_dollars"]
+    diffs: dict[str, Any] = {}
+    for cid in case_ids[1:]:
+        cid_cost = comparison["system_cost"][cid]["total_dollars"]
+        cost_diff = (
+            round(cid_cost - baseline_cost, 2)
+            if (cid_cost is not None and baseline_cost is not None)
+            else None
+        )
+        em_base = comparison["total_emissions_tons"][baseline_id]
+        em_cid = comparison["total_emissions_tons"][cid]
+        em_diff = round(em_cid - em_base, 2) if (em_cid is not None and em_base is not None) else None
+        diffs[f"{cid}_vs_{baseline_id}"] = {
+            "cost_diff_dollars": cost_diff,
+            "emissions_diff_tons": em_diff,
+        }
+    comparison["diffs_vs_baseline"] = diffs
+    comparison["message"] = f"Compared {len(case_ids)} cases. Baseline: '{baseline_id}'."
+    return comparison
+
+
+# ---------------------------------------------------------------------------
+# Holistic two-stage workflow
+# ---------------------------------------------------------------------------
+
+def hope_run_holistic(
+    gtep_case_id: str,
+    pcm_case_id: str,
+) -> dict[str, Any]:
+    """
+    Run the two-stage GTEP→PCM holistic workflow as a background job.
+    Stage 1 solves capacity expansion (GTEP); Stage 2 fixes the built fleet and runs PCM.
+    Returns a job_id immediately. Poll with hope_job_status.
+    """
+    repo_root = get_repo_root()
+
+    gtep_path, err = resolve_case(gtep_case_id)
+    if err is not None:
+        return error_result("invalid_gtep_case", err.get("message", ""), case_id=gtep_case_id)
+
+    pcm_path, err = resolve_case(pcm_case_id)
+    if err is not None:
+        return error_result("invalid_pcm_case", err.get("message", ""), case_id=pcm_case_id)
+
+    julia_bin, julia_error = validate_julia_command(repo_root)
+    if julia_error is not None:
+        return julia_error
+
+    julia_script = (
+        f'include("{repo_root / "src" / "HOPE.jl"}"); '
+        f'using .HOPE; '
+        f'run_hope_holistic("{gtep_path}", "{pcm_path}")'
+    )
+    command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
+
+    # Tag job with both case IDs
+    job_id = _launch_job(command, repo_root, case_id=gtep_case_id)
+    return success_result(
+        job_id=job_id,
+        gtep_case_id=gtep_case_id,
+        pcm_case_id=pcm_case_id,
+        message=(
+            f"Holistic GTEP→PCM run started (GTEP: '{gtep_case_id}', PCM: '{pcm_case_id}'). "
+            "Call hope_job_status with this job_id to check progress. "
+            "Stage 1 (GTEP) runs first, then Stage 2 (PCM) uses the fixed built fleet."
+        ),
+        command=command,
+    )
+
+
+# ---------------------------------------------------------------------------
+# EREC postprocessing
+# ---------------------------------------------------------------------------
+
+def hope_run_erec(
+    case_id: str = "md_gtep_clean",
+    voll_override: float | None = None,
+    delta_mw: float | None = None,
+) -> dict[str, Any]:
+    """
+    Run EREC (Equivalent Reliability Enhancement Capability) postprocessing on a completed HOPE run.
+    EREC computes how much unserved energy each resource avoids.
+    Requires save_postprocess_snapshot >= 1 in HOPE_model_settings.yml.
+    Returns a job_id immediately. Poll with hope_job_status.
+    """
+    repo_root = get_repo_root()
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    # Check snapshot exists
+    snapshot_dir = case_path / "output" / "postprocess_snapshot"
+    if not snapshot_dir.is_dir():
+        settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+        settings = read_yaml(settings_path) if settings_path.is_file() else {}
+        snap_val = settings.get("save_postprocess_snapshot", 0)
+        return error_result(
+            "snapshot_not_found",
+            f"Postprocess snapshot directory not found: {snapshot_dir}. "
+            f"Set save_postprocess_snapshot >= 1 in HOPE_model_settings.yml and re-run the case first. "
+            f"Current value: save_postprocess_snapshot={snap_val}.",
+            case_id=case_id,
+            snapshot_path=str(snapshot_dir),
+        )
+
+    julia_bin, julia_error = validate_julia_command(repo_root)
+    if julia_error is not None:
+        return julia_error
+
+    # Build EREC overrides string
+    overrides: list[str] = []
+    if voll_override is not None:
+        overrides.append(f'"voll_override" => {voll_override}')
+    if delta_mw is not None:
+        overrides.append(f'"delta_mw" => {delta_mw}')
+
+    overrides_str = "Dict(" + ", ".join(overrides) + ")" if overrides else "Dict()"
+
+    julia_script = (
+        f'include("{repo_root / "src" / "HOPE.jl"}"); '
+        f'using .HOPE; '
+        f'calculate_erec("{case_path}", overrides={overrides_str})'
+    )
+    command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
+
+    job_id = _launch_job(command, repo_root, case_id=case_id)
+    return success_result(
+        job_id=job_id,
+        case_id=case_id,
+        snapshot_path=str(snapshot_dir),
+        voll_override=voll_override,
+        delta_mw=delta_mw,
+        message=(
+            f"EREC postprocessing started for case '{case_id}'. "
+            "Call hope_job_status to check progress. "
+            "Results will be saved under output/output_erec/ when complete."
+        ),
+        command=command,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Representative-day & aggregation audits (Python-side, no Julia needed)
+# ---------------------------------------------------------------------------
+
+def hope_rep_day_audit(case_id: str = "md_gtep_clean") -> dict[str, Any]:
+    """
+    Summarize representative-period clustering results from a completed HOPE run.
+    Returns period assignments, weights, and compression ratio (8760 → N hours).
+    """
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    output_dir = output_dir_for_case(case_path)
+
+    # Check settings to confirm rep-day was enabled
+    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    settings = read_yaml(settings_path) if settings_path.is_file() else {}
+    endo = settings.get("endogenous_rep_day", 0)
+    exo = settings.get("external_rep_day", 0)
+
+    if not endo and not exo:
+        return error_result(
+            "rep_day_disabled",
+            "Representative-day mode is disabled in this case "
+            "(endogenous_rep_day=0 and external_rep_day=0). "
+            "Enable endogenous_rep_day=1 and re-run to generate clustering audit files.",
+            case_id=case_id,
+        )
+
+    result: dict[str, Any] = {"ok": True, "case_id": case_id}
+
+    # Metadata
+    meta_path = output_dir / "representative_period_metadata.csv"
+    if meta_path.is_file():
+        meta_rows = read_csv_rows(meta_path)
+        result["periods"] = meta_rows
+        result["n_periods"] = len(meta_rows)
+        total_weight = sum(
+            parse_float(r.get("WeightDays") or r.get("Weight")) or 0.0 for r in meta_rows
+        )
+        result["total_weight_days"] = total_weight
+    else:
+        result["periods"] = None
+        result["note_metadata"] = "representative_period_metadata.csv not found."
+
+    # Assignments (day-of-year → period)
+    assign_path = output_dir / "representative_period_assignments.csv"
+    if assign_path.is_file():
+        assign_rows = read_csv_rows(assign_path)
+        result["assignments"] = assign_rows
+        result["n_days_assigned"] = len(assign_rows)
+    else:
+        result["assignments"] = None
+
+    # Weight check
+    check_path = output_dir / "representative_period_weight_check.csv"
+    if check_path.is_file():
+        result["weight_check"] = read_csv_rows(check_path)
+
+    # Compute compression ratio
+    n_periods = result.get("n_periods")
+    if n_periods and n_periods > 0:
+        # Each representative period typically consists of representative_days_per_period days × 24h
+        rep_days_per_period = settings.get("representative_days_per_period", 2)
+        rep_hours = n_periods * rep_days_per_period * 24
+        result["compression_ratio"] = round(8760 / rep_hours, 2)
+        result["representative_hours"] = rep_hours
+        result["full_year_hours"] = 8760
+        result["message"] = (
+            f"{n_periods} period(s), ~{rep_hours} representative hours "
+            f"(compression ratio {result['compression_ratio']}× vs full 8760-hour year)."
+        )
+    else:
+        result["message"] = "Period metadata not available."
+
+    return result
+
+
+def hope_aggregation_audit(case_id: str = "md_gtep_clean") -> dict[str, Any]:
+    """
+    Summarize resource aggregation results from a completed HOPE run.
+    Returns the raw→aggregated generator mapping and reduction statistics.
+    """
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    output_dir = output_dir_for_case(case_path)
+
+    # Check settings
+    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    settings = read_yaml(settings_path) if settings_path.is_file() else {}
+    agg_enabled = settings.get("resource_aggregation", 0)
+
+    if not agg_enabled:
+        return error_result(
+            "aggregation_disabled",
+            "Resource aggregation is disabled in this case (resource_aggregation=0). "
+            "Enable resource_aggregation=1 and re-run to generate audit files.",
+            case_id=case_id,
+        )
+
+    result: dict[str, Any] = {"ok": True, "case_id": case_id}
+
+    # Mapping file
+    mapping_path = output_dir / "resource_aggregation_mapping.csv"
+    if mapping_path.is_file():
+        mapping_rows = read_csv_rows(mapping_path)
+        result["mapping"] = mapping_rows
+        result["n_raw_resources"] = len({r.get("RawResource", r.get("Raw_Resource", "")) for r in mapping_rows})
+        result["n_aggregated_resources"] = len({r.get("AggregatedResource", r.get("Aggregated_Resource", "")) for r in mapping_rows})
+    else:
+        result["mapping"] = None
+        result["note_mapping"] = "resource_aggregation_mapping.csv not found."
+
+    # Summary file
+    summary_path = output_dir / "resource_aggregation_summary.csv"
+    if summary_path.is_file():
+        summary_rows = read_csv_rows(summary_path)
+        result["summary"] = summary_rows
+        n_agg = len(summary_rows)
+
+        # Compute total original and aggregated capacity
+        total_pmax_orig = sum(
+            parse_float(r.get("Pmax_Original (MW)") or r.get("Pmax_Original")) or 0.0
+            for r in summary_rows
+        )
+        total_pmax_agg = sum(
+            parse_float(r.get("Pmax_Aggregated (MW)") or r.get("Pmax_Aggregated")) or 0.0
+            for r in summary_rows
+        )
+        result["total_pmax_original_mw"] = round(total_pmax_orig, 2)
+        result["total_pmax_aggregated_mw"] = round(total_pmax_agg, 2)
+        result["n_aggregated_resources"] = n_agg
+    else:
+        result["summary"] = None
+        result["note_summary"] = "resource_aggregation_summary.csv not found."
+
+    # Compute reduction
+    n_raw = result.get("n_raw_resources")
+    n_agg = result.get("n_aggregated_resources")
+    if n_raw and n_agg:
+        result["reduction_ratio"] = round(n_raw / n_agg, 2)
+        result["message"] = (
+            f"Aggregated {n_raw} raw resources → {n_agg} clusters "
+            f"({result['reduction_ratio']}× reduction)."
+        )
+    else:
+        result["message"] = "Aggregation audit files not found in output directory."
+
+    # Check aggregation settings file
+    agg_settings_path = case_path / "Settings" / "HOPE_aggregation_settings.yml"
+    if agg_settings_path.is_file():
+        agg_settings = read_yaml(agg_settings_path)
+        result["aggregation_settings"] = {
+            "method": agg_settings.get("aggregation_method", "basic"),
+            "grouping_keys": agg_settings.get("grouping_keys"),
+            "clustering_target_cluster_size": agg_settings.get("clustering_target_cluster_size"),
+        }
+
+    return result
+
+
