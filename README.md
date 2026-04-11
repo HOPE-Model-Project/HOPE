@@ -205,4 +205,4 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <br clear="both"/>
 <img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="280" alt="MIT CEEPR logo" />
 <br clear="both"/>
-<a href="https://poweragent.seas.harvard.edu/"><img src="https://github.com/Power-Agent.png" width="80" alt="PowerAgent logo" />&nbsp;&nbsp;<strong>PowerAgent</strong></a> — Power and AI Initiative (PAI) at Harvard SEAS
+<img src="docs/src/assets/poweragent-logo.png" width="280" alt="PowerAgent logo" />
