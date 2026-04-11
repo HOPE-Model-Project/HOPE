@@ -21,11 +21,11 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 2. `PCM` mode: a production cost model
 3. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
 4. `OPF` mode: (under development): an optimal power flow model
-5. `HOPE-AI` mode: (under development): an AI agent helps connect all HOPE modules to enable complex modeling workflows.
+5. `HOPE-AI` mode: (under development): an AI agent helps connect all HOPE modules and enables complex modeling workflows. The current HOPE-AI framework is powered by [PowerAgent](https://github.com/Power-Agent), while more specialized agents are under development.
 
 Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/) and Zoe Song.
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/), [Zoe Song](https://pwrlab.org/team.html), and [Ziting Huang](https://hobbsgroup.johnshopkins.edu/members.html).
 
 Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel)
 
