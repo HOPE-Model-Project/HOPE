@@ -35,11 +35,13 @@ Once configured, Claude Desktop will have access to five HOPE tools:
 ### Step 1 — Install `uv`
 
 **Windows (PowerShell):**
+
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 **macOS / Linux:**
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -58,13 +60,14 @@ This creates a local `.venv` inside `tools/hope_mcp_server/` with all dependenci
 
 Locate your Claude Desktop config file:
 
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`  
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
   (typically `C:\Users\<user>\AppData\Roaming\Claude\claude_desktop_config.json`)
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 Add the `hope` server entry:
 
 **Windows example:**
+
 ```json
 {
   "mcpServers": {
@@ -86,6 +89,7 @@ Add the `hope` server entry:
 ```
 
 **macOS / Linux example:**
+
 ```json
 {
   "mcpServers": {
@@ -107,9 +111,7 @@ Add the `hope` server entry:
 ```
 
 !!! tip "Finding your Julia binary path"
-    Run `julia -e 'println(Sys.BINDIR)'` in a terminal to print the exact path to your Julia binary directory. The binary is `julia` (macOS/Linux) or `julia.exe` (Windows) inside that directory.
-
-    If `julia` is already on your system PATH, you can omit the `HOPE_JULIA_BIN` key entirely.
+    Run `julia -e 'println(Sys.BINDIR)'` in a terminal to print the exact path to your Julia binary directory. The binary is `julia` (macOS/Linux) or `julia.exe` (Windows) inside that directory. If `julia` is already on your system PATH, you can omit the `HOPE_JULIA_BIN` key entirely.
 
 Restart Claude Desktop after editing the config.
 
@@ -159,19 +161,19 @@ The whitelist is defined in `tools/hope_mcp_server/src/hope_mcp_server/core.py` 
 
 ## Troubleshooting
 
-**MCP server doesn't appear in Claude Desktop**  
+**MCP server doesn't appear in Claude Desktop**
 Verify the config JSON is valid (no trailing commas, no syntax errors). Restart Claude Desktop fully (quit and reopen).
 
-**`uv` command not found**  
+**`uv` command not found**
 Restart your terminal after installing `uv`, or manually add `~/.local/bin` (macOS/Linux) or `%USERPROFILE%\.local\bin` (Windows) to your PATH.
 
-**Julia warmup job keeps running for a long time**  
+**Julia warmup job keeps running for a long time**
 This is expected on the very first call — Julia downloads and compiles ~130 packages. Subsequent warmups in the same session are instant since the cache is warm.
 
-**`hope_run_hope` fails with `hope_environment_not_instantiated`**  
+**`hope_run_hope` fails with `hope_environment_not_instantiated`**
 Call `hope_warmup` first and wait for it to complete before calling `hope_run_hope`.
 
-**Job ID not found**  
+**Job ID not found**
 Job IDs are in-memory and only valid for the current MCP server session. If Claude Desktop was restarted, old job IDs are gone — start a new warmup/run.
 
 ---
