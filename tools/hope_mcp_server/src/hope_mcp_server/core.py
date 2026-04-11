@@ -4,7 +4,10 @@ import csv
 import os
 import shutil
 import subprocess
+import threading
 import time
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -151,6 +154,45 @@ def parse_float(value: Any) -> float | None:
 def last_nonempty_lines(text: str, limit: int = 20) -> list[str]:
     lines = [line for line in text.splitlines() if line.strip()]
     return lines[-limit:]
+
+
+# ---------------------------------------------------------------------------
+# Async job registry
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _Job:
+    job_id: str
+    command: list[str]
+    process: subprocess.Popen  # type: ignore[type-arg]
+    stdout_lines: list[str] = field(default_factory=list)
+    stderr_lines: list[str] = field(default_factory=list)
+    start_time: float = field(default_factory=time.perf_counter)
+    case_id: str = ""
+
+
+_jobs: dict[str, _Job] = {}
+
+
+def _stream_lines(stream: Any, target: list[str]) -> None:
+    for line in stream:
+        target.append(line.rstrip())
+
+
+def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
+    job_id = uuid.uuid4().hex[:8]
+    process = subprocess.Popen(
+        command,
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    job = _Job(job_id=job_id, command=command, process=process, case_id=case_id)
+    threading.Thread(target=_stream_lines, args=(process.stdout, job.stdout_lines), daemon=True).start()
+    threading.Thread(target=_stream_lines, args=(process.stderr, job.stderr_lines), daemon=True).start()
+    _jobs[job_id] = job
+    return job_id
 
 
 def looks_like_missing_hope_dependencies(stdout: str, stderr: str) -> bool:
@@ -336,6 +378,95 @@ def hope_output_summary(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     return success_result(**build_output_summary_payload(case_id, case_path))
 
 
+def hope_warmup() -> dict[str, Any]:
+    """Pre-compile the HOPE Julia environment so subsequent runs start fast."""
+    repo_root = get_repo_root()
+    julia_bin, julia_error = validate_julia_command(repo_root)
+    if julia_error is not None:
+        return julia_error
+
+    command = [
+        julia_bin,
+        f"--project={repo_root}",
+        "-e",
+        "using Pkg; Pkg.instantiate(); Pkg.precompile()",
+    ]
+    job_id = _launch_job(command, repo_root, case_id="warmup")
+    return success_result(
+        job_id=job_id,
+        message=(
+            "Julia HOPE warmup started in the background. "
+            "Call hope_job_status with this job_id to check progress. "
+            "Once complete, hope_run_hope will start much faster."
+        ),
+        command=command,
+    )
+
+
+def hope_job_status(job_id: str) -> dict[str, Any]:
+    """Poll the status of a background job launched by hope_warmup or hope_run_hope."""
+    job = _jobs.get(job_id)
+    if job is None:
+        return error_result(
+            "job_not_found",
+            f"No job found with id '{job_id}'. Job IDs are only valid for the current server session.",
+            job_id=job_id,
+        )
+
+    exit_code = job.process.poll()
+    elapsed = round(time.perf_counter() - job.start_time, 1)
+    stdout_tail = last_nonempty_lines("\n".join(job.stdout_lines))
+    stderr = "\n".join(job.stderr_lines).strip()
+
+    if exit_code is None:
+        return success_result(
+            job_id=job_id,
+            status="running",
+            elapsed_seconds=elapsed,
+            stdout_tail=stdout_tail,
+            message=f"Job is still running ({elapsed}s elapsed). Call hope_job_status again to check.",
+        )
+
+    # Job finished
+    if exit_code != 0:
+        if looks_like_missing_hope_dependencies("\n".join(job.stdout_lines), stderr):
+            repo_root = get_repo_root()
+            julia_bin = configured_julia_command()
+            return error_result(
+                "hope_environment_not_instantiated",
+                "HOPE Julia dependencies are not instantiated. Call hope_warmup first, then retry.",
+                job_id=job_id,
+                exit_code=exit_code,
+                elapsed_seconds=elapsed,
+                stdout_tail=stdout_tail,
+                stderr=stderr,
+                setup_command=setup_command(repo_root, julia_bin),
+            )
+        return error_result(
+            "job_failed",
+            "The background job exited with a non-zero exit code.",
+            job_id=job_id,
+            exit_code=exit_code,
+            elapsed_seconds=elapsed,
+            stdout_tail=stdout_tail,
+            stderr=stderr,
+        )
+
+    result = success_result(
+        job_id=job_id,
+        status="done",
+        exit_code=exit_code,
+        elapsed_seconds=elapsed,
+        stdout_tail=stdout_tail,
+    )
+    # If this was a HOPE model run, attach the output summary
+    if job.case_id and job.case_id != "warmup":
+        case_path, _ = resolve_case(job.case_id)
+        if case_path is not None:
+            result["output_summary"] = build_output_summary_payload(job.case_id, case_path)
+    return result
+
+
 def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     repo_root = get_repo_root()
     case_path, error = resolve_case(case_id)
@@ -347,51 +478,15 @@ def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:
         return julia_error
 
     command = build_run_command(repo_root, julia_bin, case_path)
-    start = time.perf_counter()
-    completed = subprocess.run(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    duration_seconds = round(time.perf_counter() - start, 3)
-
-    if completed.returncode != 0:
-        if looks_like_missing_hope_dependencies(completed.stdout, completed.stderr):
-            return error_result(
-                "hope_environment_not_instantiated",
-                "HOPE Julia dependencies are not instantiated. Run the one-time setup command and try again.",
-                case_id=case_id,
-                case_path=str(case_path),
-                output_path=str(output_dir_for_case(case_path)),
-                exit_code=completed.returncode,
-                duration_seconds=duration_seconds,
-                command=command,
-                setup_command=setup_command(repo_root, julia_bin),
-                stderr=completed.stderr.strip(),
-                stdout_tail=last_nonempty_lines(completed.stdout),
-            )
-
-        return error_result(
-            "hope_run_failed",
-            "HOPE run failed.",
-            case_id=case_id,
-            case_path=str(case_path),
-            output_path=str(output_dir_for_case(case_path)),
-            exit_code=completed.returncode,
-            duration_seconds=duration_seconds,
-            command=command,
-            stderr=completed.stderr.strip(),
-            stdout_tail=last_nonempty_lines(completed.stdout),
-        )
-
+    job_id = _launch_job(command, repo_root, case_id=case_id)
     return success_result(
-        case_id=case_id,
-        case_path=str(case_path),
-        output_path=str(output_dir_for_case(case_path)),
-        exit_code=completed.returncode,
-        duration_seconds=duration_seconds,
-        output_summary=build_output_summary_payload(case_id, case_path),
-        stdout_tail=last_nonempty_lines(completed.stdout),
+        job_id=job_id,
+        message=(
+            f"HOPE run started for case '{case_id}'. "
+            "Call hope_job_status with this job_id to check progress. "
+            "The run may take several minutes; Julia startup adds extra time on first call."
+        ),
+        command=command,
     )
+
+

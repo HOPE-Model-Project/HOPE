@@ -4,7 +4,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from .core import hope_case_info, hope_output_summary, hope_run_hope
+from .core import hope_case_info, hope_job_status, hope_output_summary, hope_run_hope, hope_warmup
 
 mcp = FastMCP(
     "hope-mcp",
@@ -13,6 +13,30 @@ mcp = FastMCP(
         "Use the whitelisted case id md_gtep_clean."
     ),
 )
+
+
+@mcp.tool(
+    name="hope_warmup",
+    description=(
+        "Pre-compile the HOPE Julia environment in the background so subsequent hope_run_hope calls "
+        "start fast. Returns a job_id immediately. Call hope_job_status to check progress. "
+        "Run this once per Claude Desktop session before the first hope_run_hope."
+    ),
+)
+def hope_warmup_tool() -> dict[str, Any]:
+    return hope_warmup()
+
+
+@mcp.tool(
+    name="hope_job_status",
+    description=(
+        "Poll the status of a background Julia job launched by hope_warmup or hope_run_hope. "
+        "Returns status ('running' or 'done'), elapsed time, stdout tail, and on success the "
+        "output summary. Call repeatedly until status is 'done'."
+    ),
+)
+def hope_job_status_tool(job_id: str) -> dict[str, Any]:
+    return hope_job_status(job_id)
 
 
 @mcp.tool(
