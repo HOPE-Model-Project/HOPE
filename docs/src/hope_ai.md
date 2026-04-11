@@ -205,6 +205,154 @@ To add more cases, extend this dictionary with additional `case_id: relative_pat
 
 ---
 
+## Example Prompts
+
+The prompts below demonstrate what you can ask Claude in a typical session. Copy them verbatim or adapt them to your case.
+
+### Job Execution
+
+**`hope_warmup` — Pre-compile Julia before the first run**
+
+> "Warm up Julia for HOPE."
+
+> "Initialize the HOPE Julia environment and let me know when it's ready."
+
+> "Pre-compile HOPE so the first model run starts fast."
+
+**`hope_run_hope` — Launch a single-case HOPE optimization**
+
+> "Run the `md_gtep_clean` HOPE case."
+
+> "Start a HOPE GTEP run for the Maryland clean energy case."
+
+> "Launch a HOPE model run and tell me when it finishes."
+
+**`hope_run_holistic` — Two-stage GTEP→PCM workflow**
+
+> "Run the holistic two-stage analysis: first solve capacity expansion, then re-run production cost with the built fleet fixed."
+
+> "Execute a holistic HOPE run for the `md_gtep_clean` case using the `md_pcm_clean` case for the PCM stage."
+
+**`hope_run_erec` — EREC reliability postprocessing**
+
+> "Run EREC on the completed `md_gtep_clean` run to compute each resource's reliability contribution."
+
+> "After the GTEP run finishes, quantify how much capacity credit each new solar and wind plant earns."
+
+**`hope_job_status` — Poll a background job**
+
+> "What's the status of job `a3f8c21b`?"
+
+> "Is the HOPE run still going? Give me the latest output."
+
+> "Check whether the warmup job has finished."
+
+---
+
+### Settings Management
+
+**`hope_update_settings` — Patch model settings**
+
+> "Enable the carbon cap in the `md_gtep_clean` case."
+
+> "Switch the solver to HiGHS for the Maryland case."
+
+> "Turn on unit commitment and nodal network modeling."
+
+> "Set the carbon price to \$50/ton in `md_gtep_clean`."
+
+> "Disable the RPS target and enable the clean energy standard instead."
+
+> "Enable shadow price output and make sure the network model is set to nodal."
+
+**`hope_validate_case` — Check for contradictions before running**
+
+> "Validate the `md_gtep_clean` case settings before I run it."
+
+> "Check whether there are any contradictions or missing files in this case."
+
+> "Is this case configured correctly to produce nodal prices?"
+
+---
+
+### Output Reading
+
+**`hope_case_info` — Inspect settings and output file inventory**
+
+> "What settings is the `md_gtep_clean` case using?"
+
+> "List all the output files from the last HOPE run."
+
+**`hope_output_summary` — Summarize cost and capacity results**
+
+> "Summarize the results from the `md_gtep_clean` run."
+
+> "What are the total system costs, new capacity builds, and storage investments?"
+
+> "Give me a high-level overview of the capacity expansion results."
+
+**`hope_read_output` — Read any specific output CSV**
+
+> "Show me the dispatch for solar PV in zone MD."
+
+> "Read the `capacity.csv` output and filter for wind technologies."
+
+> "What does the `transmission_flows.csv` file look like for the first 24 hours?"
+
+> "Show me storage charge/discharge for the BESS resources in zone PJM."
+
+**`hope_emission_compliance` — Check carbon and RPS compliance**
+
+> "Are we in compliance with the carbon cap? How close are we to the limit?"
+
+> "Summarize per-state carbon and RPS compliance from the latest run."
+
+> "Did any state violate its RPS target? What are the penalty costs?"
+
+**`hope_nodal_prices` — Read locational marginal prices**
+
+> "What are the average nodal prices across all buses?"
+
+> "Show me the LMPs for buses in zone MD for hours 1–48."
+
+> "Which bus had the highest LMP during the peak demand period?"
+
+---
+
+### Scenario Comparison
+
+**`hope_compare_cases` — Side-by-side scenario comparison**
+
+> "Compare costs and emissions between the baseline and the carbon cap cases."
+
+> "How does capacity investment change if I enable the RPS target? Run that version and compare."
+
+> "Show me a side-by-side table of capacity builds, system cost, and CO2 across the three Maryland scenarios."
+
+> "What's the cost difference between the nodal and zonal network models?"
+
+---
+
+### Audit Tools
+
+**`hope_rep_day_audit` — Representative period summary**
+
+> "Summarize the representative-day clustering for the `md_gtep_clean` case."
+
+> "How many representative periods are used, and what's the compression ratio versus a full year?"
+
+> "Which weeks are mapped to each representative day?"
+
+**`hope_aggregation_audit` — Resource aggregation summary**
+
+> "How many generator clusters were created from the raw resource data?"
+
+> "Summarize the resource aggregation: how many generators were grouped into how many clusters?"
+
+> "Show me the per-cluster capacity for the wind aggregation."
+
+---
+
 ## Troubleshooting
 
 **MCP server does not appear in Claude Desktop**
