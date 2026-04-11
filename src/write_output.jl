@@ -1169,6 +1169,50 @@ function write_output(
         rename!(Cost_df, :LoL_plt => Symbol("LoL_plt (\$)"))
         rename!(Cost_df, :Total_cost => Symbol("Total_cost (\$)"))
         CSV.write(joinpath(outpath, "system_cost.csv"), Cost_df, header = true)
+
+        # Emissions output for GTEP — annual weighted emissions by zone and state
+        EF_gtep = [Gendata[:, "EF"]; Gendata_candidate[:, "EF"]]
+        E_zone_df = DataFrame(
+            Zone = Zonedata[:, "Zone_id"],
+            State = Zonedata[:, "State"],
+            Emissions_ton = [
+                sum(
+                    EF_gtep[g] * weighted_rep_hour_sum((t, h) -> value(model[:p][g, h]))
+                    for g in G_i[i];
+                    init = 0,
+                ) for i in I
+            ],
+        )
+        CSV.write(joinpath(outpath, "emissions_zone.csv"), E_zone_df, header = true)
+        E_state_df = DataFrame(
+            State = W,
+            Emissions_ton = [
+                sum(E_zone_df[i, :Emissions_ton] for i in I_w[w]; init = 0) for w in W
+            ],
+        )
+        if haskey(input_data, "CBPdata")
+            cbp_agg = combine(
+                groupby(input_data["CBPdata"], "State"),
+                "Allowance (tons)" => sum => "Allowance_ton",
+            )
+            cbp_dict = Dict(zip(cbp_agg[!, "State"], cbp_agg[!, "Allowance_ton"]))
+            E_state_df[!, :Allowance_ton] =
+                Union{Missing,Float64}[get(cbp_dict, s, missing) for s in W]
+            E_state_df[!, :Violation_ton] = [
+                let allow = E_state_df[i, :Allowance_ton]
+                    ismissing(allow) ? missing :
+                    max(0.0, E_state_df[i, :Emissions_ton] - Float64(allow))
+                end for i in 1:nrow(E_state_df)
+            ]
+            E_state_df[!, :In_compliance] = [
+                let allow = E_state_df[i, :Allowance_ton],
+                    viol = E_state_df[i, :Violation_ton]
+                    ismissing(allow) ? missing : iszero(viol)
+                end for i in 1:nrow(E_state_df)
+            ]
+        end
+        CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header = true)
+
         Results_dict = Dict(
             "power" => P_gen_df,
             "power_loadshedding" => P_ls_df,
@@ -1182,6 +1226,8 @@ function write_output(
             "es_power_soc" => P_es_soc_df,
             "es_capacity" => C_es_df,
             "system_cost" => Cost_df,
+            "emissions_zone" => E_zone_df,
+            "emissions_state" => E_state_df,
         )
 
     elseif model_mode == "PCM"
@@ -1506,6 +1552,28 @@ function write_output(
                 sum(E_zone_df[i, :Emissions_ton] for i in I_w[w]; init = 0) for w in W
             ],
         )
+        # Add carbon allowance from input data for compliance reporting
+        if haskey(input_data, "CBPdata")
+            cbp_agg = combine(
+                groupby(input_data["CBPdata"], "State"),
+                "Allowance (tons)" => sum => "Allowance_ton",
+            )
+            cbp_dict = Dict(zip(cbp_agg[!, "State"], cbp_agg[!, "Allowance_ton"]))
+            E_state_df[!, :Allowance_ton] =
+                Union{Missing,Float64}[get(cbp_dict, s, missing) for s in W]
+            E_state_df[!, :Violation_ton] = [
+                let allow = E_state_df[i, :Allowance_ton]
+                    ismissing(allow) ? missing :
+                    max(0.0, E_state_df[i, :Emissions_ton] - Float64(allow))
+                end for i in 1:nrow(E_state_df)
+            ]
+            E_state_df[!, :In_compliance] = [
+                let allow = E_state_df[i, :Allowance_ton],
+                    viol = E_state_df[i, :Violation_ton]
+                    ismissing(allow) ? missing : iszero(viol)
+                end for i in 1:nrow(E_state_df)
+            ]
+        end
         CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header = true)
 
         ##Power price
