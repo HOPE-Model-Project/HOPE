@@ -181,12 +181,21 @@ def _stream_lines(stream: Any, target: list[str]) -> None:
 
 def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
     job_id = uuid.uuid4().hex[:8]
+
+    # Build subprocess environment: inherit current env, then overlay JULIA_DEPOT_PATH
+    # if set so Julia writes compiled caches to an AppLocker-allowed directory.
+    proc_env = os.environ.copy()
+    julia_depot = os.environ.get("JULIA_DEPOT_PATH")
+    if julia_depot:
+        proc_env["JULIA_DEPOT_PATH"] = julia_depot
+
     process = subprocess.Popen(
         command,
         cwd=repo_root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        env=proc_env,
     )
     job = _Job(job_id=job_id, command=command, process=process, case_id=case_id)
     threading.Thread(target=_stream_lines, args=(process.stdout, job.stdout_lines), daemon=True).start()
@@ -201,6 +210,17 @@ def looks_like_missing_hope_dependencies(stdout: str, stderr: str) -> bool:
         "required but does not seem to be installed",
         "Run `Pkg.instantiate()` to install all recorded dependencies.",
         "Package JuMP",
+    )
+    return any(marker in combined for marker in markers)
+
+
+def looks_like_applocker_block(stdout: str, stderr: str) -> bool:
+    combined = f"{stdout}\n{stderr}"
+    markers = (
+        "Application Control policy has blocked",
+        "AppLocker",
+        "Error opening package file",
+        "WDAC",
     )
     return any(marker in combined for marker in markers)
 
@@ -429,7 +449,22 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
 
     # Job finished
     if exit_code != 0:
-        if looks_like_missing_hope_dependencies("\n".join(job.stdout_lines), stderr):
+        stdout_joined = "\n".join(job.stdout_lines)
+        if looks_like_applocker_block(stdout_joined, stderr):
+            return error_result(
+                "applocker_blocked",
+                (
+                    "Windows Application Control (AppLocker/WDAC) blocked Julia's compiled cache DLLs. "
+                    "Ensure JULIA_DEPOT_PATH in claude_desktop_config.json points to a directory "
+                    "outside C:\\Users (e.g. E:\\julia_depot) and run hope_warmup to rebuild the cache."
+                ),
+                job_id=job_id,
+                exit_code=exit_code,
+                elapsed_seconds=elapsed,
+                stdout_tail=stdout_tail,
+                stderr=stderr,
+            )
+        if looks_like_missing_hope_dependencies(stdout_joined, stderr):
             repo_root = get_repo_root()
             julia_bin = configured_julia_command()
             return error_result(
