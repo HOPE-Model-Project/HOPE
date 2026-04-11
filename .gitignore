@@ -16,6 +16,7 @@
 !/tools/**/raw_sources/**/
 !/tools/**/raw_sources/**/README.md
 **/__pycache__/
+/node_modules/
 # MCP server virtual environment (created by uv sync — do not commit)
 /tools/hope_mcp_server/.venv/
 # Case-building tools moved to HOPEModelCases repo — keep local copies but do not re-track
