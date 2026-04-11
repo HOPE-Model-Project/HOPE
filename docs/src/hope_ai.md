@@ -1,6 +1,6 @@
-# HOPE-AI: Running HOPE with an LLM Agent
+﻿# HOPE-AI: Running HOPE with an LLM Agent
 
-HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) — a standard that lets LLMs like Claude directly invoke tools, run models, and read results without any manual scripting. This page explains how to set up the HOPE MCP server so that Claude Desktop can warm up Julia, launch HOPE runs, and analyze outputs in natural language.
+HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) — a standard that lets LLMs like Claude directly invoke tools, run models, and read results without any manual scripting. This page explains how to set up the HOPE MCP server so that Claude Desktop can warm up Julia, launch HOPE runs, modify settings, inspect outputs, and compare scenarios in natural language.
 
 !!! note "PowerAgent community"
     The HOPE MCP server is part of [PowerAgent](https://poweragent.seas.harvard.edu/) — an open-source community for agentic AI in power systems, maintained by the [Power and AI Initiative (PAI)](https://pai.seas.harvard.edu/) at Harvard SEAS. The HOPE server is also distributed through [PowerMCP](https://github.com/Power-Agent/PowerMCP/tree/main/HOPE), a collection of MCP servers for power system software.
@@ -9,22 +9,54 @@ HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://
 
 ## Available Tools
 
-Once configured, Claude Desktop will have access to five HOPE tools:
+Once configured, Claude Desktop will have access to **14 HOPE tools** organized into five groups:
+
+### Job Execution
 
 | Tool | Description |
 |------|-------------|
-| `hope_warmup` | Pre-compiles the Julia/HOPE environment in the background. Call this once per session before the first run. Returns a `job_id` immediately. |
-| `hope_run_hope` | Launches a HOPE optimization run in the background. Returns a `job_id` immediately — the MCP server stays responsive while Julia runs. |
-| `hope_job_status` | Polls a background job (warmup or run) for progress. Returns elapsed time, stdout tail, and the full output summary when the job completes. |
+| `hope_warmup` | Pre-compiles the Julia/HOPE environment in the background. Call once per session before the first run. Returns a `job_id` immediately. |
+| `hope_run_hope` | Launches a HOPE single-case optimization run (GTEP or PCM) in the background. Returns a `job_id` immediately. |
+| `hope_run_holistic` | Launches a two-stage GTEP→PCM holistic workflow: Stage 1 solves capacity expansion; Stage 2 fixes the built fleet and runs production-cost dispatch. Returns a `job_id` immediately. |
+| `hope_run_erec` | Launches EREC (Equivalent Reliability Enhancement Capability) postprocessing on a completed run to quantify each resource's reliability contribution. Returns a `job_id` immediately. |
+| `hope_job_status` | Polls any background job for progress. Returns elapsed time, stdout tail, and the full output summary when the job completes. |
+
+### Settings Management
+
+| Tool | Description |
+|------|-------------|
+| `hope_update_settings` | Patches any field in `HOPE_model_settings.yml` — e.g., change `carbon_policy`, `solver`, `network_model`, or `unit_commitment`. Validates each value, backs up the original file, and warns on contradictions. |
+| `hope_validate_case` | Checks settings for contradictions and missing files (e.g., `write_shadow_prices=1` without `network_model > 0`, or a missing solver settings file). Returns a warning list and `is_valid` flag. |
+
+### Output Reading
+
+| Tool | Description |
+|------|-------------|
 | `hope_case_info` | Reads case settings and output file inventory instantly — no Julia required. |
-| `hope_output_summary` | Reads and summarizes existing output CSVs (system cost, capacity builds, storage) instantly — no Julia required. |
+| `hope_output_summary` | Reads and summarizes existing output CSVs (system cost, capacity builds, storage builds) instantly — no Julia required. |
+| `hope_read_output` | Reads any specific output CSV with optional column filters — e.g., dispatch for a single zone, or capacity for one technology. |
+| `hope_emission_compliance` | Parses `carbon_emissions.csv` and `rps_target.csv` to report per-state compliance status, violation amounts, and penalty costs. |
+| `hope_nodal_prices` | Reads locational marginal prices (LMPs) from `nodal_prices.csv`, optionally filtered by bus/zone and hour range. |
+
+### Scenario Comparison
+
+| Tool | Description |
+|------|-------------|
+| `hope_compare_cases` | Compares system cost, capacity builds (MW by technology), storage builds (MWh), and CO2 emissions across two or more cases. Returns side-by-side tables and diffs relative to a baseline. |
+
+### Audit Tools
+
+| Tool | Description |
+|------|-------------|
+| `hope_rep_day_audit` | Summarizes representative-period clustering: period assignments, weights, total representative hours, and compression ratio vs. a full 8760-hour year. |
+| `hope_aggregation_audit` | Summarizes resource aggregation: raw-to-cluster mapping, reduction ratio (e.g., 120 generators to 30 clusters), and per-cluster capacity. |
 
 ---
 
 ## Prerequisites
 
 - **HOPE** cloned and Julia environment instantiated (see [Installation](@ref))
-- **Python** ≥ 3.10 (the MCP server is a Python package)
+- **Python** >= 3.10 (the MCP server is a Python package)
 - **uv** ([astral.sh/uv](https://astral.sh/uv)) — fast Python package manager
 - **Claude Desktop** ([claude.ai/download](https://claude.ai/download)) or any MCP-compatible LLM host
 
@@ -32,7 +64,7 @@ Once configured, Claude Desktop will have access to five HOPE tools:
 
 ## One-Time Setup
 
-### Step 1 — Install `uv`
+### Step 1 — Install uv
 
 **Windows (PowerShell):**
 
@@ -125,43 +157,57 @@ Julia's first startup includes precompilation which can take several minutes. Th
 
 > *"Warm up Julia for HOPE."*
 
-Claude calls `hope_warmup`, which launches Julia precompilation in the background and returns a `job_id`. Claude then polls `hope_job_status` until precompilation finishes (~3–5 min on first call, much faster on subsequent calls in the same session).
+Claude calls `hope_warmup`, which launches Julia precompilation in the background and returns a `job_id`. Claude then polls `hope_job_status` until precompilation finishes (~3-5 min on first call, much faster on subsequent calls in the same session).
 
-**2. Run a HOPE case**
+**2. Validate and optionally update settings**
+
+> *"Check the md_gtep_clean case settings and enable the carbon cap."*
+
+Claude calls `hope_validate_case` to detect any contradictions, then `hope_update_settings` to patch `carbon_policy: 1` into `HOPE_model_settings.yml`. The original file is backed up automatically.
+
+**3. Run a HOPE case**
 
 > *"Run the md_gtep_clean HOPE case."*
 
-Claude calls `hope_run_hope`, which launches HOPE as a background process and returns a `job_id` immediately. Claude polls `hope_job_status` until the run completes. When done, the output summary (system costs, capacity builds) is returned automatically.
+Claude calls `hope_run_hope` (or `hope_run_holistic` for a two-stage GTEP-PCM run), which launches HOPE as a background process and returns a `job_id` immediately. Claude polls `hope_job_status` until the run completes. When done, the output summary is returned automatically.
 
-**3. Inspect results**
+**4. Inspect results**
 
-> *"Summarize the generation capacity investments and system cost."*
+> *"Summarize the capacity investments. Are we in compliance with the carbon cap?"*
 
-Claude calls `hope_output_summary` (instant — reads the CSVs, no Julia needed) and presents the analysis.
+Claude calls `hope_output_summary` for the cost and build summary, then `hope_emission_compliance` to check carbon and RPS policy compliance — all instant, reading only the output CSVs.
 
-**4. Explore settings**
+**5. Drill into specifics**
 
-> *"What solver and model mode is the md_gtep_clean case using?"*
+> *"Show me the hourly dispatch for solar in zone MD."*
 
-Claude calls `hope_case_info` which reads `Settings/HOPE_model_settings.yml` and returns the configuration.
+Claude calls `hope_read_output` with `filename="dispatch.csv"` and `filters={"Zone": "MD", "Technology": "SolarPV"}`.
+
+**6. Compare scenarios**
+
+> *"How does cost and emissions change if I also enable the RPS target? Run that version and compare."*
+
+Claude calls `hope_update_settings` to enable `clean_energy_policy: 1`, re-runs with `hope_run_hope`, then calls `hope_compare_cases` to get a side-by-side diff of cost, capacity, and CO2.
 
 ---
 
 ## Supported Cases
 
-The current server whitelists one case:
+The server reads the `CASE_PATHS` registry in `tools/hope_mcp_server/src/hope_mcp_server/core.py`:
 
-| Case ID | Path |
-|---------|------|
-| `md_gtep_clean` | `ModelCases/MD_GTEP_clean_case` |
+```python
+CASE_PATHS = {
+    "md_gtep_clean": Path("ModelCases/MD_GTEP_clean_case"),
+}
+```
 
-The whitelist is defined in `tools/hope_mcp_server/src/hope_mcp_server/core.py` (`CASE_PATHS` dict). To add more cases, extend that dictionary and re-run `uv sync`.
+To add more cases, extend this dictionary with additional `case_id: relative_path` entries and restart Claude Desktop.
 
 ---
 
 ## Troubleshooting
 
-**MCP server doesn't appear in Claude Desktop**
+**MCP server does not appear in Claude Desktop**
 Verify the config JSON is valid (no trailing commas, no syntax errors). Restart Claude Desktop fully (quit and reopen).
 
 **`uv` command not found**
@@ -172,6 +218,12 @@ This is expected on the very first call — Julia downloads and compiles ~130 pa
 
 **`hope_run_hope` fails with `hope_environment_not_instantiated`**
 Call `hope_warmup` first and wait for it to complete before calling `hope_run_hope`.
+
+**`hope_run_erec` fails with `snapshot_not_found`**
+Set `save_postprocess_snapshot: 1` in `HOPE_model_settings.yml` (use `hope_update_settings`) and re-run the case before calling `hope_run_erec`.
+
+**`hope_nodal_prices` returns `price_file_not_found`**
+LMP output requires `network_model > 0` and `write_shadow_prices: 1` in settings. Use `hope_update_settings` to enable both, then re-run.
 
 **Job ID not found**
 Job IDs are in-memory and only valid for the current MCP server session. If Claude Desktop was restarted, old job IDs are gone — start a new warmup/run.
