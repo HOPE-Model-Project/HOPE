@@ -1,5 +1,0 @@
-Zone_id,Description,Zone_Type,Included_Load_Zones,Included_States,ISO_NE_Source_Basis,State_Treatment_Comment
-Maine,Maine capacity zone,Export,ME,ME,2023-24 capacity commitment period,Single-state zone
-NNE,Northern New England,Export,NH|VT,NH|VT,2023-24 capacity commitment period,Multi-state zone (not one-state-per-zone)
-ROP,Rest-of-Pool,ROP,CT|WCMA,CT|MA,2023-24 capacity commitment period,Multi-state zone (not one-state-per-zone)
-SENE,Southeast New England,Import,NEMA/Boston|SEMA|RI,MA|RI,2023-24 capacity commitment period,Multi-state zone (not one-state-per-zone)

@@ -58,7 +58,9 @@ function set_case_switches!(settings_path::String, replacements::Dict{String,Str
 end
 
 function copy_case_tree!(repo_root::String)
-    seed_root = joinpath(repo_root, "tools", "resource_aggregation_examples", "seed_cases")
+    # Seed cases were moved to HOPEModelCases. Look for them in ModelCases/ first
+    # (they are now committed directly in HOPEModelCases alongside other cases).
+    seed_root = get(ENV, "HOPE_MODELCASES_PATH", joinpath(repo_root, "ModelCases"))
     for target in TARGET_CASES
         src = joinpath(seed_root, SOURCE_CASES[target])
         dst = joinpath(repo_root, "ModelCases", target)

@@ -16,6 +16,15 @@
 !/tools/**/raw_sources/**/
 !/tools/**/raw_sources/**/README.md
 **/__pycache__/
+# MCP server virtual environment (created by uv sync — do not commit)
+/tools/hope_mcp_server/.venv/
+# Case-building tools moved to HOPEModelCases repo — keep local copies but do not re-track
+/tools/germany_pcm_case_related/
+/tools/iso_ne_250bus_case_related/
+/tools/64_zone_US_case_related/
+/tools/rts24_case_related/
+/tools/isone_workflows/
+/tools/resource_aggregation_examples/seed_cases/
 
 # macOS metadata
 .DS_Store

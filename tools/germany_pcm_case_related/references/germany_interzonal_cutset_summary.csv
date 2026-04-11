@@ -1,6 +1,0 @@
-Interface_id,From_zone,To_zone,CrossBorderLineCount,CutsetCapacity_MW,RepresentativeFromBus,RepresentativeToBus
-50Hertz__Amprion,50Hertz,Amprion,2,3396.206,B559,B770
-50Hertz__TenneT,50Hertz,TenneT,27,50987.768,B284,B391
-Amprion__TenneT,Amprion,TenneT,20,28957.12,B692,B775
-Amprion__TransnetBW,Amprion,TransnetBW,10,16042.602,B246,B480
-TenneT__TransnetBW,TenneT,TransnetBW,10,13361.389,B410,B516

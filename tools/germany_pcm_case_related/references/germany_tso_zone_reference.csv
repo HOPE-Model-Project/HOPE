@@ -1,5 +1,0 @@
-Zone_id,TSO,CoverageType,CoverageNotes,Source_URL,Status,QA_Required
-50Hertz,50Hertz,control_area,Research aggregation zone for the Germany PCM study; final bus coverage should be frozen in germany_bus_zone_map.csv,https://www.50hertz.com,working_reference,yes
-Amprion,Amprion,control_area,Research aggregation zone for the Germany PCM study; final bus coverage should be frozen in germany_bus_zone_map.csv,https://www.amprion.net,working_reference,yes
-TenneT,TenneT,control_area,Research aggregation zone for the Germany PCM study; final bus coverage should be frozen in germany_bus_zone_map.csv,https://www.tennet.eu,working_reference,yes
-TransnetBW,TransnetBW,control_area,Research aggregation zone for the Germany PCM study; final bus coverage should be frozen in germany_bus_zone_map.csv,https://www.transnetbw.de,working_reference,yes
