@@ -45,6 +45,7 @@ pages = OrderedDict(
     ],
     "Postprocessing" => ["EREC" => "EREC.md"],
     "Reference" => ["API Reference" => "95-reference.md"],
+    "HOPE-AI" => ["HOPE-AI (LLM Agent)" => "hope_ai.md"],
     "Project" => [
         "Contributing" => "90-contributing.md",
         "Developer Guide" => "91-developer.md",
