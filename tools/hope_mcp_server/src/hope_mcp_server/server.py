@@ -11,6 +11,7 @@ from .core import (
     hope_emission_compliance,
     hope_job_status,
     hope_nodal_prices,
+    hope_open_dashboard,
     hope_output_summary,
     hope_read_output,
     hope_rep_day_audit,
@@ -284,6 +285,30 @@ def hope_rep_day_audit_tool(case_id: str = "md_gtep_clean") -> dict[str, Any]:
 )
 def hope_aggregation_audit_tool(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     return hope_aggregation_audit(case_id)
+
+
+# ---------------------------------------------------------------------------
+# Dashboard launcher
+# ---------------------------------------------------------------------------
+
+@mcp.tool(
+    name="hope_open_dashboard",
+    description=(
+        "Launch the local HOPE Dash dashboard for a completed case run and return its URL. "
+        "Automatically picks the GTEP dashboard (port 8051) for GTEP cases and the PCM dashboard "
+        "(port 8050) for PCM cases. "
+        "If a dashboard is already running on the target port, returns the existing URL immediately. "
+        "After the browser URL opens, select the matching case from the dropdown in the UI. "
+        "Requires Python with dash, plotly, pandas installed "
+        "(set HOPE_PYTHON_BIN env var to point to that Python if needed). "
+        "Optional 'port' overrides the default port."
+    ),
+)
+def hope_open_dashboard_tool(
+    case_id: str = "md_gtep_clean",
+    port: int | None = None,
+) -> dict[str, Any]:
+    return hope_open_dashboard(case_id=case_id, port=port)
 
 
 def main() -> None:

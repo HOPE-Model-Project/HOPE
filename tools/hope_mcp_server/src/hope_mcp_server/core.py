@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import os
 import shutil
+import socket
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -1319,3 +1321,177 @@ def hope_aggregation_audit(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     return result
 
 
+# ---------------------------------------------------------------------------
+# Dashboard launcher
+# ---------------------------------------------------------------------------
+
+# Registry of dashboard subprocesses keyed by port number.
+_dashboard_procs: dict[int, subprocess.Popen] = {}  # type: ignore[type-arg]
+
+
+def _port_in_use(port: int) -> bool:
+    """Return True if something is already listening on 127.0.0.1:<port>."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _find_python_for_dashboard() -> str:
+    """Find a suitable Python executable that can run the Dash dashboard.
+
+    Search order:
+    1. ``HOPE_PYTHON_BIN`` environment variable (explicit override)
+    2. Well-known Python 3.12 path written into ``start_dashboard.bat``
+    3. ``python`` on PATH
+    4. Current interpreter (``sys.executable``) as a last resort
+    """
+    hope_py = os.environ.get("HOPE_PYTHON_BIN")
+    if hope_py:
+        return hope_py
+
+    # Path baked into start_dashboard.bat for this machine
+    known = Path(r"C:\Users\wangs\AppData\Local\Programs\Python\Python312\python.exe")
+    if known.is_file():
+        return str(known)
+
+    on_path = shutil.which("python")
+    if on_path:
+        return on_path
+
+    return sys.executable
+
+
+def hope_open_dashboard(
+    case_id: str = "md_gtep_clean",
+    port: int | None = None,
+) -> dict[str, Any]:
+    """Launch the local HOPE Dash dashboard for a completed case run.
+
+    Automatically selects the GTEP dashboard (port 8051) for GTEP cases and the
+    PCM dashboard (port 8050) for PCM cases based on ``model_mode`` in
+    ``HOPE_model_settings.yml``.
+
+    If a dashboard is already running on the target port, the existing URL is
+    returned immediately without starting a new process.
+
+    The dashboard reads all ModelCases from the local repository.  After opening
+    the browser URL, select the matching case from the dropdown in the UI.
+
+    If the dashboard dependencies (dash, plotly, pandas …) are not installed in
+    the Python environment found, the tool returns a ``dashboard_crashed`` error
+    with the install command.
+    """
+    repo_root = get_repo_root()
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    # Determine model mode from settings (default GTEP)
+    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    model_mode = "GTEP"
+    if settings_path.is_file():
+        try:
+            settings = read_yaml(settings_path)
+            model_mode = (settings.get("model_mode") or "GTEP").upper().strip()
+        except Exception:
+            pass
+
+    dashboard_dir = repo_root / "tools" / "hope_dashboard"
+    if model_mode == "PCM":
+        runner_script = dashboard_dir / "run_dashboard.py"
+        default_port = 8050
+        app_label = "PCM Dashboard"
+    else:
+        runner_script = dashboard_dir / "run_gtep_dashboard.py"
+        default_port = 8051
+        app_label = "GTEP Dashboard"
+
+    if not runner_script.is_file():
+        return error_result(
+            "dashboard_script_not_found",
+            f"Dashboard runner script not found: {runner_script}. "
+            "Ensure the tools/hope_dashboard directory is present in the repository.",
+            dashboard_dir=str(dashboard_dir),
+            runner_script=str(runner_script),
+        )
+
+    effective_port = port if port is not None else default_port
+    url = f"http://127.0.0.1:{effective_port}"
+
+    # --- Check if a dashboard is already running on this port ---
+    if _port_in_use(effective_port):
+        existing = _dashboard_procs.get(effective_port)
+        if existing is not None and existing.poll() is None:
+            status = "running"
+        else:
+            status = "already_running_external"
+        case_rel = str(CASE_PATHS.get(case_id, case_id))
+        return success_result(
+            url=url,
+            status=status,
+            port=effective_port,
+            model_mode=model_mode,
+            case_id=case_id,
+            message=(
+                f"{app_label} is already running at {url}. "
+                f"Open that URL in your browser and select '{case_rel}' from the case dropdown."
+            ),
+        )
+
+    python_bin = _find_python_for_dashboard()
+
+    # Set HOPE_MODELCASES_PATH so data_loader.py finds ModelCases relative to repo root
+    env = os.environ.copy()
+    env["HOPE_MODELCASES_PATH"] = str(repo_root / "ModelCases")
+
+    stdout_lines: list[str] = []
+    stderr_lines: list[str] = []
+    process = subprocess.Popen(
+        [python_bin, str(runner_script)],
+        cwd=str(dashboard_dir),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    threading.Thread(
+        target=_stream_lines, args=(process.stdout, stdout_lines), daemon=True
+    ).start()
+    threading.Thread(
+        target=_stream_lines, args=(process.stderr, stderr_lines), daemon=True
+    ).start()
+    _dashboard_procs[effective_port] = process
+
+    # Give Dash up to 4 seconds to start; if it exits sooner it crashed.
+    time.sleep(4)
+    if process.poll() is not None:
+        return error_result(
+            "dashboard_crashed",
+            f"Dashboard process exited immediately (exit code {process.returncode}). "
+            "Ensure dashboard dependencies are installed: "
+            f"cd tools/hope_dashboard && {python_bin} -m pip install -r requirements.txt",
+            exit_code=process.returncode,
+            stdout_tail=last_nonempty_lines("\n".join(stdout_lines)),
+            stderr_tail=last_nonempty_lines("\n".join(stderr_lines)),
+            python_bin=python_bin,
+            install_command=(
+                f"cd {dashboard_dir} && "
+                f"{python_bin} -m pip install -r requirements.txt"
+            ),
+        )
+
+    case_rel = str(CASE_PATHS.get(case_id, case_id))
+    return success_result(
+        url=url,
+        status="starting",
+        pid=process.pid,
+        model_mode=model_mode,
+        case_id=case_id,
+        port=effective_port,
+        python_bin=python_bin,
+        message=(
+            f"{app_label} is starting at {url}. "
+            f"Open that URL in your browser. "
+            f"In the case selector, choose '{case_rel}' to view results for case '{case_id}'."
+        ),
+    )
