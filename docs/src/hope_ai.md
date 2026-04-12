@@ -9,7 +9,7 @@ HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://
 
 ## Available Tools
 
-Once configured, Claude Desktop will have access to **14 HOPE tools** organized into five groups:
+Once configured, Claude Desktop will have access to **16 HOPE tools** organized into six groups:
 
 ### Job Execution
 
@@ -50,6 +50,13 @@ Once configured, Claude Desktop will have access to **14 HOPE tools** organized 
 |------|-------------|
 | `hope_rep_day_audit` | Summarizes representative-period clustering: period assignments, weights, total representative hours, and compression ratio vs. a full 8760-hour year. |
 | `hope_aggregation_audit` | Summarizes resource aggregation: raw-to-cluster mapping, reduction ratio (e.g., 120 generators to 30 clusters), and per-cluster capacity. |
+
+### Dashboard
+
+| Tool | Description |
+|------|-------------|
+| `hope_open_dashboard` | Launches the local HOPE Dash dashboard for a completed case run and returns its URL. Automatically picks the GTEP dashboard (port 8051) or the PCM dashboard (port 8050) based on `model_mode`. If a dashboard is already running on the target port, returns the existing URL immediately. |
+| `hope_close_dashboard` | Stops a dashboard launched by `hope_open_dashboard`. Pass `port=8051` or `port=8050` to stop a specific dashboard, or omit `port` to stop all dashboards tracked in the current session. |
 
 ---
 
@@ -350,6 +357,20 @@ The prompts below demonstrate what you can ask Claude in a typical session. Copy
 > "Summarize the resource aggregation: how many generators were grouped into how many clusters?"
 
 > "Show me the per-cluster capacity for the wind aggregation."
+
+---
+
+### Dashboard
+
+**`hope_open_dashboard` / `hope_close_dashboard` — Local interactive dashboard**
+
+> "Open the dashboard for the `md_gtep_clean` case."
+
+> "Launch the GTEP dashboard so I can explore capacity builds interactively."
+
+> "Close the dashboard when I'm done."
+
+> "Stop all running dashboards."
 
 ---
 
