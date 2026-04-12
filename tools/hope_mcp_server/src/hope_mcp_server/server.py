@@ -7,6 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from .core import (
     hope_aggregation_audit,
     hope_case_info,
+    hope_close_dashboard,
     hope_compare_cases,
     hope_emission_compliance,
     hope_job_status,
@@ -309,6 +310,20 @@ def hope_open_dashboard_tool(
     port: int | None = None,
 ) -> dict[str, Any]:
     return hope_open_dashboard(case_id=case_id, port=port)
+
+
+@mcp.tool(
+    name="hope_close_dashboard",
+    description=(
+        "Stop a running HOPE dashboard that was launched by hope_open_dashboard. "
+        "If 'port' is given (8050 for PCM, 8051 for GTEP), stop only that dashboard. "
+        "If omitted, stop all dashboards tracked by this session. "
+        "Returns a list of stopped processes with their ports and exit codes. "
+        "Only dashboards started in the current Claude Desktop session can be stopped this way."
+    ),
+)
+def hope_close_dashboard_tool(port: int | None = None) -> dict[str, Any]:
+    return hope_close_dashboard(port=port)
 
 
 def main() -> None:

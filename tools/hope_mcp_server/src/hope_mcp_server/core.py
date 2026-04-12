@@ -1495,3 +1495,60 @@ def hope_open_dashboard(
             f"In the case selector, choose '{case_rel}' to view results for case '{case_id}'."
         ),
     )
+
+
+def hope_close_dashboard(port: int | None = None) -> dict[str, Any]:
+    """Stop a running HOPE dashboard subprocess.
+
+    If ``port`` is given, stop only the dashboard on that port.
+    If omitted, stop all dashboards tracked by this server session.
+
+    Only dashboards started by ``hope_open_dashboard`` in the current server
+    session can be stopped this way (the process must be in the internal
+    registry).  Externally-started Dash servers on the same port are not
+    affected.
+    """
+    if not _dashboard_procs:
+        return success_result(
+            stopped=[],
+            message="No dashboard processes are currently tracked by this session.",
+        )
+
+    targets: dict[int, subprocess.Popen] = {}  # type: ignore[type-arg]
+    if port is not None:
+        proc = _dashboard_procs.get(port)
+        if proc is None:
+            return error_result(
+                "dashboard_not_found",
+                f"No dashboard tracked on port {port}. "
+                f"Currently tracked ports: {sorted(_dashboard_procs)}.",
+                tracked_ports=sorted(_dashboard_procs),
+            )
+        targets[port] = proc
+    else:
+        targets = dict(_dashboard_procs)
+
+    stopped: list[dict[str, Any]] = []
+    for p, proc in targets.items():
+        already_dead = proc.poll() is not None
+        if not already_dead:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        exit_code = proc.poll()
+        _dashboard_procs.pop(p, None)
+        stopped.append({
+            "port": p,
+            "pid": proc.pid,
+            "exit_code": exit_code,
+            "was_already_dead": already_dead,
+        })
+
+    ports_str = ", ".join(str(s["port"]) for s in stopped)
+    return success_result(
+        stopped=stopped,
+        message=f"Stopped dashboard(s) on port(s): {ports_str}.",
+    )
