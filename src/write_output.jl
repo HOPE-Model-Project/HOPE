@@ -2,36 +2,38 @@ function mkdir_overwrite(path::AbstractString)
     if isdir(path)
         println("'output' folder exists, will be overwritten!")
 
-        # Try to remove with retries for Windows file locking issues
-        max_retries = 3
+        # Try to remove with retries for Windows file locking issues (e.g. Dropbox, Explorer)
+        max_retries = 5
         for attempt = 1:max_retries
             try
                 rm(path; force = true, recursive = true)
                 break  # Success, exit retry loop
             catch e
-                if isa(e, SystemError) && attempt < max_retries
+                if attempt < max_retries
+                    wait_secs = attempt * 2  # 2, 4, 6, 8 seconds
                     println(
                         "Warning: Failed to remove output directory (attempt $attempt/$max_retries): $(e.msg)",
                     )
-                    println("Retrying in 1 second...")
-                    sleep(1)
-                    # Try to force release any file handles
+                    println("Retrying in $wait_secs seconds... (close any open CSV/Excel files or pause Dropbox sync)")
                     GC.gc()
-                elseif attempt == max_retries
+                    sleep(wait_secs)
+                else
+                    # Final fallback: move to a timestamped backup, then continue
+                    backup_path = path * "_backup_" * string(round(Int, time()))
                     println(
                         "Warning: Could not remove existing output directory after $max_retries attempts.",
                     )
-                    println("This may be due to files being open in another application.")
-                    println("Trying to create backup and continue...")
-
-                    # Try to create a backup directory name
-                    backup_path = path * "_backup_" * string(round(Int, time()))
+                    println("Attempting to move existing output to: $backup_path")
                     try
                         mv(path, backup_path)
                         println("Moved existing output to: $backup_path")
                     catch mv_error
                         error(
-                            "Cannot remove or move existing output directory '$path'. Please close any files/applications that may be using files in this directory and try again.\nOriginal error: $e",
+                            "Cannot remove or move existing output directory '$path' (EBUSY). " *
+                            "A file inside the directory is locked by another process. " *
+                            "To fix: (1) close any open CSV files from this folder in Excel or other apps, " *
+                            "(2) pause Dropbox sync temporarily, then re-run. " *
+                            "\nOriginal error: $e",
                         )
                     end
                 end
@@ -516,7 +518,28 @@ function write_output(
     input_data::Dict,
     model::Model,
 )
-    mkdir_overwrite(outpath)
+    # Write everything to a sibling temp directory first, then do one atomic rename.
+    # This avoids EBUSY errors caused by Dropbox or Explorer locking files inside
+    # the existing output directory mid-write.
+    tmp_outpath = outpath * "_tmp_" * string(round(Int, time()))
+    mkdir(tmp_outpath)
+    Results_dict = _write_output_impl(tmp_outpath, config_set, input_data, model)
+
+    # Replace: remove old output dir (with retries), then rename tmp → output
+    mkdir_overwrite(outpath)    # removes old dir and creates empty dir
+    rm(outpath)                 # remove the empty dir so we can rename into its place
+    mv(tmp_outpath, outpath)
+
+    println("Write solved results in the folder $outpath 'output' DONE!")
+    return Results_dict
+end
+
+function _write_output_impl(
+    outpath::AbstractString,
+    config_set::Dict,
+    input_data::Dict,
+    model::Model,
+)
     write_resource_aggregation_audit_outputs(outpath, config_set, input_data)
     model_mode = config_set["model_mode"]
     flexible_demand_raw = get(config_set, "flexible_demand", 0)
@@ -2790,7 +2813,5 @@ function write_output(
                 Summary_Congestion_Driver_Node_Hourly_df,
         )
     end
-    println("Write solved results in the folder $outpath 'output' DONE!")
-
     return Results_dict
 end
