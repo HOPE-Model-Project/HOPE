@@ -9,8 +9,11 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT / "src"))
 
 from hope_mcp_server.core import (
+    _Job,
+    _jobs,
     build_run_command,
     hope_case_info,
+    hope_job_status,
     hope_output_summary,
     hope_run_hope,
     setup_command,
@@ -66,7 +69,19 @@ class HopeCoreTests(unittest.TestCase):
         result = hope_case_info("not_a_case")
         self.assertFalse(result["ok"])
         self.assertEqual(result["error_type"], "invalid_case_id")
-        self.assertEqual(result["allowed_case_ids"], ["md_gtep_clean"])
+        self.assertIn("md_gtep_clean", result["allowed_case_ids"])
+        self.assertIn("MD_GTEP_clean_case", result["allowed_case_ids"])
+        self.assertIn("USA_64zone_GTEP_case", result["allowed_case_ids"])
+
+    def test_case_info_accepts_modelcases_directory_name(self) -> None:
+        result = hope_case_info("MD_GTEP_clean_case")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["model_mode"], "GTEP")
+
+    def test_case_info_accepts_modelcases_prefixed_path(self) -> None:
+        result = hope_case_info("ModelCases/MD_GTEP_clean_case")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["solver"], "cbc")
 
     def test_build_run_command_uses_env_config(self) -> None:
         case_path = REPO_ROOT / "ModelCases" / "MD_GTEP_clean_case"
@@ -96,16 +111,22 @@ class HopeCoreTests(unittest.TestCase):
         self.assertIn("setup_command", result)
 
     def test_dependency_failure_returns_setup_command(self) -> None:
-        completed = mock.Mock(
-            returncode=1,
-            stdout="",
-            stderr=(
-                "ArgumentError: Package JuMP is required but does not seem to be installed:\n"
-                " - Run `Pkg.instantiate()` to install all recorded dependencies."
-            ),
+        process = mock.Mock()
+        process.poll.return_value = 1
+        job = _Job(
+            job_id="depsfail",
+            command=[],
+            process=process,
+            stdout_lines=[],
+            stderr_lines=[
+                "ArgumentError: Package JuMP is required but does not seem to be installed:",
+                " - Run `Pkg.instantiate()` to install all recorded dependencies.",
+            ],
         )
-        with mock.patch("hope_mcp_server.core.subprocess.run", return_value=completed):
-            result = hope_run_hope()
+        _jobs[job.job_id] = job
+        self.addCleanup(lambda: _jobs.pop(job.job_id, None))
+
+        result = hope_job_status(job.job_id)
         self.assertFalse(result["ok"])
         self.assertEqual(result["error_type"], "hope_environment_not_instantiated")
         self.assertEqual(

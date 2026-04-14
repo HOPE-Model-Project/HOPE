@@ -28,7 +28,9 @@ mcp = FastMCP(
     "hope-mcp",
     instructions=(
         "HOPE MCP server for the local Julia repository. "
-        "Use the whitelisted case id md_gtep_clean (or any registered case id). "
+        "Use any case directory name that exists under ModelCases "
+        "(for example USA_64zone_GTEP_case or ISONE_PCM_250bus_case). "
+        "The legacy alias md_gtep_clean also still works. "
         "Typical workflow: hope_warmup → hope_job_status (poll) → hope_run_hope → "
         "hope_job_status (poll) → hope_output_summary / hope_read_output."
     ),
@@ -68,7 +70,8 @@ def hope_job_status_tool(job_id: str) -> dict[str, Any]:
     name="hope_case_info",
     description=(
         "Return metadata and output inventory for a HOPE case: model mode, solver, "
-        "boolean settings, and list of output CSV files."
+        "boolean settings, and list of output CSV files. "
+        "Pass any ModelCases directory name as case_id."
     ),
 )
 def hope_case_info_tool(case_id: str = "md_gtep_clean") -> dict[str, Any]:
@@ -90,7 +93,8 @@ def hope_output_summary_tool(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     name="hope_run_hope",
     description=(
         "Launch a HOPE single-case run as a background job. Returns a job_id immediately. "
-        "Poll with hope_job_status until done. Works for both GTEP and PCM model modes."
+        "Poll with hope_job_status until done. Works for both GTEP and PCM model modes. "
+        "Pass any ModelCases directory name as case_id."
     ),
 )
 def hope_run_hope_tool(case_id: str = "md_gtep_clean") -> dict[str, Any]:

@@ -18,8 +18,9 @@ import yaml
 DEFAULT_HOPE_REPO_ROOT = Path("/Users/qianzhang/Documents/GitHub/HOPE")
 DEFAULT_JULIA_COMMAND = "julia"
 
-CASE_PATHS = {
-    "md_gtep_clean": Path("ModelCases/MD_GTEP_clean_case"),
+DEFAULT_CASE_ID = "md_gtep_clean"
+LEGACY_CASE_ALIASES = {
+    DEFAULT_CASE_ID: "MD_GTEP_clean_case",
 }
 
 BOOLEAN_SETTING_KEYS = (
@@ -55,6 +56,49 @@ def get_repo_root() -> Path:
 
 def configured_julia_command() -> str:
     return os.environ.get("HOPE_JULIA_BIN", DEFAULT_JULIA_COMMAND)
+
+
+def modelcases_root(repo_root: Path) -> Path:
+    return repo_root / "ModelCases"
+
+
+def settings_path_for_case(case_path: Path) -> Path:
+    return case_path / "Settings" / "HOPE_model_settings.yml"
+
+
+def is_valid_case_dir(case_path: Path) -> bool:
+    return case_path.is_dir() and settings_path_for_case(case_path).is_file()
+
+
+def normalize_case_identifier(value: str) -> str:
+    normalized = str(value).strip().replace("\\", "/").strip("/")
+    if normalized.startswith("ModelCases/"):
+        normalized = normalized[len("ModelCases/") :]
+    normalized = Path(normalized).name.lower()
+    if normalized.endswith("_case"):
+        normalized = normalized[:-5]
+    return normalized
+
+
+def discover_case_directories(repo_root: Path) -> dict[str, Path]:
+    cases_root = modelcases_root(repo_root)
+    if not cases_root.is_dir():
+        return {}
+
+    cases: dict[str, Path] = {}
+    for child in sorted(cases_root.iterdir(), key=lambda path: path.name.lower()):
+        if is_valid_case_dir(child):
+            cases[child.name] = child.resolve()
+    return cases
+
+
+def list_available_case_ids(repo_root: Path) -> list[str]:
+    discovered = discover_case_directories(repo_root)
+    case_ids = set(discovered)
+    for alias, target_dir_name in LEGACY_CASE_ALIASES.items():
+        if target_dir_name in discovered:
+            case_ids.add(alias)
+    return sorted(case_ids)
 
 
 def setup_command(repo_root: Path, julia_command: str) -> str:
@@ -101,24 +145,62 @@ def validate_julia_command(repo_root: Path) -> tuple[str | None, dict[str, Any] 
 
 def resolve_case(case_id: str) -> tuple[Path | None, dict[str, Any] | None]:
     repo_root = get_repo_root()
-    relative_case_path = CASE_PATHS.get(case_id)
-    if relative_case_path is None:
+    discovered = discover_case_directories(repo_root)
+    requested = str(case_id or "").strip()
+    if not requested:
         return None, error_result(
             "invalid_case_id",
-            f"Unsupported case_id '{case_id}'. Allowed values: {', '.join(sorted(CASE_PATHS))}",
-            allowed_case_ids=sorted(CASE_PATHS),
+            "No case_id was provided. Pass a ModelCases directory name such as "
+            "'USA_64zone_GTEP_case' or the legacy alias 'md_gtep_clean'.",
+            allowed_case_ids=list_available_case_ids(repo_root),
+            modelcases_path=str(modelcases_root(repo_root)),
         )
 
-    case_path = (repo_root / relative_case_path).resolve()
-    if not case_path.is_dir():
+    trimmed = requested.replace("\\", "/").strip("/")
+    if trimmed.startswith("ModelCases/"):
+        trimmed = trimmed[len("ModelCases/") :]
+    basename = Path(trimmed).name
+
+    exact_candidates = (
+        requested,
+        trimmed,
+        basename,
+        LEGACY_CASE_ALIASES.get(requested),
+        LEGACY_CASE_ALIASES.get(trimmed),
+        LEGACY_CASE_ALIASES.get(basename),
+    )
+    for candidate in exact_candidates:
+        if candidate and candidate in discovered:
+            return discovered[candidate], None
+
+    normalized_candidates = {
+        normalize_case_identifier(requested),
+        normalize_case_identifier(trimmed),
+        normalize_case_identifier(basename),
+    }
+    normalized_matches = [
+        (name, path)
+        for name, path in discovered.items()
+        if normalize_case_identifier(name) in normalized_candidates
+    ]
+    if len(normalized_matches) == 1:
+        return normalized_matches[0][1], None
+    if len(normalized_matches) > 1:
         return None, error_result(
-            "case_not_found",
-            f"Configured case path does not exist: {case_path}",
+            "ambiguous_case_id",
+            f"Case identifier '{case_id}' matches multiple ModelCases directories.",
             case_id=case_id,
-            case_path=str(case_path),
-            repo_root=str(repo_root),
+            matching_case_ids=sorted(name for name, _ in normalized_matches),
+            modelcases_path=str(modelcases_root(repo_root)),
         )
-    return case_path, None
+
+    return None, error_result(
+        "invalid_case_id",
+        f"Unsupported case_id '{case_id}'. Use a directory name from ModelCases, "
+        "for example 'USA_64zone_GTEP_case'.",
+        allowed_case_ids=list_available_case_ids(repo_root),
+        modelcases_path=str(modelcases_root(repo_root)),
+    )
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
@@ -353,7 +435,7 @@ def hope_case_info(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     if error is not None:
         return error
 
-    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    settings_path = settings_path_for_case(case_path)
     if not settings_path.is_file():
         return error_result(
             "settings_not_found",
@@ -457,8 +539,10 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
                 "applocker_blocked",
                 (
                     "Windows Application Control (AppLocker/WDAC) blocked Julia's compiled cache DLLs. "
-                    "Ensure JULIA_DEPOT_PATH in claude_desktop_config.json points to a directory "
-                    "outside C:\\Users (e.g. E:\\julia_depot) and run hope_warmup to rebuild the cache."
+                    "Set JULIA_DEPOT_PATH in claude_desktop_config.json to a Windows-policy-trusted "
+                    "directory, then run hope_warmup to rebuild the cache. On managed machines, simply "
+                    "moving the depot outside C:\\Users (for example to E:\\julia_depot) may still be "
+                    "blocked unless IT explicitly allows that path or the METIS DLL."
                 ),
                 job_id=job_id,
                 exit_code=exit_code,
@@ -586,7 +670,7 @@ def hope_update_settings(
     if error is not None:
         return error
 
-    settings_path = case_path / "Settings" / "HOPE_model_settings.yml"
+    settings_path = settings_path_for_case(case_path)
     if not settings_path.is_file():
         return error_result(
             "settings_not_found",
@@ -1425,7 +1509,7 @@ def hope_open_dashboard(
             status = "running"
         else:
             status = "already_running_external"
-        case_rel = str(CASE_PATHS.get(case_id, case_id))
+        case_rel = str(case_path.relative_to(repo_root))
         return success_result(
             url=url,
             status=status,
@@ -1480,7 +1564,7 @@ def hope_open_dashboard(
             ),
         )
 
-    case_rel = str(CASE_PATHS.get(case_id, case_id))
+    case_rel = str(case_path.relative_to(repo_root))
     return success_result(
         url=url,
         status="starting",

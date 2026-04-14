@@ -350,6 +350,9 @@ Restart your terminal after installing `uv`, or manually add `~/.local/bin` (mac
 **Julia warmup job keeps running for a long time**
 This is expected on the very first call — Julia downloads and compiles ~130 packages. Subsequent warmups in the same session are instant since the cache is warm.
 
+**`hope_warmup` fails with AppLocker / Application Control blocking a DLL**
+Set `JULIA_DEPOT_PATH` in Claude Desktop's config to a directory that your Windows policy explicitly trusts, then restart Claude Desktop and run `hope_warmup` again. On managed Windows machines, moving the depot outside `C:\Users` can help, but it is not sufficient by itself: a path like `E:\julia_depot` may still be blocked unless your IT policy allows that location or whitelists the blocked Julia artifact DLL (for example `libmetis_*.dll`).
+
 **`hope_run_hope` fails with `hope_environment_not_instantiated`**
 Call `hope_warmup` first and wait for it to complete before calling `hope_run_hope`.
 
