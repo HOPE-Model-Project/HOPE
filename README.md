@@ -37,7 +37,7 @@ The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.
 
 ## 1. Install Julia
 
-Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
+Install [Julia](http://julialang.org/) language (Julia 1.9 or later is required for the current HOPE package setup). A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
 
@@ -62,6 +62,24 @@ This is the **recommended setup** — HOPE will find the cases automatically wit
 
 >[!NOTE]
 >If you prefer to store model cases elsewhere, clone `HOPEModelCases` to any path and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE. See the [HOPEModelCases README](https://github.com/HOPE-Model-Project/HOPEModelCases) for details.
+
+## 4. Install the HOPE Julia environment
+
+From the HOPE repository root, activate the project and install the default dependencies:
+
+```julia
+import Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+```
+
+This installs HOPE together with the default open-source solver stack used by the
+project, including **HiGHS**, **GLPK**, **Clp**, and **Cbc**.
+
+Commercial solvers such as **Gurobi**, **SCIP**, and **CPLEX** are **not** installed by
+`Pkg.instantiate()` by default. They are only added if you explicitly run
+`Pkg.add("Gurobi")`, `Pkg.add("SCIP")`, or `Pkg.add("CPLEX")` while the HOPE project
+environment is active.
 
 # Run a Case in HOPE
 
@@ -90,6 +108,9 @@ In Julia, you can use `pwd()` to check if your current working directory is your
 
 **(4)** Type `instantiate` in the (HOPE) pkg prompt (make sure you are in your `home` directory, not the `home/HOPE` directory!).
 
+This installs the default HOPE environment and the bundled open-source solvers. It does
+**not** install commercial solver packages automatically.
+
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
@@ -116,6 +137,9 @@ You can use a system terminal () either with a "Windows system" or a "Mac system
 **(3)** Type `]` into the Julia package mode, and type `activate HOPE` (if you are in your `home` directory), you will see prompt `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
 **(4)** Type `instantiate` in the (HOPE) pkg prompt. ( After the HOPE is successfully installed, you can skip this step)
+
+This installs the default HOPE environment and the bundled open-source solvers. It does
+**not** install commercial solver packages automatically.
 
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
 ![ccf1c53042925fcfb13ee232c13210e](https://github.com/swang22/HOPE/assets/144710777/6efb4646-8c81-4f4b-bcfc-6daabbdeb615)
@@ -151,7 +175,9 @@ Set `solver: highs` (or any of the above) in
 
 **Gurobi**, **SCIP**, and **CPLEX** are supported but are *not* installed by default.
 Because they require a separate license, they are optional dependencies that you add to
-your own Julia environment — HOPE does not pull them in automatically.
+your own Julia environment — HOPE does not pull them in automatically. HOPE uses
+Julia package extensions for these integrations, so commercial solver support
+requires Julia 1.9 or later.
 
 ### Steps to enable a commercial solver
 
@@ -169,6 +195,10 @@ import Pkg
 Pkg.activate(".")          # activate the HOPE environment
 Pkg.add("Gurobi")          # or "SCIP" / "CPLEX"
 ```
+
+If you activate HOPE first with `Pkg.activate(".")`, then `Pkg.add("Gurobi")` installs
+`Gurobi.jl` into the **HOPE project environment**, not just the global default Julia
+environment.
 
 > [!NOTE]
 > `Gurobi.jl` requires the Gurobi solver itself to be installed on your machine

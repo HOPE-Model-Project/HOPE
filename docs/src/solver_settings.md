@@ -28,7 +28,8 @@ solver: highs
 
 **Gurobi**, **SCIP**, and **CPLEX** are supported but are *not* installed by default.
 Because they require a separate license they must be added to your Julia environment
-manually — HOPE loads them on demand when a case requests them.
+manually — HOPE loads them on demand when a case requests them. These optional
+integrations use Julia package extensions, so they require Julia 1.9 or later.
 
 ### Setup steps
 

@@ -15,9 +15,8 @@ using Statistics
 
 ##using solver##
 # Open-source solvers are loaded unconditionally.
-# Commercial solvers (Gurobi, SCIP, CPLEX) are optional: install them separately
-# with `Pkg.add("Gurobi")` etc. and HOPE will find them automatically when the
-# case settings request them.
+# Commercial solvers (Gurobi, SCIP, CPLEX) are wired through Julia package
+# extensions so they remain optional for users who do not install them.
 using Cbc
 using HiGHS
 using Clp

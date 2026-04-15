@@ -6,7 +6,7 @@ CurrentModule = HOPE
 
 ## 1. Install Julia
 
-Install [Julia](http://julialang.org/) language. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
+Install [Julia](http://julialang.org/) language. Julia 1.9 or later is required for the current HOPE package setup. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
 ## 2. Download HOPE repository
 
@@ -30,7 +30,33 @@ This is the **recommended setup** — HOPE will find the cases automatically wit
 
 ## 4. Solver Packages
 
-The open-source solver packages (e.g., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) will be automatically installed in step 2. While the commercial solver packages (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) should be installed by users (if needed) by following their instructions.
+After cloning the repo, activate the HOPE project and install the default dependencies:
+
+```julia
+import Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+```
+
+This installs HOPE together with the bundled open-source solvers, including
+[HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc),
+[GLPK](https://github.com/firedrakeproject/glpk), and
+[Clp](https://github.com/coin-or/Clp).
+
+Commercial solver packages such as [Gurobi](https://www.gurobi.com/),
+[SCIP](https://scipopt.org/), and
+[CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio) are **not**
+installed by `Pkg.instantiate()` by default. If needed, add them manually while the HOPE
+project is active:
+
+```julia
+import Pkg
+Pkg.activate(".")
+Pkg.add("Gurobi")   # or "SCIP" / "CPLEX"
+```
+
+When you do this from an active HOPE environment, the commercial solver package is added
+to the **HOPE project environment**, not just Julia's global default environment.
 
 ```julia-repl
 pkg> add https://github.com/HOPE-Model-Project/HOPE

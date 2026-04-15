@@ -20,6 +20,9 @@ Install Visual Studio Code: download [VS Code](https://code.visualstudio.com/) a
 
 **(4)** Type `instantiate` at the `(HOPE) pkg>` prompt.
 
+This installs the default HOPE environment and the bundled open-source solvers. It does
+**not** install commercial solver packages automatically.
+
 **(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
 ![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
@@ -63,6 +66,9 @@ You can use a system terminal either on Windows or macOS to run a test case. See
 **(3)** Type `]` to enter Julia package mode, then run `activate .`. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
 **(4)** Type `instantiate` in the `(HOPE) pkg>` prompt. (After HOPE is installed successfully, you can skip this step.)
+
+This installs the default HOPE environment and the bundled open-source solvers. It does
+**not** install commercial solver packages automatically.
 
 **(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
