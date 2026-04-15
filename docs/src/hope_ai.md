@@ -1,6 +1,9 @@
 ﻿# HOPE-AI: Running HOPE with an LLM Agent
 
-HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) — a standard that lets LLMs like Claude directly invoke tools, run models, and read results without any manual scripting. This page explains how to set up the HOPE MCP server so that Claude Desktop can warm up Julia, launch HOPE runs, modify settings, inspect outputs, and compare scenarios in natural language.
+HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) — a standard that lets LLM hosts invoke tools, run models, and read results without any manual scripting. This page explains two supported setups:
+
+- **Claude Desktop** with a local full-access `stdio` MCP server for running cases, changing settings, and opening dashboards.
+- **ChatGPT web** with a remote read-only MCP server for inspecting cases and outputs through developer mode.
 
 !!! note "PowerAgent community"
     The HOPE MCP server is part of [PowerAgent](https://poweragent.seas.harvard.edu/) — an open-source community for agentic AI in power systems, maintained by the [Power and AI Initiative (PAI)](https://pai.seas.harvard.edu/) at Harvard SEAS. The HOPE server is also distributed through [PowerMCP](https://github.com/Power-Agent/PowerMCP/tree/main/HOPE), a collection of MCP servers for power system software.
@@ -154,6 +157,64 @@ Add the `hope` server entry:
 
 Restart Claude Desktop after editing the config.
 
+### Step 4 — Optional ChatGPT web read-only setup
+
+ChatGPT currently requires a **remote HTTPS MCP endpoint**. The simplest workflow is:
+
+1. start the read-only HOPE server locally,
+2. expose it through a tunnel such as **Cloudflare Tunnel**,
+3. connect the resulting HTTPS `/mcp` URL in ChatGPT web developer mode.
+
+The read-only ChatGPT entrypoint exposes only analysis tools such as `hope_case_info`, `hope_output_summary`, `hope_read_output`, and comparison/audit helpers. It does **not** expose `hope_run_hope`, `hope_update_settings`, or dashboard-launch tools.
+
+!!! note "Current plan limitations"
+    As of April 14, 2026, OpenAI's public help docs indicate that full MCP support is rolling out for **Business / Enterprise / Edu** plans, while **Pro** can connect remote MCPs with read/fetch permissions in developer mode. In our testing, a **Plus** account did not expose the custom MCP app flow needed for this setup. Check the current OpenAI docs and your account UI before relying on ChatGPT-side access.
+
+**Step 4a — Start the read-only server locally**
+
+**Windows (PowerShell):**
+
+```powershell
+$env:HOPE_REPO_ROOT = "C:\path\to\HOPE"
+$env:HOPE_MCP_PORT = "8001"
+$env:HOPE_MCP_HOST = "127.0.0.1"
+$env:HOPE_MCP_PUBLIC_HOSTNAME = "hope.example.com"
+& "C:\path\to\HOPE\tools\hope_mcp_server\.venv\Scripts\python.exe" -m hope_mcp_server.chatgpt
+```
+
+**macOS / Linux:**
+
+```bash
+HOPE_REPO_ROOT=/path/to/HOPE \
+HOPE_MCP_PORT=8001 \
+HOPE_MCP_HOST=127.0.0.1 \
+HOPE_MCP_PUBLIC_HOSTNAME=hope.example.com \
+/path/to/HOPE/tools/hope_mcp_server/.venv/bin/python -m hope_mcp_server.chatgpt
+```
+
+**Step 4b — Publish the local port through Cloudflare Tunnel**
+
+1. Install `cloudflared`.
+2. Create a Cloudflare Tunnel and install the connector on the machine running HOPE.
+3. Add a **published application route** (public hostname), for example:
+   - hostname: `hope.example.com`
+   - service: `http://localhost:8001`
+4. Keep the local HOPE server process running while the tunnel is active.
+
+**Step 4c — Connect the MCP endpoint in ChatGPT web**
+
+Use the tunnel URL with the MCP path:
+
+```text
+https://hope.example.com/mcp
+```
+
+If you test that URL with a plain browser or `curl`, you may see a `406 Not Acceptable` response asking for `text/event-stream`. That is expected: it means the route is reachable, but the client is not speaking MCP yet.
+
+For the full current ChatGPT read-only deployment notes, see:
+
+- [`tools/hope_mcp_server/README.md`](https://github.com/HOPE-Model-Project/HOPE/blob/main/tools/hope_mcp_server/README.md)
+
 ---
 
 ## Typical Claude Desktop Session
@@ -200,15 +261,19 @@ Claude calls `hope_update_settings` to enable `clean_energy_policy: 1`, re-runs 
 
 ## Supported Cases
 
-The server reads the `CASE_PATHS` registry in `tools/hope_mcp_server/src/hope_mcp_server/core.py`:
+The MCP server now discovers cases dynamically from `ModelCases/` by looking for case directories that contain:
 
-```python
-CASE_PATHS = {
-    "md_gtep_clean": Path("ModelCases/MD_GTEP_clean_case"),
-}
+```text
+Settings/HOPE_model_settings.yml
 ```
 
-To add more cases, extend this dictionary with additional `case_id: relative_path` entries and restart Claude Desktop.
+Accepted case identifiers include:
+
+- exact `ModelCases` directory names such as `USA_64zone_GTEP_case`
+- prefixed paths such as `ModelCases/USA_64zone_GTEP_case`
+- the legacy alias `md_gtep_clean`
+
+No manual case registry update is needed when you add a new valid case folder under `ModelCases/`.
 
 ---
 

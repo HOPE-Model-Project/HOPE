@@ -18,6 +18,7 @@ from hope_mcp_server.core import (
     hope_run_hope,
     setup_command,
 )
+from hope_mcp_server.server import create_mcp_server
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -82,6 +83,34 @@ class HopeCoreTests(unittest.TestCase):
         result = hope_case_info("ModelCases/MD_GTEP_clean_case")
         self.assertTrue(result["ok"])
         self.assertEqual(result["solver"], "cbc")
+
+    def test_read_only_server_exposes_only_fetch_tools(self) -> None:
+        mcp = create_mcp_server(read_only=True, host="127.0.0.1", port=8765)
+        tool_names = {tool.name for tool in mcp._tool_manager.list_tools()}
+        self.assertIn("hope_case_info", tool_names)
+        self.assertIn("hope_read_output", tool_names)
+        self.assertNotIn("hope_run_hope", tool_names)
+        self.assertNotIn("hope_update_settings", tool_names)
+        self.assertNotIn("hope_open_dashboard", tool_names)
+
+    def test_full_server_keeps_run_tools_for_claude(self) -> None:
+        mcp = create_mcp_server(read_only=False, host="127.0.0.1", port=8766)
+        tool_names = {tool.name for tool in mcp._tool_manager.list_tools()}
+        self.assertIn("hope_run_hope", tool_names)
+        self.assertIn("hope_update_settings", tool_names)
+        self.assertIn("hope_job_status", tool_names)
+
+    def test_read_only_server_accepts_configured_public_hostname(self) -> None:
+        with mock.patch.dict(
+            "os.environ",
+            {"HOPE_MCP_PUBLIC_HOSTNAME": "hope.hope-mcp.com"},
+            clear=False,
+        ):
+            mcp = create_mcp_server(read_only=True, host="127.0.0.1", port=8767)
+        settings = mcp.settings.transport_security
+        self.assertIsNotNone(settings)
+        self.assertIn("hope.hope-mcp.com", settings.allowed_hosts)
+        self.assertIn("https://hope.hope-mcp.com", settings.allowed_origins)
 
     def test_build_run_command_uses_env_config(self) -> None:
         case_path = REPO_ROOT / "ModelCases" / "MD_GTEP_clean_case"

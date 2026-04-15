@@ -189,6 +189,11 @@ requested. If the package is not installed, a clear error message is shown.
 
 Check online [Documentation](https://hope-model-project.github.io/HOPE/dev/) for HOPE.
 
+For MCP / agent setup guidance, see:
+
+- [HOPE-AI: Running HOPE with an LLM Agent](https://hope-model-project.github.io/HOPE/dev/hope_ai/)
+- [Local MCP server README](tools/hope_mcp_server/README.md)
+
 # Research & Publication
 
 [Energy Resilience and Efficiency in Maryland](https://mde.maryland.gov/programs/air/ClimateChange/MCCC/Doclib_ERE/EREWG%20Study%20Report%20--%20Energy%20Resilience%20and%20Efficiency%20in%20Maryland.pdf)
