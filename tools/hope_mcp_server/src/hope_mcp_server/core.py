@@ -103,7 +103,7 @@ def list_available_case_ids(repo_root: Path) -> list[str]:
 
 def setup_command(repo_root: Path, julia_command: str) -> str:
     return (
-        f"{julia_command} --project={repo_root} "
+        f"{julia_command} --startup-file=no --project={repo_root} "
         "-e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'"
     )
 
@@ -364,14 +364,17 @@ def julia_string_literal(value: str | Path) -> str:
     return f'"{escaped}"'
 
 
-def build_run_command(repo_root: Path, julia_bin: str, case_path: Path) -> list[str]:
-    julia_script = f"using HOPE; HOPE.run_hope({julia_string_literal(case_path)})"
+def build_project_julia_command(repo_root: Path, julia_bin: str) -> list[str]:
     return [
         julia_bin,
+        "--startup-file=no",
         f"--project={repo_root}",
-        "-e",
-        julia_script,
     ]
+
+
+def build_run_command(repo_root: Path, julia_bin: str, case_path: Path) -> list[str]:
+    julia_script = f"using HOPE; HOPE.run_hope({julia_string_literal(case_path)})"
+    return [*build_project_julia_command(repo_root, julia_bin), "-e", julia_script]
 
 
 def build_debug_solver_environment_command(
@@ -381,9 +384,7 @@ def build_debug_solver_environment_command(
     solver: str,
 ) -> list[str]:
     return [
-        julia_bin,
-        "--startup-file=no",
-        f"--project={repo_root}",
+        *build_project_julia_command(repo_root, julia_bin),
         "-e",
         (
             "emit(msg) = (println(msg); flush(stdout)); "
@@ -587,8 +588,7 @@ def hope_warmup() -> dict[str, Any]:
         return julia_error
 
     command = [
-        julia_bin,
-        f"--project={repo_root}",
+        *build_project_julia_command(repo_root, julia_bin),
         "-e",
         "using Pkg; Pkg.instantiate(); Pkg.precompile()",
     ]
@@ -1476,7 +1476,7 @@ def hope_run_holistic(
         f"HOPE.run_hope_holistic({julia_string_literal(gtep_path)}, "
         f"{julia_string_literal(pcm_path)})"
     )
-    command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
+    command = [*build_project_julia_command(repo_root, julia_bin), "-e", julia_script]
 
     # Tag job with both case IDs
     job_id = _launch_job(
@@ -1551,7 +1551,7 @@ def hope_run_erec(
         "using HOPE; "
         f"HOPE.calculate_erec({julia_string_literal(case_path)}, overrides={overrides_str})"
     )
-    command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
+    command = [*build_project_julia_command(repo_root, julia_bin), "-e", julia_script]
 
     job_id = _launch_job(
         command,

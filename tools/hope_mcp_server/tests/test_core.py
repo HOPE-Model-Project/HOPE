@@ -132,6 +132,7 @@ class HopeCoreTests(unittest.TestCase):
             command,
             [
                 JULIA_BIN,
+                "--startup-file=no",
                 f"--project={REPO_ROOT}",
                 "-e",
                 f"using HOPE; HOPE.run_hope({julia_string_literal(case_path)})",
@@ -282,6 +283,10 @@ class HopeCoreTests(unittest.TestCase):
         self.assertEqual(result["solver"], "gurobi")
         self.assertIn("--startup-file=no", result["command"])
         launch_mock.assert_called_once()
+
+    def test_setup_command_disables_startup_file(self) -> None:
+        command = setup_command(REPO_ROOT, JULIA_BIN)
+        self.assertIn("--startup-file=no", command)
 
     def test_job_status_returns_parsed_probe_for_completed_debug_job(self) -> None:
         process = mock.Mock()
