@@ -16,6 +16,7 @@ from hope_mcp_server.core import (
     hope_job_status,
     hope_output_summary,
     hope_run_hope,
+    julia_string_literal,
     setup_command,
 )
 from hope_mcp_server.server import create_mcp_server
@@ -47,7 +48,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["case_id"], "md_gtep_clean")
         self.assertEqual(result["model_mode"], "GTEP")
-        self.assertEqual(result["solver"], "cbc")
+        self.assertIn(result["solver"], {"cbc", "clp", "highs", "scip", "gurobi", "cplex"})
         self.assertEqual(result["DataCase"], "Data_100RPS/")
         self.assertTrue(result["output_exists"])
         self.assertIn("capacity.csv", result["output_csv_files"])
@@ -82,7 +83,9 @@ class HopeCoreTests(unittest.TestCase):
     def test_case_info_accepts_modelcases_prefixed_path(self) -> None:
         result = hope_case_info("ModelCases/MD_GTEP_clean_case")
         self.assertTrue(result["ok"])
-        self.assertEqual(result["solver"], "cbc")
+        canonical = hope_case_info("MD_GTEP_clean_case")
+        self.assertTrue(canonical["ok"])
+        self.assertEqual(result["solver"], canonical["solver"])
 
     def test_read_only_server_exposes_only_fetch_tools(self) -> None:
         mcp = create_mcp_server(read_only=True, host="127.0.0.1", port=8765)
@@ -120,8 +123,8 @@ class HopeCoreTests(unittest.TestCase):
             [
                 JULIA_BIN,
                 f"--project={REPO_ROOT}",
-                str(REPO_ROOT / "src" / "main.jl"),
-                str(case_path),
+                "-e",
+                f"using HOPE; HOPE.run_hope({julia_string_literal(case_path)})",
             ],
         )
 

@@ -309,12 +309,18 @@ def looks_like_applocker_block(stdout: str, stderr: str) -> bool:
     return any(marker in combined for marker in markers)
 
 
+def julia_string_literal(value: str | Path) -> str:
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def build_run_command(repo_root: Path, julia_bin: str, case_path: Path) -> list[str]:
+    julia_script = f"using HOPE; HOPE.run_hope({julia_string_literal(case_path)})"
     return [
         julia_bin,
         f"--project={repo_root}",
-        str(repo_root / "src" / "main.jl"),
-        str(case_path),
+        "-e",
+        julia_script,
     ]
 
 
@@ -1149,9 +1155,9 @@ def hope_run_holistic(
         return julia_error
 
     julia_script = (
-        f'include("{repo_root / "src" / "HOPE.jl"}"); '
-        f'using .HOPE; '
-        f'run_hope_holistic("{gtep_path}", "{pcm_path}")'
+        "using HOPE; "
+        f"HOPE.run_hope_holistic({julia_string_literal(gtep_path)}, "
+        f"{julia_string_literal(pcm_path)})"
     )
     command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
 
@@ -1219,9 +1225,8 @@ def hope_run_erec(
     overrides_str = "Dict(" + ", ".join(overrides) + ")" if overrides else "Dict()"
 
     julia_script = (
-        f'include("{repo_root / "src" / "HOPE.jl"}"); '
-        f'using .HOPE; '
-        f'calculate_erec("{case_path}", overrides={overrides_str})'
+        "using HOPE; "
+        f"HOPE.calculate_erec({julia_string_literal(case_path)}, overrides={overrides_str})"
     )
     command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
 

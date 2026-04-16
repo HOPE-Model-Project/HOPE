@@ -8,8 +8,7 @@ This file is intentionally kept as a thin wrapper around `HOPE.run_hope` so
 older workflows still have a simple script entrypoint.
 """
 
-include("HOPE.jl")
-using .HOPE
+using HOPE
 
 function print_main_usage_and_exit()
     println("Usage: julia --project=. src/main.jl <case_path>")
