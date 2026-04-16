@@ -15,6 +15,7 @@ from hope_mcp_server.core import (
     build_run_command,
     hope_cancel_job,
     hope_case_info,
+    hope_debug_solver_environment,
     hope_job_status,
     hope_output_summary,
     hope_run_hope,
@@ -98,6 +99,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertNotIn("hope_update_settings", tool_names)
         self.assertNotIn("hope_open_dashboard", tool_names)
         self.assertNotIn("hope_cancel_job", tool_names)
+        self.assertNotIn("hope_debug_solver_environment", tool_names)
 
     def test_full_server_keeps_run_tools_for_claude(self) -> None:
         mcp = create_mcp_server(read_only=False, host="127.0.0.1", port=8766)
@@ -106,6 +108,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertIn("hope_update_settings", tool_names)
         self.assertIn("hope_job_status", tool_names)
         self.assertIn("hope_cancel_job", tool_names)
+        self.assertIn("hope_debug_solver_environment", tool_names)
 
     def test_read_only_server_accepts_configured_public_hostname(self) -> None:
         with mock.patch.dict(
@@ -219,6 +222,31 @@ class HopeCoreTests(unittest.TestCase):
         self.assertTrue(result["forced_kill"])
         process.terminate.assert_called_once()
         process.kill.assert_called_once()
+
+    def test_debug_solver_environment_reports_probe_details(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["julia"],
+            returncode=0,
+            stdout=(
+                "ACTIVE_PROJECT=E:/repo/Project.toml\n"
+                "DEPOT_PATH=E:/julia_depot\n"
+                "HOPE_PATH=E:/repo/src/HOPE.jl\n"
+                "OPTIMIZER_CONSTRUCTOR_VALUE=Gurobi.Optimizer\n"
+                "MODEL_TYPE=Model\n"
+                "PROBE_STATUS=ok\n"
+            ),
+            stderr="",
+        )
+        with (
+            mock.patch("hope_mcp_server.core.validate_julia_command", return_value=(JULIA_BIN, None)),
+            mock.patch("hope_mcp_server.core.subprocess.run", return_value=completed) as run_mock,
+        ):
+            result = hope_debug_solver_environment(case_id="MD_GTEP_clean_case", solver="gurobi")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["solver"], "gurobi")
+        self.assertEqual(result["probe"]["OPTIMIZER_CONSTRUCTOR_VALUE"], "Gurobi.Optimizer")
+        self.assertEqual(result["probe"]["PROBE_STATUS"], "ok")
+        run_mock.assert_called_once()
 
 
 if __name__ == "__main__":

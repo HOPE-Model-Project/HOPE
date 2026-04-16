@@ -268,12 +268,7 @@ def _stream_lines(stream: Any, target: list[str]) -> None:
 def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
     job_id = uuid.uuid4().hex[:8]
 
-    # Build subprocess environment: inherit current env, then overlay JULIA_DEPOT_PATH
-    # if set so Julia writes compiled caches to an AppLocker-allowed directory.
-    proc_env = os.environ.copy()
-    julia_depot = os.environ.get("JULIA_DEPOT_PATH")
-    if julia_depot:
-        proc_env["JULIA_DEPOT_PATH"] = julia_depot
+    proc_env = _build_julia_process_env()
 
     process = subprocess.Popen(
         command,
@@ -288,6 +283,26 @@ def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
     threading.Thread(target=_stream_lines, args=(process.stderr, job.stderr_lines), daemon=True).start()
     _jobs[job_id] = job
     return job_id
+
+
+def _build_julia_process_env() -> dict[str, str]:
+    # Inherit the current process environment, then preserve JULIA_DEPOT_PATH
+    # when Claude Desktop config points Julia to a policy-trusted depot.
+    proc_env = os.environ.copy()
+    julia_depot = os.environ.get("JULIA_DEPOT_PATH")
+    if julia_depot:
+        proc_env["JULIA_DEPOT_PATH"] = julia_depot
+    return proc_env
+
+
+def _parse_key_value_lines(text: str) -> dict[str, str]:
+    payload: dict[str, str] = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        payload[key.strip()] = value.strip()
+    return payload
 
 
 def _job_elapsed_seconds(job: _Job) -> float:
@@ -674,6 +689,95 @@ def hope_cancel_job(job_id: str, timeout_seconds: float = 5.0) -> dict[str, Any]
             if not forced_kill
             else "Job did not exit after terminate(); force-killed successfully."
         ),
+    )
+
+
+def hope_debug_solver_environment(
+    case_id: str = "md_gtep_clean",
+    solver: str | None = None,
+    timeout_seconds: float = 120.0,
+) -> dict[str, Any]:
+    """
+    Run a small Julia probe in the same environment the MCP server uses for HOPE jobs.
+
+    This helps confirm the active project, depot path, loaded HOPE source path, and the
+    actual optimizer constructor JuMP sees for the selected solver.
+    """
+    repo_root = get_repo_root()
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    julia_bin, julia_error = validate_julia_command(repo_root)
+    if julia_error is not None:
+        return julia_error
+
+    settings = read_yaml(settings_path_for_case(case_path))
+    selected_solver = solver or str(settings.get("solver", "highs"))
+    command = [
+        julia_bin,
+        f"--project={repo_root}",
+        "-e",
+        (
+            "using HOPE; using JuMP; "
+            f"case = {julia_string_literal(case_path)}; "
+            f"solver = {julia_string_literal(selected_solver)}; "
+            "println(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
+            "println(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
+            "println(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
+            "println(\"HOPE_PATH=\" * string(pathof(HOPE))); "
+            "opt = HOPE.initiate_solver(case, solver); "
+            "println(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
+            "println(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
+            "println(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
+            "model = Model(opt); "
+            "println(\"MODEL_TYPE=\" * string(typeof(model))); "
+            "println(\"PROBE_STATUS=ok\")"
+        ),
+    ]
+    proc_env = _build_julia_process_env()
+    completed = subprocess.run(
+        command,
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=proc_env,
+        timeout=timeout_seconds,
+    )
+
+    stdout = completed.stdout.strip()
+    stderr = completed.stderr.strip()
+    parsed = _parse_key_value_lines(stdout)
+
+    if completed.returncode != 0:
+        return error_result(
+            "debug_probe_failed",
+            "The HOPE Julia environment probe failed.",
+            case_id=case_id,
+            case_path=str(case_path),
+            solver=selected_solver,
+            repo_root=str(repo_root),
+            julia_bin=julia_bin,
+            julia_depot_path=proc_env.get("JULIA_DEPOT_PATH"),
+            command=command,
+            stdout=stdout,
+            stderr=stderr,
+            parsed_stdout=parsed,
+            exit_code=completed.returncode,
+        )
+
+    return success_result(
+        case_id=case_id,
+        case_path=str(case_path),
+        solver=selected_solver,
+        repo_root=str(repo_root),
+        julia_bin=julia_bin,
+        julia_depot_path=proc_env.get("JULIA_DEPOT_PATH"),
+        command=command,
+        stdout=stdout,
+        stderr=stderr,
+        probe=parsed,
     )
 
 

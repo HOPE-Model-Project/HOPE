@@ -11,6 +11,7 @@ from .core import (
     hope_cancel_job,
     hope_case_info,
     hope_close_dashboard,
+    hope_debug_solver_environment,
     hope_compare_cases,
     hope_emission_compliance,
     hope_job_status,
@@ -295,6 +296,21 @@ def register_write_tools(mcp: FastMCP) -> None:
     )
     def hope_cancel_job_tool(job_id: str) -> dict[str, Any]:
         return hope_cancel_job(job_id)
+
+    @mcp.tool(
+        name="hope_debug_solver_environment",
+        description=(
+            "Run a short Julia probe in the same MCP-server environment used for HOPE jobs. "
+            "Returns the active project, depot path, loaded HOPE source path, and the exact "
+            "optimizer constructor JuMP sees for the selected solver. "
+            "Use this when Claude appears to be running stale code or the wrong Julia environment."
+        ),
+    )
+    def hope_debug_solver_environment_tool(
+        case_id: str = "md_gtep_clean",
+        solver: str | None = None,
+    ) -> dict[str, Any]:
+        return hope_debug_solver_environment(case_id=case_id, solver=solver)
 
     @mcp.tool(
         name="hope_run_hope",
