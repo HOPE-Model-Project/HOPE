@@ -16,6 +16,7 @@ Claude/local full-access server:
 
 - `hope_warmup`
 - `hope_job_status`
+- `hope_cancel_job`
 - `hope_case_info`
 - `hope_output_summary`
 - `hope_run_hope`
@@ -159,3 +160,7 @@ uv --directory /path/to/HOPE/tools/hope_mcp_server run hope-mcp-server-chatgpt
 uv --directory /path/to/HOPE/tools/hope_mcp_server run \
   python -m unittest discover -s tests -v
 ```
+
+If an agent launches a long-running Julia job and needs to stop it early, call
+`hope_cancel_job(job_id)` with the `job_id` returned by `hope_warmup`,
+`hope_run_hope`, `hope_run_holistic`, or `hope_run_erec`.

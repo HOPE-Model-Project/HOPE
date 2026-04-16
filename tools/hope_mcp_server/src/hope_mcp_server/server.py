@@ -8,6 +8,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from .core import (
     hope_aggregation_audit,
+    hope_cancel_job,
     hope_case_info,
     hope_close_dashboard,
     hope_compare_cases,
@@ -108,7 +109,8 @@ def create_mcp_server(
         "(for example USA_64zone_GTEP_case or ISONE_PCM_250bus_case). "
         "The legacy alias md_gtep_clean also still works. "
         "Typical workflow: hope_warmup -> hope_job_status (poll) -> hope_run_hope -> "
-        "hope_job_status (poll) -> hope_output_summary / hope_read_output."
+        "hope_job_status (poll) -> hope_output_summary / hope_read_output. "
+        "If a Julia run needs to be stopped early, call hope_cancel_job with its job_id."
     )
     mcp = FastMCP(
         server_name,
@@ -281,6 +283,18 @@ def register_write_tools(mcp: FastMCP) -> None:
     )
     def hope_job_status_tool(job_id: str) -> dict[str, Any]:
         return hope_job_status(job_id)
+
+    @mcp.tool(
+        name="hope_cancel_job",
+        description=(
+            "Cancel a background Julia job launched by hope_warmup, hope_run_hope, "
+            "hope_run_holistic, or hope_run_erec. "
+            "Pass the job_id returned by the launch tool. "
+            "Returns status='cancelled' when the subprocess is terminated successfully."
+        ),
+    )
+    def hope_cancel_job_tool(job_id: str) -> dict[str, Any]:
+        return hope_cancel_job(job_id)
 
     @mcp.tool(
         name="hope_run_hope",

@@ -253,6 +253,8 @@ class _Job:
     stderr_lines: list[str] = field(default_factory=list)
     start_time: float = field(default_factory=time.perf_counter)
     case_id: str = ""
+    cancel_requested: bool = False
+    cancelled_at: float | None = None
 
 
 _jobs: dict[str, _Job] = {}
@@ -286,6 +288,19 @@ def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
     threading.Thread(target=_stream_lines, args=(process.stderr, job.stderr_lines), daemon=True).start()
     _jobs[job_id] = job
     return job_id
+
+
+def _job_elapsed_seconds(job: _Job) -> float:
+    end_time = job.cancelled_at if job.cancelled_at is not None else time.perf_counter()
+    return round(end_time - job.start_time, 1)
+
+
+def _job_stdout_tail(job: _Job) -> list[str]:
+    return last_nonempty_lines("\n".join(job.stdout_lines))
+
+
+def _job_stderr(job: _Job) -> str:
+    return "\n".join(job.stderr_lines).strip()
 
 
 def looks_like_missing_hope_dependencies(stdout: str, stderr: str) -> bool:
@@ -524,9 +539,9 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
         )
 
     exit_code = job.process.poll()
-    elapsed = round(time.perf_counter() - job.start_time, 1)
-    stdout_tail = last_nonempty_lines("\n".join(job.stdout_lines))
-    stderr = "\n".join(job.stderr_lines).strip()
+    elapsed = _job_elapsed_seconds(job)
+    stdout_tail = _job_stdout_tail(job)
+    stderr = _job_stderr(job)
 
     if exit_code is None:
         return success_result(
@@ -535,6 +550,17 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
             elapsed_seconds=elapsed,
             stdout_tail=stdout_tail,
             message=f"Job is still running ({elapsed}s elapsed). Call hope_job_status again to check.",
+        )
+
+    if job.cancel_requested:
+        return success_result(
+            job_id=job_id,
+            status="cancelled",
+            exit_code=exit_code,
+            elapsed_seconds=elapsed,
+            stdout_tail=stdout_tail,
+            stderr=stderr,
+            message="Job was cancelled in this MCP session.",
         )
 
     # Job finished
@@ -592,6 +618,63 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
         if case_path is not None:
             result["output_summary"] = build_output_summary_payload(job.case_id, case_path)
     return result
+
+
+def hope_cancel_job(job_id: str, timeout_seconds: float = 5.0) -> dict[str, Any]:
+    """Cancel a background Julia job launched by this MCP session."""
+    job = _jobs.get(job_id)
+    if job is None:
+        return error_result(
+            "job_not_found",
+            f"No job found with id '{job_id}'. Job IDs are only valid for the current server session.",
+            job_id=job_id,
+        )
+
+    exit_code = job.process.poll()
+    if exit_code is not None:
+        status = "cancelled" if job.cancel_requested else "done"
+        return success_result(
+            job_id=job_id,
+            status=status,
+            exit_code=exit_code,
+            elapsed_seconds=_job_elapsed_seconds(job),
+            stdout_tail=_job_stdout_tail(job),
+            stderr=_job_stderr(job),
+            message=(
+                "Job was already cancelled earlier in this MCP session."
+                if job.cancel_requested
+                else "Job has already finished; nothing was cancelled."
+            ),
+        )
+
+    job.cancel_requested = True
+    job.process.terminate()
+    forced_kill = False
+
+    try:
+        job.process.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        forced_kill = True
+        job.process.kill()
+        job.process.wait(timeout=timeout_seconds)
+
+    job.cancelled_at = time.perf_counter()
+    final_exit_code = job.process.poll()
+
+    return success_result(
+        job_id=job_id,
+        status="cancelled",
+        exit_code=final_exit_code,
+        elapsed_seconds=_job_elapsed_seconds(job),
+        stdout_tail=_job_stdout_tail(job),
+        stderr=_job_stderr(job),
+        forced_kill=forced_kill,
+        message=(
+            "Job was cancelled successfully."
+            if not forced_kill
+            else "Job did not exit after terminate(); force-killed successfully."
+        ),
+    )
 
 
 def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:

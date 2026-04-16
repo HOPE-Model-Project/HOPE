@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -12,6 +13,7 @@ from hope_mcp_server.core import (
     _Job,
     _jobs,
     build_run_command,
+    hope_cancel_job,
     hope_case_info,
     hope_job_status,
     hope_output_summary,
@@ -95,6 +97,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertNotIn("hope_run_hope", tool_names)
         self.assertNotIn("hope_update_settings", tool_names)
         self.assertNotIn("hope_open_dashboard", tool_names)
+        self.assertNotIn("hope_cancel_job", tool_names)
 
     def test_full_server_keeps_run_tools_for_claude(self) -> None:
         mcp = create_mcp_server(read_only=False, host="127.0.0.1", port=8766)
@@ -102,6 +105,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertIn("hope_run_hope", tool_names)
         self.assertIn("hope_update_settings", tool_names)
         self.assertIn("hope_job_status", tool_names)
+        self.assertIn("hope_cancel_job", tool_names)
 
     def test_read_only_server_accepts_configured_public_hostname(self) -> None:
         with mock.patch.dict(
@@ -165,6 +169,56 @@ class HopeCoreTests(unittest.TestCase):
             result["setup_command"],
             setup_command(REPO_ROOT, JULIA_BIN),
         )
+
+    def test_cancel_job_returns_not_found_for_unknown_id(self) -> None:
+        result = hope_cancel_job("missing-job")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_type"], "job_not_found")
+
+    def test_cancel_job_terminates_running_process_and_status_turns_cancelled(self) -> None:
+        process = mock.Mock()
+        process.poll.side_effect = [None, -15, -15]
+        process.wait.return_value = -15
+        job = _Job(
+            job_id="cancelme",
+            command=["julia"],
+            process=process,
+            stdout_lines=["starting", "working"],
+            stderr_lines=["received interrupt"],
+        )
+        _jobs[job.job_id] = job
+        self.addCleanup(lambda: _jobs.pop(job.job_id, None))
+
+        result = hope_cancel_job(job.job_id)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "cancelled")
+        self.assertFalse(result["forced_kill"])
+        process.terminate.assert_called_once()
+        process.kill.assert_not_called()
+
+        status = hope_job_status(job.job_id)
+        self.assertTrue(status["ok"])
+        self.assertEqual(status["status"], "cancelled")
+        self.assertEqual(status["stderr"], "received interrupt")
+
+    def test_cancel_job_force_kills_when_terminate_times_out(self) -> None:
+        process = mock.Mock()
+        process.poll.side_effect = [None, -9]
+        process.wait.side_effect = [subprocess.TimeoutExpired(cmd=["julia"], timeout=5.0), -9]
+        job = _Job(
+            job_id="forcekill",
+            command=["julia"],
+            process=process,
+        )
+        _jobs[job.job_id] = job
+        self.addCleanup(lambda: _jobs.pop(job.job_id, None))
+
+        result = hope_cancel_job(job.job_id)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "cancelled")
+        self.assertTrue(result["forced_kill"])
+        process.terminate.assert_called_once()
+        process.kill.assert_called_once()
 
 
 if __name__ == "__main__":
