@@ -12,6 +12,7 @@ from .core import (
     hope_case_info,
     hope_close_dashboard,
     hope_debug_solver_environment,
+    hope_debug_solver_environment_async,
     hope_compare_cases,
     hope_emission_compliance,
     hope_job_status,
@@ -316,6 +317,19 @@ def register_write_tools(mcp: FastMCP) -> None:
             solver=solver,
             timeout_seconds=timeout_seconds,
         )
+
+    @mcp.tool(
+        name="hope_debug_solver_environment_async",
+        description=(
+            "Launch the HOPE Julia environment probe as a background job and return a job_id immediately. "
+            "Use hope_job_status to inspect stdout, stderr, and parsed probe fields without Claude timing out."
+        ),
+    )
+    def hope_debug_solver_environment_async_tool(
+        case_id: str = "md_gtep_clean",
+        solver: str | None = None,
+    ) -> dict[str, Any]:
+        return hope_debug_solver_environment_async(case_id=case_id, solver=solver)
 
     @mcp.tool(
         name="hope_run_hope",

@@ -18,6 +18,7 @@ Claude/local full-access server:
 - `hope_job_status`
 - `hope_cancel_job`
 - `hope_debug_solver_environment`
+- `hope_debug_solver_environment_async`
 - `hope_case_info`
 - `hope_output_summary`
 - `hope_run_hope`
@@ -169,3 +170,7 @@ If an agent launches a long-running Julia job and needs to stop it early, call
 If Claude appears to be running stale code or the wrong Julia environment, call
 `hope_debug_solver_environment(case_id, solver, timeout_seconds)` to inspect the active project,
 depot path, loaded `HOPE.jl` path, and the exact optimizer constructor JuMP sees.
+
+If the synchronous debug probe risks hitting Claude-side request timeouts, call
+`hope_debug_solver_environment_async(case_id, solver)` and then poll with
+`hope_job_status(job_id)` to retrieve the full probe stdout, stderr, and parsed fields.

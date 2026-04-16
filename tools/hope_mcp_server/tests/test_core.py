@@ -16,6 +16,7 @@ from hope_mcp_server.core import (
     hope_cancel_job,
     hope_case_info,
     hope_debug_solver_environment,
+    hope_debug_solver_environment_async,
     hope_job_status,
     hope_output_summary,
     hope_run_hope,
@@ -100,6 +101,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertNotIn("hope_open_dashboard", tool_names)
         self.assertNotIn("hope_cancel_job", tool_names)
         self.assertNotIn("hope_debug_solver_environment", tool_names)
+        self.assertNotIn("hope_debug_solver_environment_async", tool_names)
 
     def test_full_server_keeps_run_tools_for_claude(self) -> None:
         mcp = create_mcp_server(read_only=False, host="127.0.0.1", port=8766)
@@ -109,6 +111,7 @@ class HopeCoreTests(unittest.TestCase):
         self.assertIn("hope_job_status", tool_names)
         self.assertIn("hope_cancel_job", tool_names)
         self.assertIn("hope_debug_solver_environment", tool_names)
+        self.assertIn("hope_debug_solver_environment_async", tool_names)
 
     def test_read_only_server_accepts_configured_public_hostname(self) -> None:
         with mock.patch.dict(
@@ -264,6 +267,45 @@ class HopeCoreTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(result["error_type"], "debug_probe_timeout")
         self.assertEqual(result["parsed_stdout"]["STEP"], "using_HOPE_start")
+
+    def test_debug_solver_environment_async_launches_background_job(self) -> None:
+        with (
+            mock.patch("hope_mcp_server.core.validate_julia_command", return_value=(JULIA_BIN, None)),
+            mock.patch("hope_mcp_server.core._launch_job", return_value="probe123") as launch_mock,
+        ):
+            result = hope_debug_solver_environment_async(
+                case_id="MD_GTEP_clean_case",
+                solver="gurobi",
+            )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["job_id"], "probe123")
+        self.assertEqual(result["solver"], "gurobi")
+        self.assertIn("--startup-file=no", result["command"])
+        launch_mock.assert_called_once()
+
+    def test_job_status_returns_parsed_probe_for_completed_debug_job(self) -> None:
+        process = mock.Mock()
+        process.poll.return_value = 0
+        job = _Job(
+            job_id="debugdone",
+            command=["julia"],
+            process=process,
+            job_kind="debug_probe",
+            stdout_lines=[
+                "STEP=julia_start",
+                "OPTIMIZER_CONSTRUCTOR_VALUE=HiGHS.Optimizer",
+                "PROBE_STATUS=ok",
+            ],
+        )
+        _jobs[job.job_id] = job
+        self.addCleanup(lambda: _jobs.pop(job.job_id, None))
+
+        result = hope_job_status(job.job_id)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "done")
+        self.assertEqual(result["probe"]["OPTIMIZER_CONSTRUCTOR_VALUE"], "HiGHS.Optimizer")
+        self.assertEqual(result["probe"]["PROBE_STATUS"], "ok")
+        self.assertNotIn("output_summary", result)
 
 
 if __name__ == "__main__":

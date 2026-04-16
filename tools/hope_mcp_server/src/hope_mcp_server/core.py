@@ -253,6 +253,8 @@ class _Job:
     stderr_lines: list[str] = field(default_factory=list)
     start_time: float = field(default_factory=time.perf_counter)
     case_id: str = ""
+    job_kind: str = "generic"
+    include_output_summary: bool = False
     cancel_requested: bool = False
     cancelled_at: float | None = None
 
@@ -265,7 +267,14 @@ def _stream_lines(stream: Any, target: list[str]) -> None:
         target.append(line.rstrip())
 
 
-def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
+def _launch_job(
+    command: list[str],
+    repo_root: Path,
+    case_id: str = "",
+    *,
+    job_kind: str = "generic",
+    include_output_summary: bool = False,
+) -> str:
     job_id = uuid.uuid4().hex[:8]
 
     proc_env = _build_julia_process_env()
@@ -278,7 +287,14 @@ def _launch_job(command: list[str], repo_root: Path, case_id: str = "") -> str:
         text=True,
         env=proc_env,
     )
-    job = _Job(job_id=job_id, command=command, process=process, case_id=case_id)
+    job = _Job(
+        job_id=job_id,
+        command=command,
+        process=process,
+        case_id=case_id,
+        job_kind=job_kind,
+        include_output_summary=include_output_summary,
+    )
     threading.Thread(target=_stream_lines, args=(process.stdout, job.stdout_lines), daemon=True).start()
     threading.Thread(target=_stream_lines, args=(process.stderr, job.stderr_lines), daemon=True).start()
     _jobs[job_id] = job
@@ -318,6 +334,10 @@ def _job_stderr(job: _Job) -> str:
     return "\n".join(job.stderr_lines).strip()
 
 
+def _job_stdout(job: _Job) -> str:
+    return "\n".join(job.stdout_lines).strip()
+
+
 def looks_like_missing_hope_dependencies(stdout: str, stderr: str) -> bool:
     combined = f"{stdout}\n{stderr}"
     markers = (
@@ -351,6 +371,47 @@ def build_run_command(repo_root: Path, julia_bin: str, case_path: Path) -> list[
         f"--project={repo_root}",
         "-e",
         julia_script,
+    ]
+
+
+def build_debug_solver_environment_command(
+    repo_root: Path,
+    julia_bin: str,
+    case_path: Path,
+    solver: str,
+) -> list[str]:
+    return [
+        julia_bin,
+        "--startup-file=no",
+        f"--project={repo_root}",
+        "-e",
+        (
+            "emit(msg) = (println(msg); flush(stdout)); "
+            "emit(\"STEP=julia_start\"); "
+            "emit(\"JULIA_VERSION=\" * string(VERSION)); "
+            "emit(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
+            "emit(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
+            "emit(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
+            "emit(\"STEP=using_HOPE_start\"); "
+            "using HOPE; "
+            "emit(\"STEP=using_HOPE_done\"); "
+            "using JuMP; "
+            "emit(\"STEP=using_JuMP_done\"); "
+            f"case = {julia_string_literal(case_path)}; "
+            f"solver = {julia_string_literal(solver)}; "
+            "emit(\"HOPE_PATH=\" * string(pathof(HOPE))); "
+            "emit(\"STEP=initiate_solver_start\"); "
+            "opt = HOPE.initiate_solver(case, solver); "
+            "emit(\"STEP=initiate_solver_done\"); "
+            "emit(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
+            "emit(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
+            "emit(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
+            "emit(\"STEP=model_start\"); "
+            "model = Model(opt); "
+            "emit(\"STEP=model_done\"); "
+            "emit(\"MODEL_TYPE=\" * string(typeof(model))); "
+            "emit(\"PROBE_STATUS=ok\")"
+        ),
     ]
 
 
@@ -531,7 +592,7 @@ def hope_warmup() -> dict[str, Any]:
         "-e",
         "using Pkg; Pkg.instantiate(); Pkg.precompile()",
     ]
-    job_id = _launch_job(command, repo_root, case_id="warmup")
+    job_id = _launch_job(command, repo_root, case_id="warmup", job_kind="warmup")
     return success_result(
         job_id=job_id,
         message=(
@@ -556,6 +617,7 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
     exit_code = job.process.poll()
     elapsed = _job_elapsed_seconds(job)
     stdout_tail = _job_stdout_tail(job)
+    stdout = _job_stdout(job)
     stderr = _job_stderr(job)
 
     if exit_code is None:
@@ -580,7 +642,19 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
 
     # Job finished
     if exit_code != 0:
-        stdout_joined = "\n".join(job.stdout_lines)
+        stdout_joined = stdout
+        if job.job_kind == "debug_probe":
+            return error_result(
+                "debug_probe_failed",
+                "The background HOPE Julia environment probe exited with a non-zero exit code.",
+                job_id=job_id,
+                exit_code=exit_code,
+                elapsed_seconds=elapsed,
+                stdout_tail=stdout_tail,
+                stdout=stdout,
+                stderr=stderr,
+                parsed_stdout=_parse_key_value_lines(stdout),
+            )
         if looks_like_applocker_block(stdout_joined, stderr):
             return error_result(
                 "applocker_blocked",
@@ -627,8 +701,13 @@ def hope_job_status(job_id: str) -> dict[str, Any]:
         elapsed_seconds=elapsed,
         stdout_tail=stdout_tail,
     )
+    if job.job_kind == "debug_probe":
+        result["stdout"] = stdout
+        result["stderr"] = stderr
+        result["probe"] = _parse_key_value_lines(stdout)
+        return result
     # If this was a HOPE model run, attach the output summary
-    if job.case_id and job.case_id != "warmup":
+    if job.include_output_summary and job.case_id:
         case_path, _ = resolve_case(job.case_id)
         if case_path is not None:
             result["output_summary"] = build_output_summary_payload(job.case_id, case_path)
@@ -714,39 +793,12 @@ def hope_debug_solver_environment(
 
     settings = read_yaml(settings_path_for_case(case_path))
     selected_solver = solver or str(settings.get("solver", "highs"))
-    command = [
+    command = build_debug_solver_environment_command(
+        repo_root,
         julia_bin,
-        "--startup-file=no",
-        f"--project={repo_root}",
-        "-e",
-        (
-            "emit(msg) = (println(msg); flush(stdout)); "
-            "emit(\"STEP=julia_start\"); "
-            "emit(\"JULIA_VERSION=\" * string(VERSION)); "
-            "emit(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
-            "emit(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
-            "emit(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
-            "emit(\"STEP=using_HOPE_start\"); "
-            "using HOPE; "
-            "emit(\"STEP=using_HOPE_done\"); "
-            "using JuMP; "
-            "emit(\"STEP=using_JuMP_done\"); "
-            f"case = {julia_string_literal(case_path)}; "
-            f"solver = {julia_string_literal(selected_solver)}; "
-            "emit(\"HOPE_PATH=\" * string(pathof(HOPE))); "
-            "emit(\"STEP=initiate_solver_start\"); "
-            "opt = HOPE.initiate_solver(case, solver); "
-            "emit(\"STEP=initiate_solver_done\"); "
-            "emit(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
-            "emit(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
-            "emit(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
-            "emit(\"STEP=model_start\"); "
-            "model = Model(opt); "
-            "emit(\"STEP=model_done\"); "
-            "emit(\"MODEL_TYPE=\" * string(typeof(model))); "
-            "emit(\"PROBE_STATUS=ok\")"
-        ),
-    ]
+        case_path,
+        selected_solver,
+    )
     proc_env = _build_julia_process_env()
     try:
         completed = subprocess.run(
@@ -812,6 +864,47 @@ def hope_debug_solver_environment(
     )
 
 
+def hope_debug_solver_environment_async(
+    case_id: str = "md_gtep_clean",
+    solver: str | None = None,
+) -> dict[str, Any]:
+    """Launch the solver environment probe as a background Julia job."""
+    repo_root = get_repo_root()
+    case_path, error = resolve_case(case_id)
+    if error is not None:
+        return error
+
+    julia_bin, julia_error = validate_julia_command(repo_root)
+    if julia_error is not None:
+        return julia_error
+
+    settings = read_yaml(settings_path_for_case(case_path))
+    selected_solver = solver or str(settings.get("solver", "highs"))
+    command = build_debug_solver_environment_command(
+        repo_root,
+        julia_bin,
+        case_path,
+        selected_solver,
+    )
+    job_id = _launch_job(
+        command,
+        repo_root,
+        case_id=case_id,
+        job_kind="debug_probe",
+    )
+    return success_result(
+        job_id=job_id,
+        case_id=case_id,
+        case_path=str(case_path),
+        solver=selected_solver,
+        message=(
+            "Background HOPE Julia environment probe started. "
+            "Call hope_job_status with this job_id to inspect progress and parsed probe fields."
+        ),
+        command=command,
+    )
+
+
 def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:
     repo_root = get_repo_root()
     case_path, error = resolve_case(case_id)
@@ -823,7 +916,13 @@ def hope_run_hope(case_id: str = "md_gtep_clean") -> dict[str, Any]:
         return julia_error
 
     command = build_run_command(repo_root, julia_bin, case_path)
-    job_id = _launch_job(command, repo_root, case_id=case_id)
+    job_id = _launch_job(
+        command,
+        repo_root,
+        case_id=case_id,
+        job_kind="hope_run",
+        include_output_summary=True,
+    )
     return success_result(
         job_id=job_id,
         message=(
@@ -1380,7 +1479,13 @@ def hope_run_holistic(
     command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
 
     # Tag job with both case IDs
-    job_id = _launch_job(command, repo_root, case_id=gtep_case_id)
+    job_id = _launch_job(
+        command,
+        repo_root,
+        case_id=gtep_case_id,
+        job_kind="hope_run_holistic",
+        include_output_summary=True,
+    )
     return success_result(
         job_id=job_id,
         gtep_case_id=gtep_case_id,
@@ -1448,7 +1553,13 @@ def hope_run_erec(
     )
     command = [julia_bin, f"--project={repo_root}", "-e", julia_script]
 
-    job_id = _launch_job(command, repo_root, case_id=case_id)
+    job_id = _launch_job(
+        command,
+        repo_root,
+        case_id=case_id,
+        job_kind="hope_run_erec",
+        include_output_summary=True,
+    )
     return success_result(
         job_id=job_id,
         case_id=case_id,
