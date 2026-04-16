@@ -51,6 +51,8 @@ jobs:
   link-checker:
     name: Link checker
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -60,3 +62,5 @@ jobs:
         with:
           fail: true
           args: --config '.lychee.toml' .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

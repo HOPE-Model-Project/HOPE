@@ -1,0 +1,83 @@
+### version information
+
+```
+pre-commit version: 4.5.1
+git --version: git version 2.52.0.windows.1
+sys.version:
+    3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
+sys.executable: C:\Users\wangs\AppData\Local\Programs\Python\Python312\python.exe
+os.name: nt
+sys.platform: win32
+```
+
+### error information
+
+```
+An unexpected error has occurred: PermissionError: [WinError 5] Access is denied: 'E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\.pre-commit-cache\\repoxlt7f20g'
+```
+
+```
+Traceback (most recent call last):
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\util.py", line 31, in clean_path_on_failure
+    yield
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\store.py", line 164, in _new_repo
+    make_strategy(directory)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\store.py", line 199, in clone_strategy
+    git.init_repo(directory, repo)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\git.py", line 192, in init_repo
+    cmd_output_b(*git, 'init', '--template=', path, env=env)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\util.py", line 111, in cmd_output_b
+    raise CalledProcessError(returncode, cmd, stdout_b, stderr_b)
+pre_commit.util.CalledProcessError: command: ('D:\\Program Files\\Git\\cmd\\git.EXE', '-c', 'core.useBuiltinFSMonitor=false', 'init', '--template=', 'E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\.pre-commit-cache\\repoxlt7f20g')
+return code: 128
+stdout: (none)
+stderr:
+    fatal: cannot mkdir E:\MIT Dropbox\Shen Wang\MIT\RA\HOPE_project\.pre-commit-cache\repoxlt7f20g: File exists
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\error_handler.py", line 73, in error_handler
+    yield
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\main.py", line 429, in main
+    return run(args.config, store, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\commands\run.py", line 426, in run
+    for hook in all_hooks(config, store)
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\repository.py", line 233, in all_hooks
+    return tuple(
+           ^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\repository.py", line 236, in <genexpr>
+    for hook in _repository_hooks(repo, store, root_config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\repository.py", line 211, in _repository_hooks
+    return _cloned_repository_hooks(repo_config, store, root_config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\repository.py", line 177, in _cloned_repository_hooks
+    manifest_path = os.path.join(store.clone(repo, rev), C.MANIFEST_FILE)
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\store.py", line 210, in clone
+    return self._new_repo(repo, ref, deps, clone_strategy)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\store.py", line 163, in _new_repo
+    with clean_path_on_failure(directory):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\util.py", line 34, in clean_path_on_failure
+    rmtree(path)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\site-packages\pre_commit\util.py", line 235, in rmtree
+    shutil.rmtree(path, ignore_errors=False, onexc=_handle_readonly)
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 781, in rmtree
+    return _rmtree_unsafe(path, onexc)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 623, in _rmtree_unsafe
+    for dirpath, dirnames, filenames in results:
+                                        ^^^^^^^
+  File "<frozen os>", line 369, in walk
+  File "C:\Users\wangs\AppData\Local\Programs\Python\Python312\Lib\shutil.py", line 621, in onerror
+    onexc(os.scandir, err.filename, err)
+  File "<frozen os>", line 366, in walk
+PermissionError: [WinError 5] Access is denied: 'E:\\MIT Dropbox\\Shen Wang\\MIT\\RA\\HOPE_project\\.pre-commit-cache\\repoxlt7f20g'
+```
