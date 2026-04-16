@@ -58,6 +58,22 @@ uv --directory /path/to/HOPE/tools/hope_mcp_server sync
 julia --project=/path/to/HOPE -e "using Pkg; Pkg.instantiate(); Pkg.precompile()"
 ```
 
+3. Optional but recommended for agent-controlled runs: verify the active HOPE environment
+   and solver setup before the first model launch:
+
+```bash
+julia --project=/path/to/HOPE /path/to/HOPE/tools/repo_utils/agent_preflight_check.jl \
+  ModelCases/MD_GTEP_clean_case
+```
+
+For commercial solvers, the preflight script checks both package loading and solver
+initialization. Example:
+
+```bash
+julia --project=/path/to/HOPE /path/to/HOPE/tools/repo_utils/agent_preflight_check.jl \
+  ModelCases/MD_GTEP_clean_case --solver gurobi
+```
+
 ## Claude Desktop config
 
 Add this server entry to your Claude Desktop MCP config:

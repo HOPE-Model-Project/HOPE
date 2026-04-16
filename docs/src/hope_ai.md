@@ -98,6 +98,27 @@ uv --directory /path/to/HOPE/tools/hope_mcp_server sync
 
 This creates a local `.venv` inside `tools/hope_mcp_server/` with all dependencies (including the `mcp` package).
 
+### Step 2b — Optional agent preflight check
+
+Before the first solver-backed run in a new session, you can verify that Claude is
+pointing at the correct HOPE Julia environment and that the requested solver can be
+initialized:
+
+```bash
+julia --project=/path/to/HOPE /path/to/HOPE/tools/repo_utils/agent_preflight_check.jl \
+  ModelCases/MD_GTEP_clean_case
+```
+
+To explicitly test a commercial solver such as Gurobi:
+
+```bash
+julia --project=/path/to/HOPE /path/to/HOPE/tools/repo_utils/agent_preflight_check.jl \
+  ModelCases/MD_GTEP_clean_case --solver gurobi
+```
+
+The script prints a short pass/fail checklist and exits nonzero if the environment,
+case path, solver package, license handshake, or `HOPE.initiate_solver(...)` path fails.
+
 ### Step 3 — Configure Claude Desktop
 
 Locate your Claude Desktop config file:
