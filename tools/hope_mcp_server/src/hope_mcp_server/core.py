@@ -716,33 +716,35 @@ def hope_debug_solver_environment(
     selected_solver = solver or str(settings.get("solver", "highs"))
     command = [
         julia_bin,
+        "--startup-file=no",
         f"--project={repo_root}",
         "-e",
         (
-            "println(\"STEP=julia_start\"); "
-            "println(\"JULIA_VERSION=\" * string(VERSION)); "
-            "println(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
-            "println(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
-            "println(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
-            "println(\"STEP=using_HOPE_start\"); "
+            "emit(msg) = (println(msg); flush(stdout)); "
+            "emit(\"STEP=julia_start\"); "
+            "emit(\"JULIA_VERSION=\" * string(VERSION)); "
+            "emit(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
+            "emit(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
+            "emit(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
+            "emit(\"STEP=using_HOPE_start\"); "
             "using HOPE; "
-            "println(\"STEP=using_HOPE_done\"); "
+            "emit(\"STEP=using_HOPE_done\"); "
             "using JuMP; "
-            "println(\"STEP=using_JuMP_done\"); "
+            "emit(\"STEP=using_JuMP_done\"); "
             f"case = {julia_string_literal(case_path)}; "
             f"solver = {julia_string_literal(selected_solver)}; "
-            "println(\"HOPE_PATH=\" * string(pathof(HOPE))); "
-            "println(\"STEP=initiate_solver_start\"); "
+            "emit(\"HOPE_PATH=\" * string(pathof(HOPE))); "
+            "emit(\"STEP=initiate_solver_start\"); "
             "opt = HOPE.initiate_solver(case, solver); "
-            "println(\"STEP=initiate_solver_done\"); "
-            "println(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
-            "println(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
-            "println(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
-            "println(\"STEP=model_start\"); "
+            "emit(\"STEP=initiate_solver_done\"); "
+            "emit(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
+            "emit(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
+            "emit(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
+            "emit(\"STEP=model_start\"); "
             "model = Model(opt); "
-            "println(\"STEP=model_done\"); "
-            "println(\"MODEL_TYPE=\" * string(typeof(model))); "
-            "println(\"PROBE_STATUS=ok\")"
+            "emit(\"STEP=model_done\"); "
+            "emit(\"MODEL_TYPE=\" * string(typeof(model))); "
+            "emit(\"PROBE_STATUS=ok\")"
         ),
     ]
     proc_env = _build_julia_process_env()
