@@ -309,8 +309,13 @@ def register_write_tools(mcp: FastMCP) -> None:
     def hope_debug_solver_environment_tool(
         case_id: str = "md_gtep_clean",
         solver: str | None = None,
+        timeout_seconds: float = 120.0,
     ) -> dict[str, Any]:
-        return hope_debug_solver_environment(case_id=case_id, solver=solver)
+        return hope_debug_solver_environment(
+            case_id=case_id,
+            solver=solver,
+            timeout_seconds=timeout_seconds,
+        )
 
     @mcp.tool(
         name="hope_run_hope",

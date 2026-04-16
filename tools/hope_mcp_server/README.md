@@ -167,5 +167,5 @@ If an agent launches a long-running Julia job and needs to stop it early, call
 `hope_run_hope`, `hope_run_holistic`, or `hope_run_erec`.
 
 If Claude appears to be running stale code or the wrong Julia environment, call
-`hope_debug_solver_environment(case_id, solver)` to inspect the active project,
+`hope_debug_solver_environment(case_id, solver, timeout_seconds)` to inspect the active project,
 depot path, loaded `HOPE.jl` path, and the exact optimizer constructor JuMP sees.

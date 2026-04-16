@@ -228,6 +228,7 @@ class HopeCoreTests(unittest.TestCase):
             args=["julia"],
             returncode=0,
             stdout=(
+                "STEP=julia_start\n"
                 "ACTIVE_PROJECT=E:/repo/Project.toml\n"
                 "DEPOT_PATH=E:/julia_depot\n"
                 "HOPE_PATH=E:/repo/src/HOPE.jl\n"
@@ -247,6 +248,22 @@ class HopeCoreTests(unittest.TestCase):
         self.assertEqual(result["probe"]["OPTIMIZER_CONSTRUCTOR_VALUE"], "Gurobi.Optimizer")
         self.assertEqual(result["probe"]["PROBE_STATUS"], "ok")
         run_mock.assert_called_once()
+
+    def test_debug_solver_environment_reports_timeout_progress(self) -> None:
+        timeout_error = subprocess.TimeoutExpired(
+            cmd=["julia"],
+            timeout=120.0,
+            output="STEP=julia_start\nSTEP=using_HOPE_start\n",
+            stderr="",
+        )
+        with (
+            mock.patch("hope_mcp_server.core.validate_julia_command", return_value=(JULIA_BIN, None)),
+            mock.patch("hope_mcp_server.core.subprocess.run", side_effect=timeout_error),
+        ):
+            result = hope_debug_solver_environment(case_id="MD_GTEP_clean_case", solver="gurobi")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error_type"], "debug_probe_timeout")
+        self.assertEqual(result["parsed_stdout"]["STEP"], "using_HOPE_start")
 
 
 if __name__ == "__main__":

@@ -719,32 +719,61 @@ def hope_debug_solver_environment(
         f"--project={repo_root}",
         "-e",
         (
-            "using HOPE; using JuMP; "
-            f"case = {julia_string_literal(case_path)}; "
-            f"solver = {julia_string_literal(selected_solver)}; "
+            "println(\"STEP=julia_start\"); "
+            "println(\"JULIA_VERSION=\" * string(VERSION)); "
             "println(\"ACTIVE_PROJECT=\" * string(Base.active_project())); "
             "println(\"DEPOT_PATH=\" * join(DEPOT_PATH, \";\")); "
             "println(\"LOAD_PATH=\" * join(Base.LOAD_PATH, \";\")); "
+            "println(\"STEP=using_HOPE_start\"); "
+            "using HOPE; "
+            "println(\"STEP=using_HOPE_done\"); "
+            "using JuMP; "
+            "println(\"STEP=using_JuMP_done\"); "
+            f"case = {julia_string_literal(case_path)}; "
+            f"solver = {julia_string_literal(selected_solver)}; "
             "println(\"HOPE_PATH=\" * string(pathof(HOPE))); "
+            "println(\"STEP=initiate_solver_start\"); "
             "opt = HOPE.initiate_solver(case, solver); "
+            "println(\"STEP=initiate_solver_done\"); "
             "println(\"OPTIMIZER_TYPE=\" * string(typeof(opt))); "
             "println(\"OPTIMIZER_CONSTRUCTOR_TYPE=\" * string(typeof(getfield(opt, :optimizer_constructor)))); "
             "println(\"OPTIMIZER_CONSTRUCTOR_VALUE=\" * string(getfield(opt, :optimizer_constructor))); "
+            "println(\"STEP=model_start\"); "
             "model = Model(opt); "
+            "println(\"STEP=model_done\"); "
             "println(\"MODEL_TYPE=\" * string(typeof(model))); "
             "println(\"PROBE_STATUS=ok\")"
         ),
     ]
     proc_env = _build_julia_process_env()
-    completed = subprocess.run(
-        command,
-        cwd=repo_root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=proc_env,
-        timeout=timeout_seconds,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repo_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=proc_env,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as err:
+        stdout = (err.stdout or "").strip()
+        stderr = (err.stderr or "").strip()
+        return error_result(
+            "debug_probe_timeout",
+            "The HOPE Julia environment probe timed out.",
+            case_id=case_id,
+            case_path=str(case_path),
+            solver=selected_solver,
+            repo_root=str(repo_root),
+            julia_bin=julia_bin,
+            julia_depot_path=proc_env.get("JULIA_DEPOT_PATH"),
+            timeout_seconds=timeout_seconds,
+            command=command,
+            stdout=stdout,
+            stderr=stderr,
+            parsed_stdout=_parse_key_value_lines(stdout),
+        )
 
     stdout = completed.stdout.strip()
     stderr = completed.stderr.strip()
