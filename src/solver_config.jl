@@ -62,6 +62,23 @@ function _cplex_optimizer(solver_settings)
     _optional_solver_error("cplex")
 end
 
+function _worldsafe_optimizer_with_attributes(opt)
+    if !(opt isa MOI.OptimizerWithAttributes)
+        return opt
+    end
+    if !hasfield(typeof(opt), :optimizer_constructor) || !hasfield(typeof(opt), :params)
+        return opt
+    end
+    optimizer_constructor = getfield(opt, :optimizer_constructor)
+    params = getfield(opt, :params)
+    worldsafe_constructor = () -> Base.invokelatest(optimizer_constructor)
+    return optimizer_with_attributes(worldsafe_constructor, params...)
+end
+
+instantiate_jump_model(optimizer) = Base.invokelatest(Model, optimizer)
+
+instantiate_jump_direct_model(optimizer) = Base.invokelatest(direct_model, optimizer)
+
 function initiate_solver(case::AbstractString, solver::AbstractString)
     solver_settings_path = joinpath(case, "Settings", solver * "_settings.yml")
     solver_settings = open(solver_settings_path) do io
@@ -203,16 +220,19 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
 
     if solver == "scip"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER = Base.invokelatest(_scip_optimizer, solver_settings)
+        OPTIMIZER =
+            _worldsafe_optimizer_with_attributes(Base.invokelatest(_scip_optimizer, solver_settings))
     end
 
     if solver == "cplex"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER = Base.invokelatest(_cplex_optimizer, solver_settings)
+        OPTIMIZER =
+            _worldsafe_optimizer_with_attributes(Base.invokelatest(_cplex_optimizer, solver_settings))
     end
     if solver == "gurobi"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER = Base.invokelatest(_gurobi_optimizer, solver_settings)
+        OPTIMIZER =
+            _worldsafe_optimizer_with_attributes(Base.invokelatest(_gurobi_optimizer, solver_settings))
     end
     return OPTIMIZER
 end

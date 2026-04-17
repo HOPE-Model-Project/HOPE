@@ -4,6 +4,8 @@ using CPLEX
 using HOPE
 using JuMP: optimizer_with_attributes
 
+worldsafe_cplex_optimizer() = Base.invokelatest(CPLEX.Optimizer)
+
 function HOPE._cplex_optimizer(solver_settings::AbstractDict)
     Myfeasib_Tol = 1e-7
     if haskey(solver_settings, "Feasib_Tol")
@@ -55,7 +57,7 @@ function HOPE._cplex_optimizer(solver_settings::AbstractDict)
     end
 
     return optimizer_with_attributes(
-        CPLEX.Optimizer,
+        worldsafe_cplex_optimizer,
         "CPX_PARAM_EPRHS" => Myfeasib_Tol,
         "CPX_PARAM_EPOPT" => MyOptimal_Tol,
         "CPX_PARAM_AGGFILL" => MyAggFill,

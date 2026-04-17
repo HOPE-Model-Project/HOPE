@@ -1319,7 +1319,9 @@ function create_PCM_model(
             solver_name == "gurobi" &&
             unit_commitment_mode == 0 &&
             large_model_score >= 1_000_000
-        model = use_direct_mode ? direct_model(OPTIMIZER) : Model(OPTIMIZER)
+        model =
+            use_direct_mode ? instantiate_jump_direct_model(OPTIMIZER) :
+            instantiate_jump_model(OPTIMIZER)
         # Large PCM cases can hit solver-side naming limits and spend substantial memory on JuMP string names.
         if large_model_score >= 1_000_000
             set_string_names_on_creation(model, false)

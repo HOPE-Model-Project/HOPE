@@ -4,6 +4,8 @@ using HOPE
 using Gurobi
 using JuMP: optimizer_with_attributes
 
+worldsafe_gurobi_optimizer() = Base.invokelatest(Gurobi.Optimizer)
+
 function HOPE._gurobi_optimizer(solver_settings::AbstractDict)
     MyFeasibilityTol = 1e-6
     if haskey(solver_settings, "Feasib_Tol")
@@ -55,7 +57,7 @@ function HOPE._gurobi_optimizer(solver_settings::AbstractDict)
     end
 
     return optimizer_with_attributes(
-        Gurobi.Optimizer,
+        worldsafe_gurobi_optimizer,
         "OptimalityTol" => MyOptimalityTol,
         "FeasibilityTol" => MyFeasibilityTol,
         "Presolve" => MyPresolve,

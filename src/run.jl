@@ -12,7 +12,7 @@ The function reads `Settings/HOPE_model_settings.yml`, loads input data, initial
 solver, builds the optimisation model, solves it, and writes CSV results under
 `<case>/output/`.
 """
-function run_hope(case::AbstractString)
+function _resolve_case_path(case::AbstractString)
     # Normalize the case path - handle different input formats
     case_path = case
 
@@ -96,6 +96,10 @@ function run_hope(case::AbstractString)
         throw(ArgumentError(error_msg))
     end
 
+    return path
+end
+
+function _run_hope_impl(case::AbstractString, path::AbstractString)
     outpath = joinpath(path, "output")
     settings_file = joinpath(path, "Settings", "HOPE_model_settings.yml")
 
@@ -175,6 +179,27 @@ function run_hope(case::AbstractString)
         @error "Error running HOPE case: $case" exception=(e, catch_backtrace())
         rethrow()
     end
+end
+
+function run_hope(case::AbstractString)
+    path = _resolve_case_path(case)
+
+    settings_file = joinpath(path, "Settings", "HOPE_model_settings.yml")
+    if !isfile(settings_file)
+        throw(ArgumentError("Settings file not found: $settings_file"))
+    end
+
+    config_set = open(settings_file) do io
+        YAML.load(io)
+    end
+
+    solver_name = lowercase(String(config_set["solver"]))
+    if haskey(OPTIONAL_SOLVER_PACKAGES, solver_name)
+        _ensure_optional_solver_loaded(solver_name)
+        return Base.invokelatest(_run_hope_impl, case, path)
+    end
+
+    return _run_hope_impl(case, path)
 end
 
 function write_hope(case::AbstractString, solved_case::Model)

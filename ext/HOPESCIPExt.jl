@@ -4,6 +4,8 @@ using HOPE
 using SCIP
 using JuMP: optimizer_with_attributes
 
+worldsafe_scip_optimizer() = Base.invokelatest(SCIP.Optimizer)
+
 function HOPE._scip_optimizer(solver_settings::AbstractDict)
     MyDispverblevel = 0
     if haskey(solver_settings, "Dispverblevel")
@@ -15,7 +17,7 @@ function HOPE._scip_optimizer(solver_settings::AbstractDict)
     end
 
     return optimizer_with_attributes(
-        SCIP.Optimizer,
+        worldsafe_scip_optimizer,
         "display_verblevel" => MyDispverblevel,
         "limits_gap" => Mylimitsgap,
     )
