@@ -40,6 +40,7 @@ check_docs.jl
 /tools/**/outputs/*.tsv
 /tools/**/outputs/*.xlsx
 /tools/**/outputs/*.json
+/tools/hope_dashboard/logs/*.log
 
 # Germany generated reference tables that can be rebuilt from scripts
 /tools/germany_pcm_case_related/references/germany_network_buses_clean.csv

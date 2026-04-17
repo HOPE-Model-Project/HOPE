@@ -1,4 +1,5 @@
-"""Launch the HOPE GTEP Dashboard on port 8051."""
+"""Launch the HOPE GTEP Dashboard on the configured local port."""
+import os
 import sys
 from pathlib import Path
 
@@ -10,5 +11,6 @@ if str(dashboard_dir) not in sys.path:
 from gtep_app import app
 
 if __name__ == "__main__":
-    print("Starting HOPE GTEP Dashboard at http://127.0.0.1:8051")
-    app.run(debug=False, port=8051, host="127.0.0.1")
+    port = int(os.environ.get("HOPE_DASHBOARD_PORT", "8051"))
+    print(f"Starting HOPE GTEP Dashboard at http://127.0.0.1:{port}")
+    app.run(debug=False, port=port, host="127.0.0.1")

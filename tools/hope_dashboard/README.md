@@ -1,6 +1,9 @@
-# HOPE Dashboard (PCM Nodal Market View)
+# HOPE Dashboard
 
-This folder contains a first interactive dashboard for HOPE PCM nodal LMP and congestion analysis.
+This folder contains the local Dash dashboards used to explore HOPE results:
+
+- PCM dashboard on port `8050`
+- GTEP dashboard on port `8051`
 
 ## 1) Prepare output data
 
@@ -22,7 +25,9 @@ julia --project=. tools/hope_dashboard/run_rts24_dashboard_prep.jl
 python -m pip install -r tools/hope_dashboard/requirements.txt
 ```
 
-## 3) Run the dashboard
+## 3) Run the dashboards
+
+PCM:
 
 ```powershell
 python tools/hope_dashboard/app.py
@@ -31,6 +36,33 @@ python tools/hope_dashboard/app.py
 Open:
 
 - http://127.0.0.1:8050
+
+GTEP:
+
+```powershell
+python tools/hope_dashboard/run_gtep_dashboard.py
+```
+
+Open:
+
+- http://127.0.0.1:8051
+
+Windows helper scripts:
+
+- `tools/hope_dashboard/start_dashboard.bat`
+- `tools/hope_dashboard/start_gtep_dashboard.bat`
+
+Both runner scripts also honor the `HOPE_DASHBOARD_PORT` environment variable,
+which is how the HOPE MCP server launches them on a requested local port.
+
+## MCP launch behavior
+
+When Claude Desktop calls `hope_open_dashboard`, the MCP server launches the
+dashboard from the HOPE repository root, sets `HOPE_MODELCASES_PATH`, and logs
+startup output under `tools/hope_dashboard/logs/`.
+
+If a dashboard does not open through Claude but works manually, compare the MCP
+startup log with a working manual launch first.
 
 ## Current scope
 

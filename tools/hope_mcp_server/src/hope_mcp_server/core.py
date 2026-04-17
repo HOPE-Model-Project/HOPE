@@ -1743,8 +1743,15 @@ def hope_aggregation_audit(case_id: str = "md_gtep_clean") -> dict[str, Any]:
 # Dashboard launcher
 # ---------------------------------------------------------------------------
 
+@dataclass
+class DashboardProcessInfo:
+    process: subprocess.Popen  # type: ignore[type-arg]
+    log_path: Path
+    command: str
+
+
 # Registry of dashboard subprocesses keyed by port number.
-_dashboard_procs: dict[int, subprocess.Popen] = {}  # type: ignore[type-arg]
+_dashboard_procs: dict[int, DashboardProcessInfo] = {}
 
 
 def _port_in_use(port: int) -> bool:
@@ -1752,6 +1759,60 @@ def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _wait_for_port(port: int, timeout_seconds: float = 15.0) -> bool:
+    """Poll until a local TCP port is listening or timeout expires."""
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if _port_in_use(port):
+            return True
+        time.sleep(0.25)
+    return _port_in_use(port)
+
+
+def _dashboard_logs_dir(dashboard_dir: Path) -> Path:
+    logs_dir = dashboard_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    return logs_dir
+
+
+def _tail_text_file(path: Path, max_lines: int = 40) -> list[str]:
+    if not path.is_file():
+        return []
+    try:
+        return last_nonempty_lines(path.read_text(encoding="utf-8", errors="ignore"), max_lines)
+    except Exception as exc:
+        return [f"Failed to read log file {path}: {exc}"]
+
+
+def _dashboard_launch_env(repo_root: Path, effective_port: int) -> dict[str, str]:
+    env = os.environ.copy()
+    for key in list(env):
+        upper_key = key.upper()
+        if upper_key in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "PYTHONSTARTUP"}:
+            env.pop(key, None)
+            continue
+        if upper_key.startswith("UV_"):
+            env.pop(key, None)
+    env["HOPE_MODELCASES_PATH"] = str(repo_root / "ModelCases")
+    env["HOPE_DASHBOARD_PORT"] = str(effective_port)
+    env["PYTHONUNBUFFERED"] = "1"
+    return env
+
+
+def _dashboard_log_path(dashboard_dir: Path, model_mode: str, effective_port: int) -> Path:
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    slug = model_mode.lower()
+    return _dashboard_logs_dir(dashboard_dir) / f"{slug}-dashboard-{effective_port}-{timestamp}.log"
+
+
+def _dashboard_runner_command(repo_root: Path, python_bin: str, runner_script: Path) -> str:
+    try:
+        runner_arg = str(runner_script.relative_to(repo_root))
+    except ValueError:
+        runner_arg = str(runner_script)
+    return subprocess.list2cmdline([python_bin, runner_arg])
 
 
 def _find_python_for_dashboard() -> str:
@@ -1839,7 +1900,7 @@ def hope_open_dashboard(
     # --- Check if a dashboard is already running on this port ---
     if _port_in_use(effective_port):
         existing = _dashboard_procs.get(effective_port)
-        if existing is not None and existing.poll() is None:
+        if existing is not None and existing.process.poll() is None:
             status = "running"
         else:
             status = "already_running_external"
@@ -1857,31 +1918,56 @@ def hope_open_dashboard(
         )
 
     python_bin = _find_python_for_dashboard()
+    env = _dashboard_launch_env(repo_root, effective_port)
+    log_path = _dashboard_log_path(dashboard_dir, model_mode, effective_port)
+    launch_command = _dashboard_runner_command(repo_root, python_bin, runner_script)
+    cmd_exe = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe")
 
-    # Set HOPE_MODELCASES_PATH so data_loader.py finds ModelCases relative to repo root
-    env = os.environ.copy()
-    env["HOPE_MODELCASES_PATH"] = str(repo_root / "ModelCases")
+    with log_path.open("a", encoding="utf-8") as log_handle:
+        log_handle.write(f"[launcher] cwd={repo_root}\n")
+        log_handle.write(f"[launcher] command={launch_command}\n")
+        log_handle.write(f"[launcher] port={effective_port}\n")
+        log_handle.flush()
+        # On Windows, launching through cmd.exe from the repo root mirrors the
+        # manual dashboard command that works reliably in Command Prompt and
+        # Claude Desktop. Direct Python subprocess launches proved more brittle
+        # under the MCP server environment.
+        process = subprocess.Popen(
+            [cmd_exe, "/d", "/c", launch_command],
+            cwd=str(repo_root),
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+        )
 
-    stdout_lines: list[str] = []
-    stderr_lines: list[str] = []
-    process = subprocess.Popen(
-        [python_bin, str(runner_script)],
-        cwd=str(dashboard_dir),
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    _dashboard_procs[effective_port] = DashboardProcessInfo(
+        process=process,
+        log_path=log_path,
+        command=launch_command,
     )
-    threading.Thread(
-        target=_stream_lines, args=(process.stdout, stdout_lines), daemon=True
-    ).start()
-    threading.Thread(
-        target=_stream_lines, args=(process.stderr, stderr_lines), daemon=True
-    ).start()
-    _dashboard_procs[effective_port] = process
 
-    # Give Dash up to 4 seconds to start; if it exits sooner it crashed.
-    time.sleep(4)
+    # Give Dash time to import data-heavy dashboards and bind the HTTP port.
+    if _wait_for_port(effective_port, timeout_seconds=45.0):
+        case_rel = str(case_path.relative_to(repo_root))
+        return success_result(
+            url=url,
+            status="running",
+            pid=process.pid,
+            model_mode=model_mode,
+            case_id=case_id,
+            port=effective_port,
+            python_bin=python_bin,
+            log_path=str(log_path),
+            launch_command=launch_command,
+            message=(
+                f"{app_label} is running at {url}. "
+                f"Open that URL in your browser. "
+                f"In the case selector, choose '{case_rel}' to view results for case '{case_id}'. "
+                f"Startup log: {log_path}"
+            ),
+        )
+
     if process.poll() is not None:
         return error_result(
             "dashboard_crashed",
@@ -1889,9 +1975,11 @@ def hope_open_dashboard(
             "Ensure dashboard dependencies are installed: "
             f"cd tools/hope_dashboard && {python_bin} -m pip install -r requirements.txt",
             exit_code=process.returncode,
-            stdout_tail=last_nonempty_lines("\n".join(stdout_lines)),
-            stderr_tail=last_nonempty_lines("\n".join(stderr_lines)),
+            stdout_tail=_tail_text_file(log_path),
+            stderr_tail=[],
             python_bin=python_bin,
+            log_path=str(log_path),
+            launch_command=launch_command,
             install_command=(
                 f"cd {dashboard_dir} && "
                 f"{python_bin} -m pip install -r requirements.txt"
@@ -1899,18 +1987,22 @@ def hope_open_dashboard(
         )
 
     case_rel = str(case_path.relative_to(repo_root))
-    return success_result(
-        url=url,
-        status="starting",
+    return error_result(
+        "dashboard_start_timeout",
+        f"{app_label} process started (PID {process.pid}) but did not open {url} within 45 seconds.",
         pid=process.pid,
+        url=url,
+        port=effective_port,
         model_mode=model_mode,
         case_id=case_id,
-        port=effective_port,
         python_bin=python_bin,
-        message=(
-            f"{app_label} is starting at {url}. "
-            f"Open that URL in your browser. "
-            f"In the case selector, choose '{case_rel}' to view results for case '{case_id}'."
+        stdout_tail=_tail_text_file(log_path),
+        stderr_tail=[],
+        log_path=str(log_path),
+        launch_command=launch_command,
+        startup_hint=(
+            f"{app_label} is still starting or hung before binding {url}. "
+            f"If it eventually opens, select '{case_rel}' in the case dropdown."
         ),
     )
 
@@ -1932,22 +2024,23 @@ def hope_close_dashboard(port: int | None = None) -> dict[str, Any]:
             message="No dashboard processes are currently tracked by this session.",
         )
 
-    targets: dict[int, subprocess.Popen] = {}  # type: ignore[type-arg]
+    targets: dict[int, DashboardProcessInfo] = {}
     if port is not None:
-        proc = _dashboard_procs.get(port)
-        if proc is None:
+        info = _dashboard_procs.get(port)
+        if info is None:
             return error_result(
                 "dashboard_not_found",
                 f"No dashboard tracked on port {port}. "
                 f"Currently tracked ports: {sorted(_dashboard_procs)}.",
                 tracked_ports=sorted(_dashboard_procs),
             )
-        targets[port] = proc
+        targets[port] = info
     else:
         targets = dict(_dashboard_procs)
 
     stopped: list[dict[str, Any]] = []
-    for p, proc in targets.items():
+    for p, info in targets.items():
+        proc = info.process
         already_dead = proc.poll() is not None
         if not already_dead:
             proc.terminate()
@@ -1963,6 +2056,8 @@ def hope_close_dashboard(port: int | None = None) -> dict[str, Any]:
             "pid": proc.pid,
             "exit_code": exit_code,
             "was_already_dead": already_dead,
+            "log_path": str(info.log_path),
+            "launch_command": info.command,
         })
 
     ports_str = ", ".join(str(s["port"]) for s in stopped)

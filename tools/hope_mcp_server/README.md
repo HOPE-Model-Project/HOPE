@@ -174,3 +174,20 @@ depot path, loaded `HOPE.jl` path, and the exact optimizer constructor JuMP sees
 If the synchronous debug probe risks hitting Claude-side request timeouts, call
 `hope_debug_solver_environment_async(case_id, solver)` and then poll with
 `hope_job_status(job_id)` to retrieve the full probe stdout, stderr, and parsed fields.
+
+## Dashboard launch notes
+
+The `hope_open_dashboard` tool launches the HOPE dashboards from the repository
+root and, on Windows, intentionally shells out through `cmd.exe /d /c` instead
+of invoking Python directly. This mirrors the manual Command Prompt launch path
+that has proven reliable with Claude Desktop and the local MCP server.
+
+The tool also:
+
+- sanitizes inherited Python environment variables that can interfere with Dash startup
+- sets `HOPE_MODELCASES_PATH` so the dashboard can discover `ModelCases/`
+- sets `HOPE_DASHBOARD_PORT` so the runner scripts can bind the requested port
+- writes startup logs to `tools/hope_dashboard/logs/`
+
+If `hope_open_dashboard` reports a startup timeout or immediate crash, check the
+returned `log_path` first.
