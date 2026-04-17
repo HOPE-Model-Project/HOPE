@@ -1076,7 +1076,10 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
         pcm_config,
         "run_hope_holistic_pcm_output_write_start",
     )
-    pcm_output = write_output(pcm_outpath, pcm_config, updated_pcm_input, solved_pcm_model)
+    pcm_output_write =
+        write_output_with_metadata(pcm_outpath, pcm_config, updated_pcm_input, solved_pcm_model)
+    pcm_output = pcm_output_write.results
+    actual_pcm_outpath = pcm_output_write.actual_outpath
     holistic_debug_stage_log_pair(
         gtep_config,
         pcm_config,
@@ -1088,7 +1091,7 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
     return Dict(
         "gtep" => gtep_results,
         "pcm_case_path" => pcm_path,
-        "pcm_output_path" => pcm_outpath,
+        "pcm_output_path" => actual_pcm_outpath,
         "pcm_persisted_input_paths" => persisted_pcm_input_paths,
         "pcm_config" => pcm_config,
         "pcm_input" => updated_pcm_input,

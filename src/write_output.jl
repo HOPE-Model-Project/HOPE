@@ -54,6 +54,107 @@ function mkdir_overwrite(path::AbstractString)
     end
 end
 
+filesystem_error_text(err) = lowercase(sprint(showerror, err))
+
+function is_filesystem_lock_error(err)
+    msg = filesystem_error_text(err)
+    return occursin("resource busy or locked", msg) ||
+           occursin("permission denied", msg) ||
+           occursin("eacces", msg) ||
+           occursin("ebusy", msg)
+end
+
+function with_filesystem_retries(f::Function, description::AbstractString; max_retries::Int = 5)
+    last_err = nothing
+    for attempt = 1:max_retries
+        try
+            return f()
+        catch err
+            last_err = err
+            if attempt == max_retries || !is_filesystem_lock_error(err)
+                rethrow(err)
+            end
+            wait_secs = attempt * 2
+            println(
+                "Warning: Failed to $description (attempt $attempt/$max_retries): $(sprint(showerror, err))",
+            )
+            println(
+                "Retrying in $wait_secs seconds... (close any open CSV/Excel files or pause Dropbox sync)",
+            )
+            GC.gc()
+            sleep(wait_secs)
+        end
+    end
+    throw(last_err)
+end
+
+function copy_directory_tree(src::AbstractString, dst::AbstractString)
+    mkpath(dst)
+    for (root, dirs, files) in walkdir(src)
+        rel_root = relpath(root, src)
+        target_root = rel_root == "." ? dst : joinpath(dst, rel_root)
+        mkpath(target_root)
+        for dir in dirs
+            mkpath(joinpath(target_root, dir))
+        end
+        for file in files
+            cp(joinpath(root, file), joinpath(target_root, file); force = true)
+        end
+    end
+    return dst
+end
+
+function finalize_output_directory(tmp_outpath::AbstractString, outpath::AbstractString)
+    try
+        if isdir(outpath)
+            mkdir_overwrite(outpath)
+            with_filesystem_retries("remove empty output directory placeholder") do
+                rm(outpath)
+            end
+        end
+        with_filesystem_retries("rename temporary output directory into place") do
+            mv(tmp_outpath, outpath)
+        end
+        return outpath
+    catch err
+        if !is_filesystem_lock_error(err)
+            rethrow(err)
+        end
+
+        fallback_outpath = outpath * "_completed_" * string(round(Int, time()))
+        println(
+            "Warning: Could not replace '$outpath' because it is locked by another process.",
+        )
+        println("Preserving results in fallback directory: $fallback_outpath")
+
+        try
+            with_filesystem_retries(
+                "move temporary output directory to fallback location";
+                max_retries = 3,
+            ) do
+                mv(tmp_outpath, fallback_outpath)
+            end
+            return fallback_outpath
+        catch fallback_err
+            if !is_filesystem_lock_error(fallback_err)
+                rethrow(fallback_err)
+            end
+
+            println(
+                "Warning: Fallback move also hit a lock. Copying results instead...",
+            )
+            with_filesystem_retries("copy temporary output directory to fallback location") do
+                copy_directory_tree(tmp_outpath, fallback_outpath)
+            end
+            try
+                rm(tmp_outpath; recursive = true, force = true)
+            catch
+            end
+            return fallback_outpath
+        end
+    end
+end
+
 function parse_setting_int(config_set::Dict, key::String, default_value::Int)
     raw = get(config_set, key, default_value)
     return raw isa Integer ? Int(raw) : parse(Int, string(raw))
@@ -512,7 +613,7 @@ dispatch summaries.  For PCM mode they include hourly dispatch schedules, locati
 marginal prices, and (optionally) shadow prices from the LP re-solve step.
 `outpath` is created if it does not already exist; existing files are overwritten.
 """
-function write_output(
+function write_output_with_metadata(
     outpath::AbstractString,
     config_set::Dict,
     input_data::Dict,
@@ -525,13 +626,19 @@ function write_output(
     mkdir(tmp_outpath)
     Results_dict = _write_output_impl(tmp_outpath, config_set, input_data, model)
 
-    # Replace: remove old output dir (with retries), then rename tmp → output
-    mkdir_overwrite(outpath)    # removes old dir and creates empty dir
-    rm(outpath)                 # remove the empty dir so we can rename into its place
-    mv(tmp_outpath, outpath)
+    actual_outpath = finalize_output_directory(tmp_outpath, outpath)
 
-    println("Write solved results in the folder $outpath 'output' DONE!")
-    return Results_dict
+    println("Write solved results in the folder $actual_outpath DONE!")
+    return (results = Results_dict, actual_outpath = actual_outpath)
+end
+
+function write_output(
+    outpath::AbstractString,
+    config_set::Dict,
+    input_data::Dict,
+    model::Model,
+)
+    return write_output_with_metadata(outpath, config_set, input_data, model).results
 end
 
 function _write_output_impl(

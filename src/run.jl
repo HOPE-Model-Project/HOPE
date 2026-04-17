@@ -144,14 +144,16 @@ function _run_hope_impl(case::AbstractString, path::AbstractString)
         my_solved_model = solve_model(config_set, input_data, my_model)
 
         # Write outputs
-        my_output = write_output(outpath, config_set, input_data, my_solved_model)
+        output_write = write_output_with_metadata(outpath, config_set, input_data, my_solved_model)
+        my_output = output_write.results
+        actual_output_path = output_write.actual_outpath
         snapshot_info = nothing
         save_snapshot_mode =
             parse_postprocess_snapshot_mode(get(config_set, "save_postprocess_snapshot", 0))
         if save_snapshot_mode > 0
             if config_set["model_mode"] == "GTEP"
                 snapshot_info = save_postprocess_snapshot(
-                    outpath,
+                    actual_output_path,
                     path,
                     config_set,
                     my_input,
@@ -165,7 +167,7 @@ function _run_hope_impl(case::AbstractString, path::AbstractString)
 
         Results = Dict(
             "case_path" => path,
-            "output_path" => outpath,
+            "output_path" => actual_output_path,
             "config" => config_set,
             "solved_model" => my_solved_model,
             "output" => my_output,
