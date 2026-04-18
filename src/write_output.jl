@@ -14,7 +14,9 @@ function mkdir_overwrite(path::AbstractString)
                     println(
                         "Warning: Failed to remove output directory (attempt $attempt/$max_retries): $(e.msg)",
                     )
-                    println("Retrying in $wait_secs seconds... (close any open CSV/Excel files or pause Dropbox sync)")
+                    println(
+                        "Retrying in $wait_secs seconds... (close any open CSV/Excel files or pause Dropbox sync)",
+                    )
                     GC.gc()
                     sleep(wait_secs)
                 else
@@ -64,7 +66,11 @@ function is_filesystem_lock_error(err)
            occursin("ebusy", msg)
 end
 
-function with_filesystem_retries(f::Function, description::AbstractString; max_retries::Int = 5)
+function with_filesystem_retries(
+    f::Function,
+    description::AbstractString;
+    max_retries::Int = 5,
+)
     last_err = nothing
     for attempt = 1:max_retries
         try
@@ -140,10 +146,10 @@ function finalize_output_directory(tmp_outpath::AbstractString, outpath::Abstrac
                 rethrow(fallback_err)
             end
 
-            println(
-                "Warning: Fallback move also hit a lock. Copying results instead...",
-            )
-            with_filesystem_retries("copy temporary output directory to fallback location") do
+            println("Warning: Fallback move also hit a lock. Copying results instead...")
+            with_filesystem_retries(
+                "copy temporary output directory to fallback location",
+            ) do
                 copy_directory_tree(tmp_outpath, fallback_outpath)
             end
             try
@@ -1307,8 +1313,8 @@ function _write_output_impl(
             State = Zonedata[:, "State"],
             Emissions_ton = [
                 sum(
-                    EF_gtep[g] * weighted_rep_hour_sum((t, h) -> value(model[:p][g, h]))
-                    for g in G_i[i];
+                    EF_gtep[g] * weighted_rep_hour_sum((t, h) -> value(model[:p][g, h])) for
+                    g in G_i[i];
                     init = 0,
                 ) for i in I
             ],
@@ -1332,13 +1338,14 @@ function _write_output_impl(
                 let allow = E_state_df[i, :Allowance_ton]
                     ismissing(allow) ? missing :
                     max(0.0, E_state_df[i, :Emissions_ton] - Float64(allow))
-                end for i in 1:nrow(E_state_df)
+                end for i = 1:nrow(E_state_df)
             ]
             E_state_df[!, :In_compliance] = [
                 let allow = E_state_df[i, :Allowance_ton],
                     viol = E_state_df[i, :Violation_ton]
+
                     ismissing(allow) ? missing : iszero(viol)
-                end for i in 1:nrow(E_state_df)
+                end for i = 1:nrow(E_state_df)
             ]
         end
         CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header = true)
@@ -1695,13 +1702,14 @@ function _write_output_impl(
                 let allow = E_state_df[i, :Allowance_ton]
                     ismissing(allow) ? missing :
                     max(0.0, E_state_df[i, :Emissions_ton] - Float64(allow))
-                end for i in 1:nrow(E_state_df)
+                end for i = 1:nrow(E_state_df)
             ]
             E_state_df[!, :In_compliance] = [
                 let allow = E_state_df[i, :Allowance_ton],
                     viol = E_state_df[i, :Violation_ton]
+
                     ismissing(allow) ? missing : iszero(viol)
-                end for i in 1:nrow(E_state_df)
+                end for i = 1:nrow(E_state_df)
             ]
         end
         CSV.write(joinpath(outpath, "emissions_state.csv"), E_state_df, header = true)

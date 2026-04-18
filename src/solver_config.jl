@@ -9,17 +9,13 @@ Read solver settings from `<case>/Settings/<solver>_settings.yml` and return a
 `"cplex"`.  Commercial solvers (`gurobi`, `scip`, `cplex`) require the corresponding
 Julia package to be installed separately.
 """
-const OPTIONAL_SOLVER_PACKAGES = Dict(
-    "cplex" => "CPLEX",
-    "gurobi" => "Gurobi",
-    "scip" => "SCIP",
-)
+const OPTIONAL_SOLVER_PACKAGES =
+    Dict("cplex" => "CPLEX", "gurobi" => "Gurobi", "scip" => "SCIP")
 
-function _optional_solver_error(solver::AbstractString, err=nothing)
+function _optional_solver_error(solver::AbstractString, err = nothing)
     solver_name = lowercase(String(solver))
     package_name = get(OPTIONAL_SOLVER_PACKAGES, solver_name, solver)
-    message =
-        "solver='$(solver_name)' requested, but $(package_name).jl is unavailable in the active HOPE environment."
+    message = "solver='$(solver_name)' requested, but $(package_name).jl is unavailable in the active HOPE environment."
     if solver_name == "gurobi"
         message *= " Install/activate Gurobi.jl and make sure a valid Gurobi license is available."
     elseif solver_name == "cplex"
@@ -220,19 +216,22 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
 
     if solver == "scip"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER =
-            _worldsafe_optimizer_with_attributes(Base.invokelatest(_scip_optimizer, solver_settings))
+        OPTIMIZER = _worldsafe_optimizer_with_attributes(
+            Base.invokelatest(_scip_optimizer, solver_settings),
+        )
     end
 
     if solver == "cplex"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER =
-            _worldsafe_optimizer_with_attributes(Base.invokelatest(_cplex_optimizer, solver_settings))
+        OPTIMIZER = _worldsafe_optimizer_with_attributes(
+            Base.invokelatest(_cplex_optimizer, solver_settings),
+        )
     end
     if solver == "gurobi"
         _ensure_optional_solver_loaded(solver)
-        OPTIMIZER =
-            _worldsafe_optimizer_with_attributes(Base.invokelatest(_gurobi_optimizer, solver_settings))
+        OPTIMIZER = _worldsafe_optimizer_with_attributes(
+            Base.invokelatest(_gurobi_optimizer, solver_settings),
+        )
     end
     return OPTIMIZER
 end

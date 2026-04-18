@@ -1076,8 +1076,12 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
         pcm_config,
         "run_hope_holistic_pcm_output_write_start",
     )
-    pcm_output_write =
-        write_output_with_metadata(pcm_outpath, pcm_config, updated_pcm_input, solved_pcm_model)
+    pcm_output_write = write_output_with_metadata(
+        pcm_outpath,
+        pcm_config,
+        updated_pcm_input,
+        solved_pcm_model,
+    )
     pcm_output = pcm_output_write.results
     actual_pcm_outpath = pcm_output_write.actual_outpath
     holistic_debug_stage_log_pair(

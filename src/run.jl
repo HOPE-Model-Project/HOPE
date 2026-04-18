@@ -144,7 +144,8 @@ function _run_hope_impl(case::AbstractString, path::AbstractString)
         my_solved_model = solve_model(config_set, input_data, my_model)
 
         # Write outputs
-        output_write = write_output_with_metadata(outpath, config_set, input_data, my_solved_model)
+        output_write =
+            write_output_with_metadata(outpath, config_set, input_data, my_solved_model)
         my_output = output_write.results
         actual_output_path = output_write.actual_outpath
         snapshot_info = nothing

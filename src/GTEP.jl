@@ -10,7 +10,7 @@ function gtep_debug_stage_log(config_set::Dict, stage::AbstractString)
 end
 
 function gtep_optimizer_diagnostics(optimizer)
-    diagnostics = Dict{String, String}()
+    diagnostics = Dict{String,String}()
     diagnostics["optimizer_type"] = string(typeof(optimizer))
     diagnostics["optimizer_fields"] = join(string.(fieldnames(typeof(optimizer))), ", ")
     if hasfield(typeof(optimizer), :optimizer_constructor)
@@ -26,17 +26,16 @@ end
 
 function gtep_optimizer_constructor_probe(optimizer)
     if !hasfield(typeof(optimizer), :optimizer_constructor)
-        return Dict(
-            "has_optimizer_constructor" => "false",
-        )
+        return Dict("has_optimizer_constructor" => "false")
     end
     optimizer_constructor = getfield(optimizer, :optimizer_constructor)
-    probe = Dict{String, String}()
+    probe = Dict{String,String}()
     probe["has_optimizer_constructor"] = "true"
     probe["optimizer_constructor_type"] = string(typeof(optimizer_constructor))
     probe["optimizer_constructor_repr"] = repr(optimizer_constructor)
     probe["optimizer_constructor_string"] = string(optimizer_constructor)
-    probe["optimizer_constructor_zero_arg_callable"] = string(applicable(optimizer_constructor))
+    probe["optimizer_constructor_zero_arg_callable"] =
+        string(applicable(optimizer_constructor))
     try
         optimizer_instance = optimizer_constructor()
         probe["optimizer_constructor_direct_call_ok"] = "true"
@@ -836,14 +835,31 @@ function create_GTEP_model(
                 "Failed to initialize JuMP model in create_GTEP_model",
                 optimizer_diagnostics = gtep_optimizer_diagnostics(OPTIMIZER),
                 optimizer_constructor_probe = constructor_probe,
-                optimizer_type = get(gtep_optimizer_diagnostics(OPTIMIZER), "optimizer_type", "missing"),
-                optimizer_fields = get(gtep_optimizer_diagnostics(OPTIMIZER), "optimizer_fields", "missing"),
-                optimizer_constructor_type = get(constructor_probe, "optimizer_constructor_type", "missing"),
-                optimizer_constructor_repr = get(constructor_probe, "optimizer_constructor_repr", "missing"),
-                optimizer_constructor_string = get(constructor_probe, "optimizer_constructor_string", "missing"),
-                optimizer_constructor_zero_arg_callable = get(constructor_probe, "optimizer_constructor_zero_arg_callable", "missing"),
-                optimizer_constructor_direct_call_ok = get(constructor_probe, "optimizer_constructor_direct_call_ok", "missing"),
-                optimizer_constructor_direct_call_error = get(constructor_probe, "optimizer_constructor_direct_call_error", ""),
+                optimizer_type =
+                    get(gtep_optimizer_diagnostics(OPTIMIZER), "optimizer_type", "missing"),
+                optimizer_fields = get(
+                    gtep_optimizer_diagnostics(OPTIMIZER),
+                    "optimizer_fields",
+                    "missing",
+                ),
+                optimizer_constructor_type =
+                    get(constructor_probe, "optimizer_constructor_type", "missing"),
+                optimizer_constructor_repr =
+                    get(constructor_probe, "optimizer_constructor_repr", "missing"),
+                optimizer_constructor_string =
+                    get(constructor_probe, "optimizer_constructor_string", "missing"),
+                optimizer_constructor_zero_arg_callable = get(
+                    constructor_probe,
+                    "optimizer_constructor_zero_arg_callable",
+                    "missing",
+                ),
+                optimizer_constructor_direct_call_ok = get(
+                    constructor_probe,
+                    "optimizer_constructor_direct_call_ok",
+                    "missing",
+                ),
+                optimizer_constructor_direct_call_error =
+                    get(constructor_probe, "optimizer_constructor_direct_call_error", ""),
                 exception = (err, catch_backtrace()),
             )
             rethrow()
