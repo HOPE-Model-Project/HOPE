@@ -34,6 +34,11 @@
 # Local scratch / debug scripts (not part of the package)
 check_docs.jl
 
+# Local tooling caches
+/.pre-commit-cache/
+/.pre-commit-cache-local/
+/.pcache*/
+
 # Generated preprocessing outputs and local analysis artifacts
 /tools/**/outputs/*.csv
 /tools/**/outputs/*.log
