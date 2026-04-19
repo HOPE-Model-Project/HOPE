@@ -12,11 +12,11 @@ Install Visual Studio Code: download [VS Code](https://code.visualstudio.com/) a
 
 **(2)** In the VS Code terminal, type `julia` and press Enter. Julia will open as below:
 
-   ![image](https://github.com/swang22/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
+   ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/5fc3a8c9-23f8-44a3-92ab-135c4dbdc118)
 
 **(3)** Type `]` to enter Julia package mode, then run `activate .` from the repository root. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
-   ![image](https://github.com/swang22/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
+   ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/2a0c259d-060e-4799-a044-8dedb8e5cc4d)
 
 **(4)** Type `instantiate` at the `(HOPE) pkg>` prompt.
 
@@ -25,7 +25,7 @@ This installs the default HOPE environment and the bundled open-source solvers. 
 
 **(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
-![image](https://github.com/swang22/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 
 **(6)** If there is no error in the above processes, the **HOPE** model has been installed successfully. Then press `Backspace` to return to the Julia prompt. To run an example case (for example, the default Maryland PCM case), type `using HOPE`, then run:
 
@@ -35,11 +35,11 @@ HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")
 
 You will see **HOPE** start running:
 
-![image](https://github.com/swang22/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/33fa4fbc-6109-45ce-ac41-f41a29885525)
 
 The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 
-![image](https://github.com/swang22/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/af68d3a7-4fe7-4d9c-97f5-6d8898e2c522)
 
 Note:
 
@@ -61,7 +61,7 @@ You can use a system terminal either on Windows or macOS to run a test case. See
 
 **(2)** Type `julia`. Julia will be opened as below:
 
-![image](https://github.com/swang22/HOPE/assets/125523842/6c61bed1-bf8e-4186-bea2-22413fd1328e)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/6c61bed1-bf8e-4186-bea2-22413fd1328e)
 
 **(3)** Type `]` to enter Julia package mode, then run `activate .`. You should see the prompt change from `(@v1.x) pkg>` to `(HOPE) pkg>`, which means the HOPE project is activated successfully.
 
@@ -72,7 +72,7 @@ This installs the default HOPE environment and the bundled open-source solvers. 
 
 **(5)** Type `st` to check that the dependencies have been installed. Type `up` if you want to update package versions. (This step may take some time when you install HOPE for the first time. After HOPE is installed successfully, you can usually skip it.)
 
-![image](https://github.com/swang22/HOPE/assets/125523842/66ce1ea1-1b06-43d0-9f2b-542c473797aa)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/66ce1ea1-1b06-43d0-9f2b-542c473797aa)
 
 **(6)** If there is no error in the above processes, the **HOPE** model has been installed successfully. Then click `Backspace` to return to the Julia prompt. To run an example case (for example, the default Maryland PCM case), type `using HOPE`, then run:
 
@@ -82,11 +82,11 @@ HOPE.run_hope("ModelCases/MD_PCM_Excel_case/")
 
 You will see **HOPE** start running:
 
-![image](https://github.com/swang22/HOPE/assets/125523842/c36c6384-7e04-450d-921a-784c3b13f8bd)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/c36c6384-7e04-450d-921a-784c3b13f8bd)
 
 The results will be saved in `HOPE/ModelCases/MD_PCM_Excel_case/output`.
 
-![image](https://github.com/swang22/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/7a760912-b8f2-4d5c-aea0-b85b6eb00bf4)
 
 Note:
 

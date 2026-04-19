@@ -11,7 +11,7 @@ Install [Julia](http://julialang.org/) language. Julia 1.9 or later is required 
 ## 2. Download HOPE repository
 
 Clone or download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress the zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`.
-![image](https://github.com/swang22/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
+![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
 
 ## 3. Get model cases
 
