@@ -6,7 +6,7 @@ Primary nodal data path: `ModelCases/GERMANY_PCM_nodal_case/Data_GERMANY_PCM_nod
 Primary zonal case path: `ModelCases/GERMANY_PCM_zonal4_case`
 Primary zonal data path: `ModelCases/GERMANY_PCM_zonal4_case/Data_GERMANY_PCM_zonal4`
 
-Dashboard demo case path: `ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case`
+Dashboard demo case path: `ModelCases/GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8`
 
 ## Dashboard
 
@@ -110,13 +110,13 @@ The current full-year Germany nodal master case has been assembled, but the prac
 
 | Metric | Value |
 | :-- | --: |
-| Case | `GERMANY_PCM_nodal_jan_2day_rescaled_case` |
+| Case | `GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8` |
 | Hours | `48` |
 | Solve status | `OPTIMAL` |
 | Load shedding | `0.0` |
-| Total operating cost | about `9.996855e6` |
+| Total operating cost | about `2.263686e8` |
 
-Reference output: `ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case/output`
+Reference output: `ModelCases/GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8/output`
 
 ## Geography and Mapping Notes
 

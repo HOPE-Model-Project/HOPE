@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://github.com/swang22/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://github.com/HOPE-Model-Project/HOPE/assets/125523842/ec1e57fe-c65e-4e41-a128-43d2bbc3963c\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}

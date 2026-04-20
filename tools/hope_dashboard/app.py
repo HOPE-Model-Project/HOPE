@@ -18,7 +18,7 @@ from dash import ALL, Dash, Input, Output, State, dcc, html, ctx, no_update
 from data_loader import CaseData, load_case, resolve_dashboard_output_dir
 
 
-DEFAULT_CASE = "ModelCases/GERMANY_PCM_nodal_jan_2day_rescaled_case"
+DEFAULT_CASE = "ModelCases/GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
 
 APP_FONT = "'Segoe UI Variable', 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
 LOAD_ZONE_GEOJSON_PATHS = (

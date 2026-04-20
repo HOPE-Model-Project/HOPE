@@ -23,6 +23,11 @@
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
+param(
+    [string]$PcmOutName = "hf-pcm",
+    [string]$GtepOutName = "hf-gtep"
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -30,8 +35,8 @@ $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DashDir     = Split-Path -Parent $ScriptDir          # tools/hope_dashboard
 $RepoRoot    = Split-Path -Parent (Split-Path -Parent $DashDir)  # repo root
 $ModelCases  = Join-Path $RepoRoot "ModelCases"
-$OutPCM      = Join-Path $ScriptDir "hf-pcm"
-$OutGTEP     = Join-Path $ScriptDir "hf-gtep"
+$OutPCM      = Join-Path $ScriptDir $PcmOutName
+$OutGTEP     = Join-Path $ScriptDir $GtepOutName
 
 # ── PCM Space ─────────────────────────────────────────────────────────────────
 Write-Host "`n==> Packing PCM Space → $OutPCM" -ForegroundColor Cyan
@@ -49,9 +54,9 @@ Copy-Item (Join-Path $DashDir "requirements.txt") $OutPCM
 Copy-Item (Join-Path $DashDir "assets")  (Join-Path $OutPCM "assets")  -Recurse
 Copy-Item (Join-Path $DashDir "data")    (Join-Path $OutPCM "data")    -Recurse
 
-# Bundled sample case: Germany 2-day nodal PCM
-$PcmCase    = Join-Path $ModelCases "GERMANY_PCM_nodal_jan_2day_rescaled_case"
-$PcmCaseDst = Join-Path $OutPCM "ModelCases\GERMANY_PCM_nodal_jan_2day_rescaled_case"
+# Bundled sample case: finalized Germany 2-day nodal PCM validation case
+$PcmCase    = Join-Path $ModelCases "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
+$PcmCaseDst = Join-Path $OutPCM "ModelCases\GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
 Write-Host "  Copying PCM case output (~20 MB) ..."
 New-Item -ItemType Directory -Path $PcmCaseDst | Out-Null
 # Copy only the output and settings (not raw data inputs — keeps HF repo small)
