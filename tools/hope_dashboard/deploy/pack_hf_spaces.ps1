@@ -60,7 +60,7 @@ $PcmCaseDst = Join-Path $OutPCM "ModelCases\GERMANY_PCM_nodal_jan15_2day_resourc
 Write-Host "  Copying PCM case output (~20 MB) ..."
 New-Item -ItemType Directory -Path $PcmCaseDst | Out-Null
 # Copy only the output and settings (not raw data inputs — keeps HF repo small)
-foreach ($sub in @("output", "output_holistic", "Settings")) {
+foreach ($sub in @("output", "output_holistic", "Settings", "Data_GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8")) {
     $src = Join-Path $PcmCase $sub
     if (Test-Path $src) {
         Copy-Item $src (Join-Path $PcmCaseDst $sub) -Recurse
