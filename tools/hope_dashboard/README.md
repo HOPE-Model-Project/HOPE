@@ -67,12 +67,14 @@ Hugging Face PCM Space bundle is packed by:
 
 The default PCM bundle output is
 `tools/hope_dashboard/deploy/hf-pcm-v8/` and contains the finalized Germany
-seasonal 2-day nodal `v8` cases:
+seasonal 2-day nodal `v8` cases plus the existing ISONE and RTS24 demos:
 
 - `GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8` (default)
 - `GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8`
 - `GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8`
 - `GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8`
+- `ISONE_PCM_250bus_case`
+- `RTS24_PCM_multizone4_congested_1month_case`
 
 ## MCP launch behavior
 

@@ -26,5 +26,7 @@ Interactive nodal production cost model dashboard for the [HOPE model](https://g
 - `GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8`
 - `GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8`
 - `GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8`
+- `ISONE_PCM_250bus_case`
+- `RTS24_PCM_multizone4_congested_1month_case`
 
 **Documentation:** https://hope-model-project.github.io/HOPE/

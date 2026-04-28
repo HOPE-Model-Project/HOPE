@@ -63,21 +63,42 @@ Copy-Item (Join-Path $DashDir "requirements.txt") $OutPCM
 Copy-DirectoryContents (Join-Path $DashDir "assets") (Join-Path $OutPCM "assets")
 Copy-DirectoryContents (Join-Path $DashDir "data") (Join-Path $OutPCM "data")
 
-# Bundled PCM cases: finalized Germany 2-day nodal seasonal v8 pack.
-# Copy only output, settings, and the matching compact data folder to keep the HF repo small.
-$GermanyV8Cases = @(
-    "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8",
-    "GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8",
-    "GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8",
-    "GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8"
+# Bundled PCM cases: finalized Germany 2-day nodal seasonal v8 pack plus
+# the existing ISONE and RTS24 dashboard demos.
+# Copy only dashboard-ready outputs, settings, and compact data folders to keep the HF repo small.
+$PcmCases = @(
+    @{
+        Name = "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
+        Items = @("output", "Settings", "Data_GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8")
+    },
+    @{
+        Name = "GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8"
+        Items = @("output", "Settings", "Data_GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8")
+    },
+    @{
+        Name = "GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8"
+        Items = @("output", "Settings", "Data_GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8")
+    },
+    @{
+        Name = "GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8"
+        Items = @("output", "Settings", "Data_GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8")
+    },
+    @{
+        Name = "ISONE_PCM_250bus_case"
+        Items = @("output_nocarbon_check", "dashboard_output.txt", "Settings", "Data_ISONE_PCM_250bus")
+    },
+    @{
+        Name = "RTS24_PCM_multizone4_congested_1month_case"
+        Items = @("output", "Settings", "Data_RTS24_PCM_full")
+    }
 )
-foreach ($caseName in $GermanyV8Cases) {
+foreach ($caseSpec in $PcmCases) {
+    $caseName = $caseSpec.Name
     $PcmCase = Join-Path $ModelCases $caseName
     $PcmCaseDst = Join-Path $OutPCM "ModelCases\$caseName"
-    $DataFolder = "Data_$caseName"
     Write-Host "  Copying PCM case: $caseName ..."
     New-Item -ItemType Directory -Path $PcmCaseDst | Out-Null
-    foreach ($sub in @("output", "Settings", $DataFolder)) {
+    foreach ($sub in $caseSpec.Items) {
         $src = Join-Path $PcmCase $sub
         if (Test-Path $src) {
             Copy-Item $src (Join-Path $PcmCaseDst $sub) -Recurse
