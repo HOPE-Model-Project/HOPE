@@ -20,6 +20,11 @@ Interactive nodal production cost model dashboard for the [HOPE model](https://g
 - Bus-level LMP decomposition time series
 - Light / dark theme
 
-**Bundled demo case:** Germany 2-day nodal PCM (`GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8`)
+**Bundled demo cases:** finalized Germany 2-day nodal PCM seasonal `v8` pack:
+
+- `GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8` (default)
+- `GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8`
+- `GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8`
+- `GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8`
 
 **Documentation:** https://hope-model-project.github.io/HOPE/

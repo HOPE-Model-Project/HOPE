@@ -103,6 +103,13 @@ def _discover_dashboard_cases() -> list[dict]:
             continue
         rel_path = str(case_dir.relative_to(root.parent)).replace("\\", "/")
         options.append({"label": case_dir.name, "value": rel_path})
+    germany_v8_order = {
+        "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8": 0,
+        "GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8": 1,
+        "GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8": 2,
+        "GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8": 3,
+    }
+    options.sort(key=lambda opt: (germany_v8_order.get(str(opt["label"]), 100), str(opt["label"]).lower()))
     return options
 
 

@@ -14,7 +14,7 @@ A live demo is hosted on Hugging Face Spaces:
 
 > **[HOPE PCM Dashboard →](https://huggingface.co/spaces/HOPE-Model-Project/hope-pcm-dashboard)**
 
-The demo runs the Germany 2-day nodal PCM case with bundled output data — no installation required.
+The demo runs the Germany 2-day nodal PCM case with bundled output data on Hugging Face.
 
 To run locally from the repo root:
 
@@ -23,6 +23,10 @@ python tools/hope_dashboard/app.py
 ```
 
 Then open `http://127.0.0.1:8050/` in your browser.
+
+Local note: the `HOPEModelCases` repository tracks Germany case inputs and documentation, but not
+generated `output/` folders. After a local run, HOPE writes fresh results under the case's
+`output/` directory.
 
 ## Current Build Summary
 
@@ -90,7 +94,7 @@ Settings file: `ModelCases/GERMANY_PCM_zonal4_case/Settings/HOPE_model_settings.
 | :-- | --: | --: |
 | Buses / zones | `783` buses | `4` zones |
 | Lines / interfaces | `1174` lines | `5` interfaces |
-| Generator entries | `4135` | `46` |
+| Generator entries | `4267` | `70` |
 | Chronology basis | `8760` hourly rows | derived from the same hourly basis |
 | Geography | nodal bus-level PCM | 4-zone TSO aggregation |
 
@@ -116,7 +120,11 @@ The current full-year Germany nodal master case has been assembled, but the prac
 | Load shedding | `0.0` |
 | Total operating cost | about `2.263686e8` |
 
-Reference output: `ModelCases/GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8/output`
+Generated run output is written to:
+`ModelCases/GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8/output`
+
+Tracked validation summaries for the Germany case suite live under:
+`ModelCases/tools/germany_pcm_case_related/outputs/`
 
 ## Geography and Mapping Notes
 

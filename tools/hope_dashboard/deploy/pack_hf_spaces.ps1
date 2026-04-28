@@ -1,7 +1,7 @@
 # pack_hf_spaces.ps1
 #
 # Packs the HOPE PCM and GTEP dashboards into ready-to-push Hugging Face Space
-# directories under tools/hope_dashboard/deploy/hf-pcm/ and hf-gtep/.
+# directories under tools/hope_dashboard/deploy/hf-pcm-v8/ and hf-gtep/.
 #
 # Prerequisites:
 #   pip install huggingface_hub          (for huggingface-cli login)
@@ -17,14 +17,14 @@
 #        - hope-gtep-dashboard
 #      under the HOPE-Model-Project organization (or your personal account).
 #   2. Clone each Space repo locally (git clone https://huggingface.co/spaces/...)
-#   3. Copy the contents of hf-pcm/ and hf-gtep/ into the cloned repos.
+#   3. Copy the contents of hf-pcm-v8/ and hf-gtep/ into the cloned repos.
 #   4. git lfs track "ModelCases/**/*.csv"
 #   5. git add . && git commit -m "Initial deployment" && git push
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
 param(
-    [string]$PcmOutName = "hf-pcm",
+    [string]$PcmOutName = "hf-pcm-v8",
     [string]$GtepOutName = "hf-gtep"
 )
 
@@ -37,6 +37,15 @@ $RepoRoot    = Split-Path -Parent (Split-Path -Parent $DashDir)  # repo root
 $ModelCases  = Join-Path $RepoRoot "ModelCases"
 $OutPCM      = Join-Path $ScriptDir $PcmOutName
 $OutGTEP     = Join-Path $ScriptDir $GtepOutName
+
+function Copy-DirectoryContents {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    Copy-Item -Path (Join-Path $Source "*") -Destination $Destination -Recurse -Force
+}
 
 # ── PCM Space ─────────────────────────────────────────────────────────────────
 Write-Host "`n==> Packing PCM Space → $OutPCM" -ForegroundColor Cyan
@@ -51,19 +60,28 @@ Copy-Item (Join-Path $ScriptDir "pcm\README.md")  $OutPCM
 Copy-Item (Join-Path $DashDir "app.py")          $OutPCM
 Copy-Item (Join-Path $DashDir "data_loader.py")  $OutPCM
 Copy-Item (Join-Path $DashDir "requirements.txt") $OutPCM
-Copy-Item (Join-Path $DashDir "assets")  (Join-Path $OutPCM "assets")  -Recurse
-Copy-Item (Join-Path $DashDir "data")    (Join-Path $OutPCM "data")    -Recurse
+Copy-DirectoryContents (Join-Path $DashDir "assets") (Join-Path $OutPCM "assets")
+Copy-DirectoryContents (Join-Path $DashDir "data") (Join-Path $OutPCM "data")
 
-# Bundled sample case: finalized Germany 2-day nodal PCM validation case
-$PcmCase    = Join-Path $ModelCases "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
-$PcmCaseDst = Join-Path $OutPCM "ModelCases\GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8"
-Write-Host "  Copying PCM case output (~20 MB) ..."
-New-Item -ItemType Directory -Path $PcmCaseDst | Out-Null
-# Copy only the output and settings (not raw data inputs — keeps HF repo small)
-foreach ($sub in @("output", "output_holistic", "Settings", "Data_GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8")) {
-    $src = Join-Path $PcmCase $sub
-    if (Test-Path $src) {
-        Copy-Item $src (Join-Path $PcmCaseDst $sub) -Recurse
+# Bundled PCM cases: finalized Germany 2-day nodal seasonal v8 pack.
+# Copy only output, settings, and the matching compact data folder to keep the HF repo small.
+$GermanyV8Cases = @(
+    "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8",
+    "GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8",
+    "GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8",
+    "GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8"
+)
+foreach ($caseName in $GermanyV8Cases) {
+    $PcmCase = Join-Path $ModelCases $caseName
+    $PcmCaseDst = Join-Path $OutPCM "ModelCases\$caseName"
+    $DataFolder = "Data_$caseName"
+    Write-Host "  Copying PCM case: $caseName ..."
+    New-Item -ItemType Directory -Path $PcmCaseDst | Out-Null
+    foreach ($sub in @("output", "Settings", $DataFolder)) {
+        $src = Join-Path $PcmCase $sub
+        if (Test-Path $src) {
+            Copy-Item $src (Join-Path $PcmCaseDst $sub) -Recurse
+        }
     }
 }
 
@@ -82,8 +100,8 @@ Copy-Item (Join-Path $ScriptDir "gtep\README.md")  $OutGTEP
 # Dashboard source
 Copy-Item (Join-Path $DashDir "gtep_app.py")      $OutGTEP
 Copy-Item (Join-Path $DashDir "requirements.txt") $OutGTEP
-Copy-Item (Join-Path $DashDir "assets")  (Join-Path $OutGTEP "assets")  -Recurse
-Copy-Item (Join-Path $DashDir "data")    (Join-Path $OutGTEP "data")    -Recurse
+Copy-DirectoryContents (Join-Path $DashDir "assets") (Join-Path $OutGTEP "assets")
+Copy-DirectoryContents (Join-Path $DashDir "data") (Join-Path $OutGTEP "data")
 
 # Bundled sample cases for GTEP: PJM MD100 (4.7 MB) + USA 64-zone (11 MB) + MD clean fallback (0.1 MB)
 foreach ($caseName in @("PJM_MD100_GTEP_case", "USA_64zone_GTEP_case", "MD_GTEP_clean_case")) {
@@ -122,7 +140,7 @@ Next steps to publish to Hugging Face:
        Copy-Item "$OutPCM\*"  hope-pcm-dashboard\  -Recurse -Force
        Copy-Item "$OutGTEP\*" hope-gtep-dashboard\ -Recurse -Force
 
-  4. Track large files with Git LFS (run inside each clone):
+  4. Track large files with Git LFS or Git Xet (run inside each clone):
        git lfs install
        git lfs track "ModelCases/**/*.csv"
        git add .gitattributes

@@ -5,10 +5,10 @@ const PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
 
 to_float_test(x) = x isa Number ? Float64(x) : parse(Float64, string(x))
 
-function test_case_config(case_path::AbstractString)
+function test_case_config(case_path::AbstractString; solver::AbstractString = "clp")
     config =
         HOPE.YAML.load(open(joinpath(case_path, "Settings", "HOPE_model_settings.yml")))
-    config["solver"] = "clp"
+    config["solver"] = solver
     config["summary_table"] = 0
     config["debug"] = 0
     config["flexible_demand"] = 0
@@ -97,9 +97,9 @@ function choose_test_bus(input_data::Dict)
     return idx, string(input_data["Busdata"][idx, "Bus_id"]), bus_peak[idx]
 end
 
-function solve_one_hour_pcm(case_rel::AbstractString)
+function solve_one_hour_pcm(case_rel::AbstractString; solver::AbstractString = "clp")
     case_path = joinpath(PROJECT_ROOT, case_rel)
-    config = test_case_config(case_path)
+    config = test_case_config(case_path; solver = solver)
     input_data = HOPE.load_data(config, case_path)
     trim_pcm_timeseries!(input_data)
     ensure_nodal_load!(input_data)
@@ -110,8 +110,13 @@ function solve_one_hour_pcm(case_rel::AbstractString)
     return case_path, config, input_data, solved
 end
 
-function run_price_sign_check(case_rel::AbstractString, semantics::Symbol, con_name::Symbol)
-    case_path, config, input_data, solved = solve_one_hour_pcm(case_rel)
+function run_price_sign_check(
+    case_rel::AbstractString,
+    semantics::Symbol,
+    con_name::Symbol;
+    solver::AbstractString = "clp",
+)
+    case_path, config, input_data, solved = solve_one_hour_pcm(case_rel; solver = solver)
     bus_idx, bus_label, bus_peak = choose_test_bus(input_data)
     con_ref = solved[con_name][bus_idx, 1]
     exported_lmp = HOPE.marginal_load_price_from_dual(con_ref, semantics)
@@ -178,5 +183,24 @@ end
         )
         @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_dual; atol = 1.0e-6)
         @test isapprox(ptdf_report.exported_lmp, -ptdf_report.raw_shadow; atol = 1.0e-6)
+
+        germany_report = run_price_sign_check(
+            joinpath(
+                ENV["HOPE_MODELCASES_PATH"],
+                "GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8",
+            ),
+            :balance_rhs_load,
+            :PBNode_con;
+            solver = "highs",
+        )
+        @test isapprox(germany_report.exported_lmp, germany_report.file_lmp; atol = 1.0e-6)
+        @test isapprox(
+            germany_report.exported_lmp,
+            germany_report.delta_obj;
+            atol = 1.0e-4,
+            rtol = 1.0e-6,
+        )
+        @test isapprox(germany_report.exported_lmp, germany_report.raw_dual; atol = 1.0e-6)
+        @test isapprox(germany_report.exported_lmp, -germany_report.raw_shadow; atol = 1.0e-6)
     end
 end

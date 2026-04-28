@@ -55,6 +55,25 @@ Windows helper scripts:
 Both runner scripts also honor the `HOPE_DASHBOARD_PORT` environment variable,
 which is how the HOPE MCP server launches them on a requested local port.
 
+## Germany PCM v8 dashboard pack
+
+The PCM dashboard defaults to the finalized Germany January 2-day nodal PCM
+case and auto-discovers valid PCM case folders under `ModelCases/`. The
+Hugging Face PCM Space bundle is packed by:
+
+```powershell
+.\tools\hope_dashboard\deploy\pack_hf_spaces.ps1
+```
+
+The default PCM bundle output is
+`tools/hope_dashboard/deploy/hf-pcm-v8/` and contains the finalized Germany
+seasonal 2-day nodal `v8` cases:
+
+- `GERMANY_PCM_nodal_jan15_2day_resource_cost_case_v8` (default)
+- `GERMANY_PCM_nodal_apr15_2day_resource_cost_case_v8`
+- `GERMANY_PCM_nodal_jul15_2day_resource_cost_case_v8`
+- `GERMANY_PCM_nodal_oct15_2day_resource_cost_case_v8`
+
 ## MCP launch behavior
 
 When Claude Desktop calls `hope_open_dashboard`, the MCP server launches the

@@ -63,7 +63,9 @@ function is_filesystem_lock_error(err)
     return occursin("resource busy or locked", msg) ||
            occursin("permission denied", msg) ||
            occursin("eacces", msg) ||
-           occursin("ebusy", msg)
+           occursin("ebusy", msg) ||
+           occursin("directory not empty", msg) ||
+           occursin("enotempty", msg)
 end
 
 function with_filesystem_retries(
@@ -123,6 +125,18 @@ function finalize_output_directory(tmp_outpath::AbstractString, outpath::Abstrac
         end
         return outpath
     catch err
+        # On Windows/Dropbox-backed folders, `mv(tmp_outpath, outpath)` can partially
+        # succeed and populate `outpath` before reporting a lock/permission error.
+        # If the final `output/Analysis` tree is already present, keep that successful
+        # destination and treat the leftover temp folder as a cleanup artifact.
+        if isdir(outpath) && isdir(joinpath(outpath, "Analysis"))
+            println(
+                "Warning: Temporary output rename reported a filesystem lock, but '$outpath' already contains analysis outputs.",
+            )
+            println("Continuing with '$outpath' and leaving '$tmp_outpath' for later cleanup if needed.")
+            return outpath
+        end
+
         if !is_filesystem_lock_error(err)
             rethrow(err)
         end
