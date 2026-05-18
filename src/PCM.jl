@@ -1930,7 +1930,7 @@ function create_PCM_model(
             CLeL_con = @constraint(
                 model,
                 [g in setdiff(G_UC, G_MR), h in H],
-                P_min[g] <= p[g, h] + ReserveUpG[g, h],
+                model[:pmin][g, h] <= p[g, h] + ReserveUpG[g, h],
                 base_name = "CLeL_con"
             )
             CLeU_con = @constraint(
