@@ -2238,8 +2238,14 @@ function create_PCM_model(
             soc[s, h] == soc[s, h-1] + e_ch[s]*c[s, h] - dc[s, h]/e_dis[s],
             base_name = "SoC_con"
         )
-        #Ch_1_con=@constraint(model, [s in S], c[s,1] ==0)
-        #DCh_1_con=@constraint(model, [s in S], dc[s,1] ==0)
+        # Hour-1 storage dispatch is decoupled from the SOC transition because
+        # SoC_con covers only setdiff(H,[1]).  With the cyclic constraint
+        # soc[s,1]=soc[s,H[end]], any c[s,1] or dc[s,1] would change the
+        # power balance at h=1 without changing any SOC variable, making h=1
+        # a free energy source/sink.  Force zero dispatch at h=1 to make the
+        # cyclic boundary self-consistent.
+        Ch_1_con  = @constraint(model, [s in S_exist], c[s,  1] == 0.0, base_name = "Ch_1_con")
+        DCh_1_con = @constraint(model, [s in S_exist], dc[s, 1] == 0.0, base_name = "DCh_1_con")
 
         # [PCM-C4] Cyclic/anchor storage boundary constraints
         SDBe_st_con=@constraint(
