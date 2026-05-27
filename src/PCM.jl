@@ -118,11 +118,13 @@ function unit_commitment!(config_set::Dict, input_data::Dict, model::Model)
         @variable(model, 0 <= su[g in G_UC, H] <= NumUnits_g[g])#Start-up count for g at the beginning of h
     end
     # UC constraints (aligned with docs/src/PCM.md Section 3)
-    # [PCM-C3.UC1] Minimum run limit
+    # [PCM-C3.UC1] Minimum run limit (equality): pmin is exactly the minimum online MW.
+    # Using == rather than <= ensures committed units cannot dispatch below P_min_unit,
+    # which makes HeadroomDN_UC_con and the UC ramp constraints physically meaningful.
     MRL_con = @constraint(
         model,
         [g in G_UC, h in H],
-        pmin[g, h] <= (1-FOR_g[g])*P_min_unit[g]*o[g, h],
+        pmin[g, h] == (1-FOR_g[g])*P_min_unit[g]*o[g, h],
         base_name = "MRL_con"
     )
 
@@ -2185,7 +2187,9 @@ function create_PCM_model(
             soc[s, h] <= SECAP[s],
             base_name = "SoCLeUb_con"
         )
-        # [PCM-C4] Storage reserve deliverability over response windows
+        # [PCM-C4] Storage reserve deliverability over response windows.
+        # Upward reserve (discharge) needs stored energy:  r * Δ ≤ soc.
+        # Downward reserve (charge) needs charging headroom: r * Δ ≤ SECAP - soc.
         if operation_reserve_mode == 2
             SR_DELIVER_REGUP_con = @constraint(
                 model,
@@ -2196,7 +2200,7 @@ function create_PCM_model(
             SR_DELIVER_REGDN_con = @constraint(
                 model,
                 [h in H, s in S_exist],
-                r_S_REG_DN[s, h]*delta_reg <= soc[s, h],
+                r_S_REG_DN[s, h]*delta_reg <= SECAP[s] - soc[s, h],
                 base_name = "SR_DELIVER_REGDN_con"
             )
             SR_DELIVER_SPIN_con = @constraint(
@@ -2221,7 +2225,7 @@ function create_PCM_model(
             SR_DELIVER_REGDN_con = @constraint(
                 model,
                 [h in H, s in S_exist],
-                r_S_REG_DN[s, h]*delta_reg <= soc[s, h],
+                r_S_REG_DN[s, h]*delta_reg <= SECAP[s] - soc[s, h],
                 base_name = "SR_DELIVER_REGDN_con"
             )
             SR_DELIVER_SPIN_con = @constraint(

@@ -12,4 +12,5 @@ using Test
     include("test-erec-snapshot.jl")
     include("test-holistic.jl")
     include("test-lmp-sign-regression.jl")
+    include("test-pcm-constraints.jl")
 end
