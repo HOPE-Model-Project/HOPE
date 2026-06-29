@@ -55,6 +55,10 @@ function HOPE._gurobi_optimizer(solver_settings::AbstractDict)
     if haskey(solver_settings, "OutputFlag")
         MyOutputFlag = solver_settings["OutputFlag"]
     end
+    MyNodefileStart = Inf
+    if haskey(solver_settings, "NodefileStart")
+        MyNodefileStart = solver_settings["NodefileStart"]
+    end
 
     return optimizer_with_attributes(
         worldsafe_gurobi_optimizer,
@@ -70,6 +74,7 @@ function HOPE._gurobi_optimizer(solver_settings::AbstractDict)
         "NumericFocus" => MyNumericFocus,
         "Crossover" => MyCrossover,
         "OutputFlag" => MyOutputFlag,
+        "NodefileStart" => MyNodefileStart,
     )
 end
 
