@@ -309,11 +309,12 @@ if !@isdefined(validate_case_directory)
     identifiers are only valid when representative-day mode is enabled.
     """
     function validate_full_chronological_time_periods(t_vals::AbstractVector{<:Integer})
-        if collect(t_vals) != [1]
+        periods = sort(unique(collect(t_vals)))
+        if periods != [1]
             throw(
                 ArgumentError(
                     "Full chronological mode requires 'Time Period' = 1 for every timeseries row. " *
-                    "Found $(length(t_vals)) periods ($(first(t_vals))..$(last(t_vals))). " *
+                    "Found $(length(periods)) distinct period(s): $(periods). " *
                     "Use representative-day mode for multiple Time Period values.",
                 ),
             )
