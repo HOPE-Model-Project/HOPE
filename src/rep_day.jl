@@ -1367,7 +1367,8 @@ function build_endogenous_rep_periods(
             selected_block = blocks[block_idx]
             cluster_members = [
                 member_idx for member_idx in eachindex(assignments) if
-                assignments[member_idx] == local_idx && !(member_idx in excluded_indices)
+                assignments[member_idx] == local_idx &&
+                    !(member_idx in excluded_indices)
             ]
             if isempty(cluster_members)
                 cluster_members = [block_idx]

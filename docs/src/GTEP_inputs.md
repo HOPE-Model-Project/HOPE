@@ -23,20 +23,20 @@ This is the input dataset for existing generators.
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Flag_RET | 1 if the generator is eligible for retirement, and 0 otherwise|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator |
-|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Flag_RET|1 if the generator is eligible for retirement, and 0 otherwise|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator|
+|AF *(optional)*|Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 
 ---
 
@@ -46,20 +46,20 @@ This is the input dataset for candidate generators (a set of all generators that
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Cost (\$/MW/yr) |Annualized investment cost for the generator in \$/MW/yr|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator|
-|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Cost (\$/MW/yr)|Annualized investment cost for the generator in \$/MW/yr|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator|
+|AF *(optional)*|Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 
 ---
 
@@ -137,19 +137,19 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |The technology type of the storage|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
-|EF |The CO2 emission factor for the storage in tons/MWh|
-|CC |The capacity credit for the storage|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the storage is belonging to|
+|Type|The technology type of the storage|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MWh)|Operating cost of the storage in \$/MWh|
+|EF|The CO2 emission factor for the storage in tons/MWh|
+|CC|The capacity credit for the storage|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -159,20 +159,20 @@ This is the input dataset for candidate energy storage units (a set of all stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |The technology type of the storage|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MW/yr) |Annualized investment cost for the storage in \$/MW/yr|
-|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
-|EF |The CO2 emission factor for the storage in tons/MWh|
-|CC |The capacity credit for the storage|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the storage is belonging to|
+|Type|The technology type of the storage|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MW/yr)|Annualized investment cost for the storage in \$/MW/yr|
+|Cost (\$/MWh)|Operating cost of the storage in \$/MWh|
+|EF|The CO2 emission factor for the storage in tons/MWh|
+|CC|The capacity credit for the storage|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -279,11 +279,11 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_state | State that trading the renewable credits from |
-|To_state | State that trading the renewable credits to |
-|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
+| **Column Name** | **Description** |
+| :------------ | :----------- |
+| From_state | State that trading the renewable credits from |
+| To_state | State that trading the renewable credits to |
+| RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless |
 
 ---
 

@@ -7,6 +7,7 @@ exclude = [
   '^https://www\.ferc\.gov/.*$',
   '^https://www\.jhu\.edu/.*$',
   '^https://www\.mdpi\.com/.*$',
+  '^https://scipopt\.org/.*$',
   '^http://127\.0\.0\.1/.*$'
 ]
 

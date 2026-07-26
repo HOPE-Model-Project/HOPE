@@ -18,8 +18,8 @@ end
 pages = OrderedDict(
     "Home Page" => [
         "Introduction" => "index.md",
-        "Installation"=>"installation.md",
-        "Run a case"=>"run_case.md",
+        "Installation" => "installation.md",
+        "Run a case" => "run_case.md",
     ],
     "Example Cases" => [
         "PJM MD100 GTEP Case" => "case_pjm_md100_gtep.md",

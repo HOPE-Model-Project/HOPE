@@ -23,21 +23,21 @@ using Clp
 using GLPK
 
 #include HOPE module scripts
-include("constants.jl");            #shared constants and configuration
-include("utils.jl");                #utility functions
-include("rep_day.jl");              #representative-day utilities
-include("aggregation.jl");          #resource aggregation settings/utilities
-include("network_utils.jl");        #network/DCOPF helper utilities
-include("read_input_data.jl");#read input data module
-include("GTEP.jl");#capacity expansion model
-include("PCM.jl");#production cost model
-include("write_output.jl");#write output module
-include("solver_config.jl");#setting solver parameters
-include("solve.jl");                #solve model function
-include("run.jl");                  #run module
-include("erec.jl");                 #EREC postprocessing module
-include("debug.jl");                #debug function
-include("run_holistic.jl");         #Holistic assessment: GTEP-PCM two stage
+include("constants.jl")            #shared constants and configuration
+include("utils.jl")                #utility functions
+include("rep_day.jl")              #representative-day utilities
+include("aggregation.jl")          #resource aggregation settings/utilities
+include("network_utils.jl")        #network/DCOPF helper utilities
+include("read_input_data.jl")#read input data module
+include("GTEP.jl")#capacity expansion model
+include("PCM.jl")#production cost model
+include("write_output.jl")#write output module
+include("solver_config.jl")#setting solver parameters
+include("solve.jl")                #solve model function
+include("run.jl")                  #run module
+include("erec.jl")                 #EREC postprocessing module
+include("debug.jl")                #debug function
+include("run_holistic.jl")         #Holistic assessment: GTEP-PCM two stage
 
 #export HOPE functions
 export aggregate_gendata_gtep

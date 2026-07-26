@@ -68,20 +68,20 @@ This is the input dataset for existing generators.
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Flag_UC | 1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|Flag_UC|1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
 |Start_up_cost (\$/MW)|Start up cost for UC generator in \$/MW|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 |FOR|Forced outrage rate, unitless|
 |RM_SPIN|Spinning reserve margin, unitless|
 |RU|Ramp up rate, unitless|
@@ -221,19 +221,19 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -340,7 +340,7 @@ Required load columns:
 Example:
 
 | Time Period | Hours | Month | Day | Bus 1 | Bus 2 | Bus 3 |
-| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| :------------ | :----------- | :----------- | :----------- | :----------- | :----------- | :----------- |
 | 1 | 1 | 7 | 1 | 0.82 | 0.79 | 0.91 |
 | 1 | 2 | 7 | 1 | 0.80 | 0.77 | 0.88 |
 
@@ -389,7 +389,7 @@ Required NI columns:
 Example:
 
 | Time Period | Hours | Month | Day | Bus 118 | Bus 182 | Bus 249 |
-| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| :------------ | :----------- | :----------- | :----------- | :----------- | :----------- | :----------- |
 | 1 | 1 | 7 | 1 | 250 | 120 | -40 |
 | 1 | 2 | 7 | 1 | 260 | 110 | -35 |
 
@@ -513,11 +513,11 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_state | State that trading the renewable credits from |
-|To_state | State that trading the renewable credits to |
-|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
+| **Column Name** | **Description** |
+| :------------ | :----------- |
+| From_state | State that trading the renewable credits from |
+| To_state | State that trading the renewable credits to |
+| RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless |
 
 ---
 

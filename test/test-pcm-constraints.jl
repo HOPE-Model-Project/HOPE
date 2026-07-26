@@ -55,7 +55,8 @@ function _build_minimal_input(; gendata, storagedata)
     )
     wind_df = DataFrame(:Z1 => fill(0.0, n_hours))
     solar_df = DataFrame(:Z1 => fill(0.0, n_hours))
-    zone_df = DataFrame(:Zone_id => ["Z1"], :State => ["S1"], Symbol("Demand (MW)") => [100.0])
+    zone_df =
+        DataFrame(:Zone_id => ["Z1"], :State => ["S1"], Symbol("Demand (MW)") => [100.0])
     line_df = DataFrame(
         :From_zone => String[],
         :To_zone => String[],
@@ -112,6 +113,15 @@ function _minimal_config(; unit_commitment = 0, operation_reserve_mode = 0)
     )
 end
 
+function _minimal_optimizer()
+    mktempdir() do case_path
+        settings_path = joinpath(case_path, "Settings")
+        mkpath(settings_path)
+        write(joinpath(settings_path, "clp_settings.yml"), "{}\n")
+        return HOPE.initiate_solver(case_path, "clp")
+    end
+end
+
 # ---------------------------------------------------------------------------
 # Test 1: UC minimum-run equality
 #
@@ -129,7 +139,7 @@ end
     input_data = _build_minimal_input(gendata = gendata, storagedata = storagedata)
     config = _minimal_config(unit_commitment = 2)  # LP relaxation for deterministic solve
 
-    optimizer = HOPE.initiate_solver(config)
+    optimizer = _minimal_optimizer()
     model = HOPE.create_PCM_model(config, input_data, optimizer)
     @test model isa JuMP.Model
 
@@ -141,7 +151,7 @@ end
     g_uc = findall(x -> x in [1], gendata[:, "Flag_UC"])
     n_hours = size(input_data["Loaddata"], 1)
 
-    for g in g_uc, h in 1:n_hours
+    for g in g_uc, h = 1:n_hours
         expected = (1 - gendata[g, :FOR]) * gendata[g, Symbol("Pmin (MW)")] * o_val[g, h]
         @test pmin_val[g, h] ≈ expected atol = 1e-6
     end
@@ -177,7 +187,7 @@ end
     input_data["Singlepar"][!, :reg_dn_requirement] .= 0.0
 
     config = _minimal_config(operation_reserve_mode = 1)
-    optimizer = HOPE.initiate_solver(config)
+    optimizer = _minimal_optimizer()
     model = HOPE.create_PCM_model(config, input_data, optimizer)
     @test model isa JuMP.Model
 
@@ -188,7 +198,7 @@ end
     r_dn_val = value.(model[:r_S_REG_DN])
     n_hours = size(input_data["Loaddata"], 1)
 
-    for s in 1:nrow(storagedata), h in 1:n_hours
+    for s = 1:nrow(storagedata), h = 1:n_hours
         # Downward reserve must not exceed charging headroom
         @test r_dn_val[s, h] * 1.0 <= secap - soc_val[s, h] + 1e-6
         # Upward reserve constraints still use soc (not tested here exhaustively,

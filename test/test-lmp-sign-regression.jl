@@ -201,6 +201,10 @@ end
             rtol = 1.0e-6,
         )
         @test isapprox(germany_report.exported_lmp, germany_report.raw_dual; atol = 1.0e-6)
-        @test isapprox(germany_report.exported_lmp, -germany_report.raw_shadow; atol = 1.0e-6)
+        @test isapprox(
+            germany_report.exported_lmp,
+            -germany_report.raw_shadow;
+            atol = 1.0e-6,
+        )
     end
 end

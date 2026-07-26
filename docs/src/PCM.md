@@ -264,6 +264,7 @@ This equality (rather than inequality) ensures that committed units always face 
 ```math
 dc_{s,h} + ReserveUp_{S,s,h} \le SD_s\,SCAP_s
 ```
+
 ```math
 c_{s,h} + ReserveDn_{S,s,h} \le SC_s\,SCAP_s
 ```
@@ -285,9 +286,11 @@ soc_{s,h} = soc_{s,h-1} + \eta^{ch}_s c_{s,h} - dc_{s,h}/\eta^{dis}_s
   ```math
   r^{REG\uparrow}_{S,s,h}\cdot\Delta^{REG} \le soc_{s,h}
   ```
+
   ```math
   r^{SPIN}_{S,s,h}\cdot\Delta^{SPIN} \le soc_{s,h}
   ```
+
   ```math
   r^{NSPIN}_{S,s,h}\cdot\Delta^{NSPIN} \le soc_{s,h}
   ```

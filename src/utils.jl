@@ -52,7 +52,7 @@ if !@isdefined(validate_case_directory)
         try
             return reader_func(filepath)
         catch e
-            @error "Error reading file: $filepath" exception=(e, catch_backtrace())
+            @error "Error reading file: $filepath" exception = (e, catch_backtrace())
             rethrow()
         end
     end
@@ -68,10 +68,8 @@ if !@isdefined(validate_case_directory)
                 mkpath(outpath)
                 @info "Created output directory: $outpath"
             catch e
-                @error "Failed to create output directory: $outpath" exception=(
-                    e,
-                    catch_backtrace(),
-                )
+                @error "Failed to create output directory: $outpath" exception =
+                    (e, catch_backtrace())
                 rethrow()
             end
         end

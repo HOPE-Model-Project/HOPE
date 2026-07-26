@@ -514,10 +514,8 @@ function apply_line_builds!(linedata::DataFrame, line_builds::DataFrame)
     for row in eachrow(line_builds)
         from_zone = string(row[:From_zone])
         to_zone = string(row[:To_zone])
-        build_forward =
-            to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0)
-        build_reverse =
-            to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0)
+        build_forward = to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0)
+        build_reverse = to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0)
         reverse_orientation = false
         matches = findall(
             i ->
@@ -542,15 +540,11 @@ function apply_line_builds!(linedata::DataFrame, line_builds::DataFrame)
         forward_add = reverse_orientation ? build_reverse : build_forward
         reverse_add = reverse_orientation ? build_forward : build_reverse
         linedata[target, Symbol(FORWARD_LINE_CAPACITY_COLUMN)] =
-            to_float_output(
-                linedata[target, Symbol(FORWARD_LINE_CAPACITY_COLUMN)],
-                0.0,
-            ) + forward_add
+            to_float_output(linedata[target, Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0) +
+            forward_add
         linedata[target, Symbol(REVERSE_LINE_CAPACITY_COLUMN)] =
-            to_float_output(
-                linedata[target, Symbol(REVERSE_LINE_CAPACITY_COLUMN)],
-                0.0,
-            ) + reverse_add
+            to_float_output(linedata[target, Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0) +
+            reverse_add
     end
     return linedata
 end
@@ -1061,14 +1055,8 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
                 row ->
                     to_float_output(row["New_Build"], 0.0) > 0 &&
                     max(
-                        to_float_output(
-                            row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)],
-                            0.0,
-                        ),
-                        to_float_output(
-                            row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)],
-                            0.0,
-                        ),
+                        to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0),
+                        to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0),
                     ) > 0,
                 gtep_output["line"],
             ),

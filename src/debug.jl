@@ -3,11 +3,11 @@ function debug(outpath::AbstractString, config_set::Dict, model::Model)
 
 
     ##Debugging
-    if config_set["debug"]==0
+    if config_set["debug"] == 0
         println(
             "Debugging method is not set, please set debug = 1 or 2 in HOPE_model_settings.yml",
         )
-    elseif config_set["debug"]==1
+    elseif config_set["debug"] == 1
         println("Start to debug infeasibility for model in $model_mode mode")
         println("Debugging with 'Conflicts' method")
         optimize!(model)
@@ -19,7 +19,7 @@ function debug(outpath::AbstractString, config_set::Dict, model::Model)
             end
         end
 
-    elseif config_set["debug"]==2
+    elseif config_set["debug"] == 2
         println("Start to debug infeasibility for model in $model_mode mode")
         println("Debugging with 'Penalty' method")
         map = relax_with_penalty!(model)
@@ -34,7 +34,7 @@ function debug(outpath::AbstractString, config_set::Dict, model::Model)
             end
         end
 
-    elseif config_set["debug"]!=0
+    elseif config_set["debug"] != 0
         println(
             "Wrong debug method, please set debug =0, 1 or 2 in HOPE_model_settings.yml",
         )

@@ -38,6 +38,8 @@ check_docs.jl
 /.pre-commit-cache/
 /.pre-commit-cache-local/
 /.pcache*/
+/.tmp/
+/HOPE/
 /.tmp_cost_sources/
 
 # Generated preprocessing outputs and local analysis artifacts

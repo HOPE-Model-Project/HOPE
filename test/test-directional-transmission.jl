@@ -27,10 +27,8 @@ using DataFrames
         Symbol("Forward Capacity (MW)") => Float64[],
         Symbol("Reverse Capacity (MW)") => Float64[],
     )
-    forward, reverse = HOPE.parse_directional_line_limits(
-        empty_candidates;
-        context = "linedata_candidate",
-    )
+    forward, reverse =
+        HOPE.parse_directional_line_limits(empty_candidates; context = "linedata_candidate")
     @test isempty(forward)
     @test isempty(reverse)
 

@@ -330,14 +330,10 @@ const EREC_PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
                     fixed_lines = res["fixed_fleet_input"]["Linedata"]
                     @test nrow(fixed_lines) == 2
                     @test sum(
-                        HOPE.to_float_erec.(
-                            fixed_lines[:, "Forward Capacity (MW)"],
-                        ),
+                        HOPE.to_float_erec.(fixed_lines[:, "Forward Capacity (MW)"]),
                     ) > 75.0
                     @test any(
-                        HOPE.to_float_erec.(
-                            fixed_lines[:, "Forward Capacity (MW)"],
-                        ) .< 1.0,
+                        HOPE.to_float_erec.(fixed_lines[:, "Forward Capacity (MW)"]) .< 1.0,
                     )
                     @test Set(string.(fixed_lines[:, "From_zone"])) == Set(["PEPCO"])
                     @test Set(string.(fixed_lines[:, "To_zone"])) == Set(["APS_MD"])

@@ -130,19 +130,19 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
     solver_time = time() - solver_start_time
 
     ##read input for print
-    W=unique(input_data["Zonedata"][:, "State"])#Set of states, index w/w’
-    H=[h for h = 1:size(input_data["Loaddata"], 1)]
+    W = unique(input_data["Zonedata"][:, "State"])#Set of states, index w/w’
+    H = [h for h = 1:size(input_data["Loaddata"], 1)]
     PT_rps = 10^9
     RPSdata = input_data["RPSdata"]
-    RPS=Dict(zip(RPSdata[:, :From_state], RPSdata[:, :RPS]))
+    RPS = Dict(zip(RPSdata[:, :From_state], RPSdata[:, :RPS]))
     if model_mode == "GTEP"
         Estoragedata_candidate = input_data["Estoragedata_candidate"]
         Linedata_candidate = input_data["Linedata_candidate"]
         Gendata_candidate = input_data["Gendata_candidate"]
         #Printing results for debugging purpose-------------------------
-        print("\n\n", "Model mode: GTEP", "\n\n");
-        print("Termination_status= ", term_status, "\n\n");
-        print("Primal_status= ", pr_status, "\n\n");
+        print("\n\n", "Model mode: GTEP", "\n\n")
+        print("Termination_status= ", term_status, "\n\n")
+        print("Primal_status= ", pr_status, "\n\n")
         if !has_primal_solution
             print(
                 "No primal solution available. Skipping objective and variable value prints.\n\n",
@@ -150,30 +150,29 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
             print("Solving time: ", solver_time)
             return model
         end
-        print("\n\n", "Objective_value= ", objective_value(model), "\n\n");
-        print("Investment_cost= ", value.(model[:INVCost]), "\n\n");
-        print("Operation_cost= ", value.(model[:OPCost]), "\n\n");
-        print("Load_shedding= ", value.(model[:LoadShedding]), "\n\n");
-        print("RPS_requirement ", RPS, "\n\n");
-        print("RPSPenalty= ", value.(model[:RPSPenalty]), "\n\n");
+        print("\n\n", "Objective_value= ", objective_value(model), "\n\n")
+        print("Investment_cost= ", value.(model[:INVCost]), "\n\n")
+        print("Operation_cost= ", value.(model[:OPCost]), "\n\n")
+        print("Load_shedding= ", value.(model[:LoadShedding]), "\n\n")
+        print("RPS_requirement ", RPS, "\n\n")
+        print("RPSPenalty= ", value.(model[:RPSPenalty]), "\n\n")
         print(
             "RPS:state:Pen",
-            [(w, sum(PT_rps*value.(model[:pt_rps][w]))) for w in W],
+            [(w, sum(PT_rps * value.(model[:pt_rps][w]))) for w in W],
             "\n\n",
-        );
-        print("CarbonCapPenalty= ", value.(model[:CarbonCapPenalty]), "\n\n");
+        )
+        print("CarbonCapPenalty= ", value.(model[:CarbonCapPenalty]), "\n\n")
         print(
             "CarbonCapEmissions= ",
             [(w, value.(model[:CarbonEmission][w])) for w in W],
             "\n\n",
-        );
+        )
 
         y_val = [Float64(value(model[:y][l])) for l in axes(model[:y], 1)]
         x_val = [Float64(value(model[:x][g])) for g in axes(model[:x], 1)]
         z_val = [Float64(value(model[:z][s])) for s in axes(model[:z], 1)]
-        print("Selected_lines= ", y_val, "\n\n");
-        for capacity_col in
-            [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
+        print("Selected_lines= ", y_val, "\n\n")
+        for capacity_col in [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
             Linedata_candidate[!, capacity_col] =
                 Float64.(Linedata_candidate[:, capacity_col]) .* y_val
         end
@@ -181,16 +180,16 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
             "Selected_lines_table",
             Linedata_candidate[[i for (i, v) in enumerate(y_val) if v > 0], :],
             "\n\n",
-        );
-        print("Selected_units= ", x_val, "\n\n");
+        )
+        print("Selected_units= ", x_val, "\n\n")
         Gendata_candidate[!, "Pmax (MW)"] =
             Float64.(Gendata_candidate[:, "Pmax (MW)"]) .* x_val
         print(
             "Selected_units_table",
             Gendata_candidate[[i for (i, v) in enumerate(x_val) if v > 0], :],
             "\n\n",
-        );
-        print("Selected_storage= ", z_val, "\n\n");
+        )
+        print("Selected_storage= ", z_val, "\n\n")
         Estoragedata_candidate[!, "Capacity (MWh)"] =
             Float64.(Estoragedata_candidate[:, "Capacity (MWh)"]) .* z_val
         Estoragedata_candidate[!, "Max Power (MW)"] =
@@ -204,9 +203,9 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
         print("Solving time: ", solver_time)
     elseif model_mode == "PCM"
         #Printing results for debugging purpose-------------------------
-        print("\n\n", "Model mode: PCM", "\n\n");
-        print("Termination_status= ", term_status, "\n\n");
-        print("Primal_status= ", pr_status, "\n\n");
+        print("\n\n", "Model mode: PCM", "\n\n")
+        print("Termination_status= ", term_status, "\n\n")
+        print("Primal_status= ", pr_status, "\n\n")
         if !has_primal_solution
             print(
                 "No primal solution available. Skipping objective and variable value prints.\n\n",
@@ -214,21 +213,21 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
             print("Solving time: ", solver_time)
             return model
         end
-        print("\n\n", "Objective_value= ", objective_value(model), "\n\n");
+        print("\n\n", "Objective_value= ", objective_value(model), "\n\n")
         #print("Investment_cost= ",value.(INVCost),"\n\n");
-        if config_set["unit_commitment"]!=0
-            print("Startup_cost= ", value.(model[:STCost]), "\n\n");
+        if config_set["unit_commitment"] != 0
+            print("Startup_cost= ", value.(model[:STCost]), "\n\n")
         end
-        print("Operation_cost= ", value.(model[:OPCost]), "\n\n");
-        print("Load_shedding= ", value.(model[:LoadShedding]), "\n\n");
-        print("RPS_requirement ", RPS, "\n\n");
-        print("RPSPenalty= ", value.(model[:RPSPenalty]), "\n\n");
-        print("CarbonCapPenalty= ", value.(model[:CarbonCapPenalty]), "\n\n");
+        print("Operation_cost= ", value.(model[:OPCost]), "\n\n")
+        print("Load_shedding= ", value.(model[:LoadShedding]), "\n\n")
+        print("RPS_requirement ", RPS, "\n\n")
+        print("RPSPenalty= ", value.(model[:RPSPenalty]), "\n\n")
+        print("CarbonCapPenalty= ", value.(model[:CarbonCapPenalty]), "\n\n")
         print(
             "CarbonCapEmissions= ",
             [(w, value.(model[:CarbonEmission][w])) for w in W],
             "\n\n",
-        );
+        )
         print("Solving time: ", solver_time)
     end
     return model

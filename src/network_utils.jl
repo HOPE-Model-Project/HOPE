@@ -28,10 +28,7 @@ candidate-line tables. Symmetric lines repeat the same rating in both columns.
 The former transmission column `Capacity (MW)` is intentionally rejected so a
 case cannot silently mix the old symmetric schema with directional limits.
 """
-function parse_directional_line_limits(
-    df::DataFrame;
-    context::AbstractString = "linedata",
-)
+function parse_directional_line_limits(df::DataFrame; context::AbstractString = "linedata")
     cols = Set(string.(names(df)))
     required = [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
     missing_cols = [col for col in required if !(col in cols)]
@@ -58,25 +55,22 @@ function parse_directional_line_limits(
     end
 
     parse_rating(raw, column, row) = begin
-        if raw === missing ||
-           raw === nothing ||
-           (raw isa AbstractString && isempty(strip(raw)))
+        if raw === missing || raw === nothing || (raw isa AbstractString && isempty(strip(raw)))
             throw(
                 ArgumentError(
                     "$(context) has a blank $(column) value at row $(row). Directional transmission ratings must be finite and non-negative.",
                 ),
             )
         end
-        value =
-            try
-                raw isa Number ? Float64(raw) : parse(Float64, strip(string(raw)))
-            catch
-                throw(
-                    ArgumentError(
-                        "$(context) has a nonnumeric $(column) value '$(raw)' at row $(row).",
-                    ),
-                )
-            end
+        value = try
+            raw isa Number ? Float64(raw) : parse(Float64, strip(string(raw)))
+        catch
+            throw(
+                ArgumentError(
+                    "$(context) has a nonnumeric $(column) value '$(raw)' at row $(row).",
+                ),
+            )
+        end
         if !isfinite(value) || value < 0.0
             throw(
                 ArgumentError(
@@ -88,12 +82,18 @@ function parse_directional_line_limits(
     end
 
     forward = Float64[
-        parse_rating(df[row, FORWARD_LINE_CAPACITY_COLUMN], FORWARD_LINE_CAPACITY_COLUMN, row)
-        for row = 1:nrow(df)
+        parse_rating(
+            df[row, FORWARD_LINE_CAPACITY_COLUMN],
+            FORWARD_LINE_CAPACITY_COLUMN,
+            row,
+        ) for row = 1:nrow(df)
     ]
     reverse = Float64[
-        parse_rating(df[row, REVERSE_LINE_CAPACITY_COLUMN], REVERSE_LINE_CAPACITY_COLUMN, row)
-        for row = 1:nrow(df)
+        parse_rating(
+            df[row, REVERSE_LINE_CAPACITY_COLUMN],
+            REVERSE_LINE_CAPACITY_COLUMN,
+            row,
+        ) for row = 1:nrow(df)
     ]
     return forward, reverse
 end

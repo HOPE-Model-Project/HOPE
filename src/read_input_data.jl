@@ -686,32 +686,32 @@ function load_data(config_set::Dict, path::AbstractString)
 
             #network
             println("Reading network")
-            input_data["Zonedata"]=DataFrame(XLSX.readtable(xlsx_path, "zonedata"))
-            input_data["Linedata"]=DataFrame(XLSX.readtable(xlsx_path, "linedata"))
+            input_data["Zonedata"] = DataFrame(XLSX.readtable(xlsx_path, "zonedata"))
+            input_data["Linedata"] = DataFrame(XLSX.readtable(xlsx_path, "linedata"))
             #technology
             println("Reading technology")
             gendata_raw = DataFrame(XLSX.readtable(xlsx_path, "gendata"))
             if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
-                input_data["Gendata"]=gendata_raw
+                input_data["Gendata"] = gendata_raw
             end
 
-            input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path, "storagedata"))
+            input_data["Storagedata"] = DataFrame(XLSX.readtable(xlsx_path, "storagedata"))
             if flexible_demand == 1
                 try
-                    input_data["DRdata"]=DataFrame(XLSX.readtable(xlsx_path, "flexddata"))
+                    input_data["DRdata"] = DataFrame(XLSX.readtable(xlsx_path, "flexddata"))
                 catch
                     try
                         # Backward compatibility for older DR workbook templates
-                        input_data["DRdata"]=DataFrame(
+                        input_data["DRdata"] = DataFrame(
                             XLSX.readtable(
                                 joinpath(folderpath, "flexddata.xlsx"),
                                 "flexddata",
                             ),
                         )
                     catch
-                        input_data["DRdata"]=DataFrame(
+                        input_data["DRdata"] = DataFrame(
                             XLSX.readtable(
                                 joinpath(folderpath, "flexddata.xlsx"),
                                 "storagedata",
@@ -722,20 +722,18 @@ function load_data(config_set::Dict, path::AbstractString)
             end
             #time series
             println("Reading time series")
-            input_data["Loaddata"]=DataFrame(
-                XLSX.readtable(xlsx_path, "load_timeseries_regional"),
-            )
+            input_data["Loaddata"] =
+                DataFrame(XLSX.readtable(xlsx_path, "load_timeseries_regional"))
             normalize_timeseries_time_columns!(
                 input_data["Loaddata"];
                 context = "load_timeseries_regional",
             )
-            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ?
-                                 input_data["Loaddata"][:, "NI"] :
-                                 zeros(nrow(input_data["Loaddata"]))
+            input_data["NIdata"] =
+                ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] :
+                zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
-                input_data["DRtsdata"]=DataFrame(
-                    XLSX.readtable(xlsx_path, "dr_timeseries_regional"),
-                )
+                input_data["DRtsdata"] =
+                    DataFrame(XLSX.readtable(xlsx_path, "dr_timeseries_regional"))
                 normalize_timeseries_time_columns!(
                     input_data["DRtsdata"];
                     context = "dr_timeseries_regional",
@@ -748,23 +746,21 @@ function load_data(config_set::Dict, path::AbstractString)
             end
             #candidate
             println("Reading resource candidate")
-            input_data["Estoragedata_candidate"]=DataFrame(
-                XLSX.readtable(xlsx_path, "Estoragedata_candidate"),
-            )
-            input_data["Linedata_candidate"]=DataFrame(
-                XLSX.readtable(xlsx_path, "linedata_candidate"),
-            )
-            input_data["Gendata_candidate"]=DataFrame(
-                XLSX.readtable(xlsx_path, "gendata_candidate"),
-            )
+            input_data["Estoragedata_candidate"] =
+                DataFrame(XLSX.readtable(xlsx_path, "Estoragedata_candidate"))
+            input_data["Linedata_candidate"] =
+                DataFrame(XLSX.readtable(xlsx_path, "linedata_candidate"))
+            input_data["Gendata_candidate"] =
+                DataFrame(XLSX.readtable(xlsx_path, "gendata_candidate"))
             #policies
             println("Reading polices")
-            input_data["CBPdata"]=DataFrame(XLSX.readtable(xlsx_path, "carbonpolicies"))
+            input_data["CBPdata"] = DataFrame(XLSX.readtable(xlsx_path, "carbonpolicies"))
             #rpspolicydata
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(xlsx_path, "rpspolicies"))
+            input_data["RPSdata"] = DataFrame(XLSX.readtable(xlsx_path, "rpspolicies"))
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path, "single_parameter"))
+            input_data["Singlepar"] =
+                DataFrame(XLSX.readtable(xlsx_path, "single_parameter"))
             sheets = XLSX.sheetnames(XLSX.readxlsx(xlsx_path))
             if "gen_availability_timeseries" in sheets
                 input_data["AFdata"] =
@@ -817,45 +813,39 @@ function load_data(config_set::Dict, path::AbstractString)
             #network
             #Zonedata=CSV.read("Data/zonedata.csv",DataFrame)
             println("Reading network")
-            input_data["Zonedata"]=CSV.read(joinpath(folderpath, "zonedata.csv"), DataFrame) #110% Peak
-            input_data["Linedata"]=CSV.read(joinpath(folderpath, "linedata.csv"), DataFrame)
+            input_data["Zonedata"] =
+                CSV.read(joinpath(folderpath, "zonedata.csv"), DataFrame) #110% Peak
+            input_data["Linedata"] =
+                CSV.read(joinpath(folderpath, "linedata.csv"), DataFrame)
             #technology
             println("Reading technology")
             gendata_raw = CSV.read(joinpath(folderpath, "gendata.csv"), DataFrame)
             if resource_aggregation_enabled(config_set)
                 input_data["Gendata"] = aggregate_gendata_gtep(gendata_raw, config_set)
             else
-                input_data["Gendata"]=gendata_raw
+                input_data["Gendata"] = gendata_raw
             end
 
-            input_data["Storagedata"]=CSV.read(
-                joinpath(folderpath, "storagedata.csv"),
-                DataFrame,
-            )
+            input_data["Storagedata"] =
+                CSV.read(joinpath(folderpath, "storagedata.csv"), DataFrame)
             if flexible_demand == 1
-                input_data["DRdata"]=CSV.read(
-                    joinpath(folderpath, "flexddata.csv"),
-                    DataFrame,
-                )
+                input_data["DRdata"] =
+                    CSV.read(joinpath(folderpath, "flexddata.csv"), DataFrame)
             end
             #time series
             println("Reading time series")
-            input_data["Loaddata"]=CSV.read(
-                joinpath(folderpath, "load_timeseries_regional.csv"),
-                DataFrame,
-            )
+            input_data["Loaddata"] =
+                CSV.read(joinpath(folderpath, "load_timeseries_regional.csv"), DataFrame)
             normalize_timeseries_time_columns!(
                 input_data["Loaddata"];
                 context = "load_timeseries_regional",
             )
-            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ?
-                                 input_data["Loaddata"][:, "NI"] :
-                                 zeros(nrow(input_data["Loaddata"]))
+            input_data["NIdata"] =
+                ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] :
+                zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
-                input_data["DRtsdata"]=CSV.read(
-                    joinpath(folderpath, "dr_timeseries_regional.csv"),
-                    DataFrame,
-                )
+                input_data["DRtsdata"] =
+                    CSV.read(joinpath(folderpath, "dr_timeseries_regional.csv"), DataFrame)
                 normalize_timeseries_time_columns!(
                     input_data["DRtsdata"];
                     context = "dr_timeseries_regional",
@@ -868,35 +858,23 @@ function load_data(config_set::Dict, path::AbstractString)
             end
             #candidate
             println("Reading resource candidate")
-            input_data["Estoragedata_candidate"]=CSV.read(
-                joinpath(folderpath, "storagedata_candidate.csv"),
-                DataFrame,
-            )
-            input_data["Linedata_candidate"]=CSV.read(
-                joinpath(folderpath, "linedata_candidate.csv"),
-                DataFrame,
-            )
-            input_data["Gendata_candidate"]=CSV.read(
-                joinpath(folderpath, "gendata_candidate.csv"),
-                DataFrame,
-            )
+            input_data["Estoragedata_candidate"] =
+                CSV.read(joinpath(folderpath, "storagedata_candidate.csv"), DataFrame)
+            input_data["Linedata_candidate"] =
+                CSV.read(joinpath(folderpath, "linedata_candidate.csv"), DataFrame)
+            input_data["Gendata_candidate"] =
+                CSV.read(joinpath(folderpath, "gendata_candidate.csv"), DataFrame)
             #policies
             println("Reading polices")
-            input_data["CBPdata"]=CSV.read(
-                joinpath(folderpath, "carbonpolicies.csv"),
-                DataFrame,
-            )
+            input_data["CBPdata"] =
+                CSV.read(joinpath(folderpath, "carbonpolicies.csv"), DataFrame)
             #rpspolicydata=
-            input_data["RPSdata"]=CSV.read(
-                joinpath(folderpath, "rpspolicies.csv"),
-                DataFrame,
-            )
+            input_data["RPSdata"] =
+                CSV.read(joinpath(folderpath, "rpspolicies.csv"), DataFrame)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=CSV.read(
-                joinpath(folderpath, "single_parameter.csv"),
-                DataFrame,
-            )
+            input_data["Singlepar"] =
+                CSV.read(joinpath(folderpath, "single_parameter.csv"), DataFrame)
             af_csv = joinpath(folderpath, "gen_availability_timeseries.csv")
             if isfile(af_csv)
                 input_data["AFdata"] = CSV.read(af_csv, DataFrame)
@@ -958,8 +936,8 @@ function load_data(config_set::Dict, path::AbstractString)
 
             #network
             println("Reading network")
-            input_data["Zonedata"]=DataFrame(XLSX.readtable(xlsx_path, "zonedata"))
-            input_data["Linedata"]=DataFrame(XLSX.readtable(xlsx_path, "linedata"))
+            input_data["Zonedata"] = DataFrame(XLSX.readtable(xlsx_path, "zonedata"))
+            input_data["Linedata"] = DataFrame(XLSX.readtable(xlsx_path, "linedata"))
             try
                 input_data["Busdata"] = DataFrame(XLSX.readtable(xlsx_path, "busdata"))
                 println("Reading optional busdata")
@@ -998,25 +976,22 @@ function load_data(config_set::Dict, path::AbstractString)
                     config_set = config_set,
                 )
             else
-                input_data["Gendata"]=gendata_raw
+                input_data["Gendata"] = gendata_raw
             end
 
-            input_data["Storagedata"]=DataFrame(XLSX.readtable(xlsx_path, "storagedata"))
+            input_data["Storagedata"] = DataFrame(XLSX.readtable(xlsx_path, "storagedata"))
             if flexible_demand == 1
-                input_data["DRdata"]=DataFrame(XLSX.readtable(xlsx_path, "flexddata"))
+                input_data["DRdata"] = DataFrame(XLSX.readtable(xlsx_path, "flexddata"))
             end
 
             #time series
             println("Reading time series")
-            input_data["Winddata"]=DataFrame(
-                XLSX.readtable(xlsx_path, "wind_timeseries_regional"),
-            )
-            input_data["Solardata"]=DataFrame(
-                XLSX.readtable(xlsx_path, "solar_timeseries_regional"),
-            )
-            input_data["Loaddata"]=DataFrame(
-                XLSX.readtable(xlsx_path, "load_timeseries_regional"),
-            )
+            input_data["Winddata"] =
+                DataFrame(XLSX.readtable(xlsx_path, "wind_timeseries_regional"))
+            input_data["Solardata"] =
+                DataFrame(XLSX.readtable(xlsx_path, "solar_timeseries_regional"))
+            input_data["Loaddata"] =
+                DataFrame(XLSX.readtable(xlsx_path, "load_timeseries_regional"))
             normalize_timeseries_time_columns!(
                 input_data["Loaddata"];
                 context = "load_timeseries_regional",
@@ -1119,13 +1094,12 @@ function load_data(config_set::Dict, path::AbstractString)
             catch
                 # Optional sheet: gen_availability_timeseries
             end
-            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ?
-                                 input_data["Loaddata"][:, "NI"] :
-                                 zeros(nrow(input_data["Loaddata"]))
+            input_data["NIdata"] =
+                ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] :
+                zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
-                input_data["DRtsdata"]=DataFrame(
-                    XLSX.readtable(xlsx_path, "dr_timeseries_regional"),
-                )
+                input_data["DRtsdata"] =
+                    DataFrame(XLSX.readtable(xlsx_path, "dr_timeseries_regional"))
                 normalize_timeseries_time_columns!(
                     input_data["DRtsdata"];
                     context = "dr_timeseries_regional",
@@ -1138,12 +1112,13 @@ function load_data(config_set::Dict, path::AbstractString)
             end
             #policies
             println("Reading polices")
-            input_data["CBPdata"]=DataFrame(XLSX.readtable(xlsx_path, "carbonpolicies"))
+            input_data["CBPdata"] = DataFrame(XLSX.readtable(xlsx_path, "carbonpolicies"))
             #rpspolicydata=
-            input_data["RPSdata"]=DataFrame(XLSX.readtable(xlsx_path, "rpspolicies"))
+            input_data["RPSdata"] = DataFrame(XLSX.readtable(xlsx_path, "rpspolicies"))
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=DataFrame(XLSX.readtable(xlsx_path, "single_parameter"))
+            input_data["Singlepar"] =
+                DataFrame(XLSX.readtable(xlsx_path, "single_parameter"))
             sheets = XLSX.sheetnames(XLSX.readxlsx(xlsx_path))
             if "rep_period_weights" in sheets
                 input_data["RepWeightData"] =
@@ -1158,8 +1133,10 @@ function load_data(config_set::Dict, path::AbstractString)
             )
 
             println("Reading network")
-            input_data["Zonedata"]=CSV.read(joinpath(folderpath, "zonedata.csv"), DataFrame)
-            input_data["Linedata"]=CSV.read(joinpath(folderpath, "linedata.csv"), DataFrame)
+            input_data["Zonedata"] =
+                CSV.read(joinpath(folderpath, "zonedata.csv"), DataFrame)
+            input_data["Linedata"] =
+                CSV.read(joinpath(folderpath, "linedata.csv"), DataFrame)
             bus_csv_path = joinpath(folderpath, "busdata.csv")
             if isfile(bus_csv_path)
                 input_data["Busdata"] = CSV.read(bus_csv_path, DataFrame)
@@ -1192,34 +1169,24 @@ function load_data(config_set::Dict, path::AbstractString)
                     config_set = config_set,
                 )
             else
-                input_data["Gendata"]=gendata_raw
+                input_data["Gendata"] = gendata_raw
             end
 
-            input_data["Storagedata"]=CSV.read(
-                joinpath(folderpath, "storagedata.csv"),
-                DataFrame,
-            )
+            input_data["Storagedata"] =
+                CSV.read(joinpath(folderpath, "storagedata.csv"), DataFrame)
             if flexible_demand == 1
-                input_data["DRdata"]=CSV.read(
-                    joinpath(folderpath, "flexddata.csv"),
-                    DataFrame,
-                )
+                input_data["DRdata"] =
+                    CSV.read(joinpath(folderpath, "flexddata.csv"), DataFrame)
             end
 
             #time series
             println("Reading time series")
-            input_data["Winddata"]=CSV.read(
-                joinpath(folderpath, "wind_timeseries_regional.csv"),
-                DataFrame,
-            )
-            input_data["Solardata"]=CSV.read(
-                joinpath(folderpath, "solar_timeseries_regional.csv"),
-                DataFrame,
-            )
-            input_data["Loaddata"]=CSV.read(
-                joinpath(folderpath, "load_timeseries_regional.csv"),
-                DataFrame,
-            )
+            input_data["Winddata"] =
+                CSV.read(joinpath(folderpath, "wind_timeseries_regional.csv"), DataFrame)
+            input_data["Solardata"] =
+                CSV.read(joinpath(folderpath, "solar_timeseries_regional.csv"), DataFrame)
+            input_data["Loaddata"] =
+                CSV.read(joinpath(folderpath, "load_timeseries_regional.csv"), DataFrame)
             normalize_timeseries_time_columns!(
                 input_data["Loaddata"];
                 context = "load_timeseries_regional",
@@ -1314,14 +1281,12 @@ function load_data(config_set::Dict, path::AbstractString)
                 )
                 println("Reading optional gen_availability_timeseries.csv")
             end
-            input_data["NIdata"]=("NI" in names(input_data["Loaddata"])) ?
-                                 input_data["Loaddata"][:, "NI"] :
-                                 zeros(nrow(input_data["Loaddata"]))
+            input_data["NIdata"] =
+                ("NI" in names(input_data["Loaddata"])) ? input_data["Loaddata"][:, "NI"] :
+                zeros(nrow(input_data["Loaddata"]))
             if flexible_demand == 1
-                input_data["DRtsdata"]=CSV.read(
-                    joinpath(folderpath, "dr_timeseries_regional.csv"),
-                    DataFrame,
-                )
+                input_data["DRtsdata"] =
+                    CSV.read(joinpath(folderpath, "dr_timeseries_regional.csv"), DataFrame)
                 normalize_timeseries_time_columns!(
                     input_data["DRtsdata"];
                     context = "dr_timeseries_regional",
@@ -1334,21 +1299,15 @@ function load_data(config_set::Dict, path::AbstractString)
             end
             #policies
             println("Reading policies")
-            input_data["CBPdata"]=CSV.read(
-                joinpath(folderpath, "carbonpolicies.csv"),
-                DataFrame,
-            )
+            input_data["CBPdata"] =
+                CSV.read(joinpath(folderpath, "carbonpolicies.csv"), DataFrame)
             #rpspolicydata=
-            input_data["RPSdata"]=CSV.read(
-                joinpath(folderpath, "rpspolicies.csv"),
-                DataFrame,
-            )
+            input_data["RPSdata"] =
+                CSV.read(joinpath(folderpath, "rpspolicies.csv"), DataFrame)
             #penalty_cost, investment budgets, planning reserve margins etc. single parameters
             println("Reading single parameters")
-            input_data["Singlepar"]=CSV.read(
-                joinpath(folderpath, "single_parameter.csv"),
-                DataFrame,
-            )
+            input_data["Singlepar"] =
+                CSV.read(joinpath(folderpath, "single_parameter.csv"), DataFrame)
             rep_weight_csv = joinpath(folderpath, "rep_period_weights.csv")
             if isfile(rep_weight_csv)
                 input_data["RepWeightData"] = CSV.read(rep_weight_csv, DataFrame)

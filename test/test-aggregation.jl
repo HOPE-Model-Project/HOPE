@@ -142,8 +142,8 @@ using JuMP
     clustered_agg = HOPE.aggregate_gendata_gtep(clustered_raw, clustered_cfg)
     @test nrow(clustered_agg) == 2
     clustered_costs = sort(Float64.(clustered_agg[!, Symbol("Cost (\$/MWh)")]))
-    @test clustered_costs[1] ≈ 26.0 atol=0.1
-    @test clustered_costs[2] ≈ 86.0 atol=0.1
+    @test clustered_costs[1] ≈ 26.0 atol = 0.1
+    @test clustered_costs[2] ≈ 86.0 atol = 0.1
     clustered_audit = HOPE.build_gtep_aggregation_audit(
         clustered_raw,
         clustered_agg;
