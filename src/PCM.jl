@@ -342,6 +342,9 @@ function create_PCM_model(
             resolve_rep_day_mode(config_set; context = "PCM")
         input_T, input_H_t, input_H_T, has_custom_time_periods =
             build_time_period_hours(Loaddata)
+        if representative_day_mode == 0
+            validate_full_chronological_time_periods(input_T)
+        end
         if endogenous_rep_day == 1
             throw(
                 ArgumentError(

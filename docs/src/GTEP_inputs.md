@@ -156,9 +156,10 @@ This is the input dataset for the annual hourly generator-level availability pro
 
 |**Column Name** | **Description**|
 | :------------ | :-----------|
+|Time Period | Full chronological mode: `1` for all 8760 rows. External representative-day mode: representative-period ID.|
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
+|Hours | Hours of the day, ranging from 1 to 24|
 |G1 | Hourly availability factor of generator index 1 (optional if fallback is acceptable)|
 |G2 | Hourly availability factor of generator index 2 (optional if fallback is acceptable)|
 |... | Optional columns through `G(N)`, where `N = (# existing generators + # candidate generators)` and ordering is `[gendata; gendata_candidate]`|
@@ -167,7 +168,8 @@ This is the input dataset for the annual hourly generator-level availability pro
 
 Notes:
 
-- Only `Month`, `Day`, and `Period` are strictly required.
+- `Time Period`, `Month`, `Day`, and `Hours` are required.
+- Full chronological mode must use `Time Period = 1` for every row. Multiple time-period IDs are reserved for representative-day mode.
 - Missing generator columns will fallback to the generator static `AF` in `gendata/gendata_candidate` (default `1` if missing there).
 - Recommended: provide hourly profiles for all VRE/RPS-relevant generators to avoid unintended static fallback.
 
@@ -179,15 +181,20 @@ This is the input dataset for the annual hourly load profile in each zone. Each 
 
 |**Column Name** | **Description**|
 | :------------ | :-----------|
+|Time Period | Full chronological mode: `1` for all 8760 rows. External representative-day mode: representative-period ID.|
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
+|Hours | Hours of the day, ranging from 1 to 24|
 |Zone 1 | Load data in zone 1 on a specific period, day, and month|
 |Zone 2 | Load data in zone 2 on a specific period, day, and month|
 |... |...|
 |NI | Net load import on a specific period, day, and month|
 
 ---
+
+Full chronological mode must use `Time Period = 1` for every row. Multiple
+time-period IDs are reserved for representative-day mode. All aligned hourly
+timeseries files must use the same chronology columns row by row.
 
 ## flexddata
 

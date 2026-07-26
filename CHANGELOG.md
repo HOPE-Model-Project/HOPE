@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- No unreleased changes yet. -->
+### Fixed
+
+- Reject multiple `Time Period` values in full chronological mode so hourly
+  storage state-of-charge transitions cannot be silently omitted.
+- Select full-year storage boundary equations from the configured temporal
+  mode instead of inferring the mode from the input period IDs.
+- Scale candidate renewable curtailment by the candidate build decision.
 
 ## [1.1.0] - 2026-04-08
 

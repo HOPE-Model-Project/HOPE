@@ -331,6 +331,9 @@ function create_GTEP_model(
 
         input_T, input_H_t, input_H_T, has_custom_time_periods =
             build_time_period_hours(Loaddata)
+        if representative_day_mode == 0
+            validate_full_chronological_time_periods(input_T)
+        end
         if representative_day_mode == 1 && external_rep_day == 0 && has_custom_time_periods
             throw(
                 ArgumentError(
@@ -426,13 +429,11 @@ function create_GTEP_model(
         total_hours_available = nrow(Loaddata)
         H=[h for h = 1:total_hours_available]#Set of hours, index h
         if representative_day_mode == 0 && total_hours_available != 8760
-            if !has_custom_time_periods
-                throw(
-                    ArgumentError(
-                        "Full chronological mode requires 8760 rows in load_timeseries_regional unless custom Time Period mapping is provided. Found $total_hours_available rows with a single Time Period.",
-                    ),
-                )
-            end
+            throw(
+                ArgumentError(
+                    "Full chronological mode requires 8760 rows in load_timeseries_regional. Found $total_hours_available rows.",
+                ),
+            )
         end
         if representative_day_mode == 1
             if external_rep_day == 1
@@ -1154,7 +1155,7 @@ function create_GTEP_model(
         @expression(
             model,
             RenewableCurtailNew[g in intersect(G_new, G_RPS), t in T, h in H_t[t]],
-            AF_gh[g, h]*P_max[g]-p[g, h]
+            x[g]*AF_gh[g, h]*P_max[g]-p[g, h]
         )
 
         ##############
@@ -1233,7 +1234,7 @@ function create_GTEP_model(
         )
 
         # [GTEP-C5] Storage boundary conditions
-        if T == [1]
+        if representative_day_mode == 0
             # [GTEP-C5.FY] Full-year mode: cyclic SOC wrap from last modeled hour to first hour.
             last_h = H_t[1][end]
             first_h = H_t[1][1]
@@ -1571,7 +1572,7 @@ function create_GTEP_model(
         VRE_CT = @expression(
             model,
             [g in G_VRE, t in T, h in H_t[t]],
-            AF_gh[g, h]*P_max[g] - p[g, h]
+            (g in G_new ? x[g] : 1.0)*AF_gh[g, h]*P_max[g] - p[g, h]
         )
 
         #Carbon cap volitation penalty

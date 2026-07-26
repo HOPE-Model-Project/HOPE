@@ -303,6 +303,25 @@ if !@isdefined(validate_case_directory)
     end
 
     """
+        validate_full_chronological_time_periods(t_vals)
+
+    Require a single time period in full chronological mode. Representative-period
+    identifiers are only valid when representative-day mode is enabled.
+    """
+    function validate_full_chronological_time_periods(t_vals::AbstractVector{<:Integer})
+        if collect(t_vals) != [1]
+            throw(
+                ArgumentError(
+                    "Full chronological mode requires 'Time Period' = 1 for every timeseries row. " *
+                    "Found $(length(t_vals)) periods ($(first(t_vals))..$(last(t_vals))). " *
+                    "Use representative-day mode for multiple Time Period values.",
+                ),
+            )
+        end
+        return true
+    end
+
+    """
         resolve_rep_day_mode(config_set::AbstractDict; context::AbstractString = "model")
 
     Resolve representative-day settings with support for both new and legacy keys.
