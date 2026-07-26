@@ -1357,5 +1357,18 @@ function load_data(config_set::Dict, path::AbstractString)
             println("CSV Files Successfully Load From $folderpath")
         end
     end
+    if haskey(input_data, "Linedata")
+        parse_directional_line_limits(input_data["Linedata"]; context = "linedata")
+    end
+    if haskey(input_data, "Linedata_candidate")
+        parse_directional_line_limits(
+            input_data["Linedata_candidate"];
+            context = "linedata_candidate",
+        )
+    end
+    if haskey(input_data, "Branchdata")
+        parse_directional_line_limits(input_data["Branchdata"]; context = "branchdata")
+    end
+
     return input_data
 end

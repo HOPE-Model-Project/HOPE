@@ -266,7 +266,8 @@ function build_case(spec::CaseSpec, project_root::String)
         "from_bus" => f_bus,
         "to_bus" => t_bus,
         "X" => x,
-        "Capacity (MW)" => fmax,
+        "Forward Capacity (MW)" => fmax,
+        "Reverse Capacity (MW)" => fmax,
     )
     CSV.write(joinpath(data_dir, "linedata.csv"), linedata)
     CSV.write(joinpath(data_dir, "branchdata.csv"), linedata)

@@ -135,8 +135,17 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
 |X or Reactance | Line reactance (recommended for nodal modes). If omitted, current code falls back to unit values (`B_l = 1` / `X = 1`) with a warning.|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone`|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone`|
 |Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`. Shipped example files may keep this column at `0` so the default case behavior stays lossless.|
+
+Both directional capacity columns are required. For a symmetric line, repeat
+the same value in both columns. The former transmission input column
+`Capacity (MW)` is no longer accepted.
+
+See [GTEP inputs: migrating legacy transmission tables](GTEP_inputs.md#migrating-legacy-transmission-tables)
+for the repository migration utility. The same strict contract applies to PCM
+`linedata` and `branchdata`.
 
 ---
 
@@ -169,12 +178,17 @@ This dataset defines nodal transmission branches.
 Recommended columns:
 
 - `from_bus`/`to_bus` (or MATPOWER-style `F_BUS`/`T_BUS`)
-- `Capacity (MW)` (line thermal limit)
+- `Forward Capacity (MW)` (positive-flow thermal/transfer limit)
+- `Reverse Capacity (MW)` (negative-flow thermal/transfer limit magnitude)
 - `X` or `Reactance` (for DC angle/PTDF physics)
 - `Loss (%)` *(optional; supported when `network_model = 2` and `transmission_loss = 1`)*
 - `delta_theta_max` *(optional)*: per-line max angle difference (radians). If omitted/<=0, disabled.
 
 If `branchdata` is provided and `network_model` is nodal, HOPE uses it as network branch input.
+
+Positive branch flow follows `from_bus` to `to_bus`; negative flow follows the
+opposite direction. Both directional limits are required, even when they are
+equal.
 
 PTDF note:
 

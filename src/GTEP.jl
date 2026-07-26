@@ -621,7 +621,15 @@ function create_GTEP_model(
         )#w							#Carbon emission limits at state w, t
         ALW_state =
             Dict(zip(CBP_state_data[!, "State"], CBP_state_data[!, "Allowance (tons)_sum"])) #w				#Total annual carbon allowances by state
-        F_max=[Linedata[!, "Capacity (MW)"]; Linedata_candidate[!, "Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
+        F_forward_exist, F_reverse_exist =
+            parse_directional_line_limits(Linedata; context = "linedata")
+        F_forward_new, F_reverse_new = parse_directional_line_limits(
+            Linedata_candidate;
+            context = "linedata_candidate",
+        )
+        F_forward = [F_forward_exist; F_forward_new]#l #Maximum positive flow from From_zone to To_zone, MW
+        F_reverse = [F_reverse_exist; F_reverse_new]#l #Maximum negative-flow magnitude from To_zone to From_zone, MW
+        F_abs_max = max.(F_forward, F_reverse)#l #Safe upper bound for absolute-flow loss auxiliaries
         line_loss_rate =
             [parse_line_loss_rates(Linedata); parse_line_loss_rates(Linedata_candidate)]#l
         INV_g=Dict(zip(G_new, Gendata_candidate[:, Symbol("Cost (\$/MW/yr)")])) #g						#Investment cost of candidate generator g, M$
@@ -1020,7 +1028,7 @@ function create_GTEP_model(
         TLe_con = @constraint(
             model,
             [l in L_exist, t in T, h in H_t[t]],
-            -F_max[l] <= f[l, h] <= F_max[l],
+            -F_reverse[l] <= f[l, h] <= F_forward[l],
             base_name = "TLe_con"
         )
 
@@ -1028,13 +1036,13 @@ function create_GTEP_model(
         TLn_LB_con = @constraint(
             model,
             [l in L_new, t in T, h in H_t[t]],
-            -F_max[l] * y[l] <= f[l, h],
+            -F_reverse[l] * y[l] <= f[l, h],
             base_name = "TLn_LB_con"
         )
         TLn_UB_con = @constraint(
             model,
             [l in L_new, t in T, h in H_t[t]],
-            f[l, h] <= F_max[l] * y[l],
+            f[l, h] <= F_forward[l] * y[l],
             base_name = "TLn_UB_con"
         )
         if transmission_loss == 1
@@ -1053,13 +1061,13 @@ function create_GTEP_model(
             TLAbsUbExist_con = @constraint(
                 model,
                 [l in L_exist, h in H_T],
-                model[:f_abs][l, h] <= F_max[l],
+                model[:f_abs][l, h] <= F_abs_max[l],
                 base_name = "TLAbsUbExist_con"
             )
             TLAbsUbNew_con = @constraint(
                 model,
                 [l in L_new, h in H_T],
-                model[:f_abs][l, h] <= F_max[l] * y[l],
+                model[:f_abs][l, h] <= F_abs_max[l] * y[l],
                 base_name = "TLAbsUbNew_con"
             )
         end

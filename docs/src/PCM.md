@@ -89,10 +89,11 @@ When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to the zo
 loss_{l,h} = \rho_l |f_{l,h}|
 ```
 
-Corridor flow bounds:
+Positive flow follows the input row from `From_zone`/`from_bus` to
+`To_zone`/`to_bus`. Corridor flow bounds are:
 
 ```math
--F^{max}_l \le f_{l,h} \le F^{max}_l
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
 ```
 
 #### [PCM-C1.2] `network_model = 2` (nodal DCOPF, angle-based)
@@ -137,6 +138,16 @@ DC line physics:
 f_{l,h} = B_l(\theta_{from(l),h} - \theta_{to(l),h})
 ```
 
+All transport, angle-based, and PTDF network formulations apply directional
+line limits:
+
+```math
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
+```
+
+Positive flow follows the input row from `From_zone`/`from_bus` to
+`To_zone`/`to_bus`. For symmetric branches, the two ratings are equal.
+
 Reference angle and optional bounds:
 
 ```math
@@ -176,13 +187,16 @@ PTDF mode in the current HOPE release is lossless. Keep `transmission_loss = 0` 
 Line flow bounds in PTDF mode:
 
 ```math
--F^{eff}_l \le f_{l,h} \le F^{eff}_l
+-F^{reverse,eff}_l \le f_{l,h} \le F^{forward,eff}_l
 ```
 
-`F^{eff}_l` is used for PTDF mode and equals thermal limit by default; it can be tightened by angle-difference limits via:
+Each effective directional rating equals its corresponding thermal limit by
+default and can be tightened independently by an angle-difference limit:
 
 ```math
-F^{eff}_l = \min\left(F^{max}_l,\; |B_l|\Delta\theta^{max}_l\right)
+F^{d,eff}_l =
+\min\left(F^{d}_l,\; |B_l|\Delta\theta^{max}_l\right),
+\qquad d\in\{forward,reverse\}
 ```
 
 ### 2. [PCM-C2] Operating reserve

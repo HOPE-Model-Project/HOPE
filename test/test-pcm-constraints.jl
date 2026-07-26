@@ -59,7 +59,8 @@ function _build_minimal_input(; gendata, storagedata)
     line_df = DataFrame(
         :From_zone => String[],
         :To_zone => String[],
-        Symbol("Capacity (MW)") => Float64[],
+        Symbol("Forward Capacity (MW)") => Float64[],
+        Symbol("Reverse Capacity (MW)") => Float64[],
     )
     cbp_df = DataFrame(
         Symbol("Time Period") => [1],

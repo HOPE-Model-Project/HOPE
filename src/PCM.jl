@@ -973,7 +973,8 @@ function create_PCM_model(
         )#w							#Carbon emission limits at state w, t
         ALW_state =
             Dict(zip(CBP_state_data[!, "State"], CBP_state_data[!, "Allowance (tons)_sum"])) #w			#Total annual carbon allowances by state
-        F_max=[to_float(v) for v in Linedata[!, "Capacity (MW)"]]#l			#Maximum capacity of transmission corridor/line l, MW
+        F_forward, F_reverse =
+            parse_directional_line_limits(Linedata; context = "active PCM line table")
         line_loss_rate = parse_line_loss_rates(Linedata)#l
         if "X" in linedata_cols
             B_l = Dict(
@@ -1073,14 +1074,18 @@ function create_PCM_model(
             println("Line angle-difference limits are enabled via delta_theta_max.")
         end
         # PTDF mode has no theta variable; enforce angle-difference limits by tightening line flow bounds.
-        F_max_eff = copy(F_max)
+        F_forward_eff = copy(F_forward)
+        F_reverse_eff = copy(F_reverse)
         if network_model == 3
             for l in L
                 if line_angle_limit_active[l]
-                    F_max_eff[l] = min(F_max_eff[l], abs(B_l[l]) * delta_theta_max_l[l])
+                    angle_flow_limit = abs(B_l[l]) * delta_theta_max_l[l]
+                    F_forward_eff[l] = min(F_forward_eff[l], angle_flow_limit)
+                    F_reverse_eff[l] = min(F_reverse_eff[l], angle_flow_limit)
                 end
             end
         end
+        F_abs_max_eff = max.(F_forward_eff, F_reverse_eff)
         reference_bus_raw = get(config_set, "reference_bus", 1)
         reference_bus = if network_model in [2, 3]
             resolve_reference_index(reference_bus_raw, length(N_bus), Bus_idx_dict, "bus")
@@ -1780,18 +1785,20 @@ function create_PCM_model(
         end
 
         # [PCM-C1] Existing line flow limits (active for network models 1/2/3)
-        @constraint(
+        TLeLb_con = @constraint(
             model,
             [l in L_exist, h in H],
-            f[l, h] >= -F_max_eff[l],
+            f[l, h] >= -F_reverse_eff[l],
             base_name = "TLeLb_con"
         )
-        @constraint(
+        TLeUb_con = @constraint(
             model,
             [l in L_exist, h in H],
-            f[l, h] <= F_max_eff[l],
+            f[l, h] <= F_forward_eff[l],
             base_name = "TLeUb_con"
         )
+        model[:TLeLb_con] = TLeLb_con
+        model[:TLeUb_con] = TLeUb_con
         if transmission_loss == 1 && network_model in [1, 2]
             @constraint(
                 model,
@@ -1808,7 +1815,7 @@ function create_PCM_model(
             @constraint(
                 model,
                 TLAbsUb_con[l in L, h in H],
-                model[:f_abs][l, h] <= F_max_eff[l],
+                model[:f_abs][l, h] <= F_abs_max_eff[l],
                 base_name = "TLAbsUb_con"
             )
         end

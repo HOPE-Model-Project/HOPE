@@ -128,17 +128,21 @@ loss_{l,h} = \rho_l |f_{l,h}|
 
 ### 3. [GTEP-C3] Transmission limits
 
-For existing lines $l\in L^{E}$:
+Positive flow follows the input row from `From_zone` to `To_zone`. For existing
+lines $l\in L^{E}$:
 
 ```math
--F^{max}_l \le f_{l,h} \le F^{max}_l
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
 ```
 
 For candidate lines $l\in L^{+}$:
 
 ```math
--F^{max}_l\,y_l \le f_{l,h} \le F^{max}_l\,y_l
+-F^{reverse}_l\,y_l \le f_{l,h} \le F^{forward}_l\,y_l
 ```
+
+The same build decision activates both ratings. Symmetric corridors are entered
+with $F^{forward}_l=F^{reverse}_l$.
 
 ### 4. [GTEP-C4] Generator operating limits (with SPIN headroom)
 

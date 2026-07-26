@@ -43,12 +43,14 @@ function build_tiny_erec_case_tables()
     linedata = DataFrame(
         :From_zone => String[],
         :To_zone => String[],
-        Symbol("Capacity (MW)") => Float64[],
+        Symbol("Forward Capacity (MW)") => Float64[],
+        Symbol("Reverse Capacity (MW)") => Float64[],
     )
     linedata_candidate = DataFrame(
         :From_zone => ["Z1"],
         :To_zone => ["Z1"],
-        Symbol("Capacity (MW)") => [1.0],
+        Symbol("Forward Capacity (MW)") => [1.0],
+        Symbol("Reverse Capacity (MW)") => [1.0],
         Symbol("Cost (M\$)") => [1.0e6],
     )
 

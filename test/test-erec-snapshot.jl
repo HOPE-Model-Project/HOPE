@@ -46,10 +46,12 @@ function build_snapshot_test_inputs()
     storagedata_candidate[!, Symbol("Max Power (MW)")] = [5.0]
     storagedata_candidate[!, Symbol("Cost (\$/MWh)")] = [1.0]
     linedata = DataFrame(; From_zone = ["Z1"], To_zone = ["Z1"])
-    linedata[!, Symbol("Capacity (MW)")] = [1000.0]
+    linedata[!, Symbol("Forward Capacity (MW)")] = [1000.0]
+    linedata[!, Symbol("Reverse Capacity (MW)")] = [900.0]
     linedata[!, Symbol("Cost (M\$)")] = [0.0]
     linedata_candidate = DataFrame(; From_zone = String[], To_zone = String[])
-    linedata_candidate[!, Symbol("Capacity (MW)")] = Float64[]
+    linedata_candidate[!, Symbol("Forward Capacity (MW)")] = Float64[]
+    linedata_candidate[!, Symbol("Reverse Capacity (MW)")] = Float64[]
     linedata_candidate[!, Symbol("Cost (M\$)")] = Float64[]
     zonedata = DataFrame(; Zone_id = ["Z1"], State = ["S1"])
     zonedata[!, Symbol("Demand (MW)")] = [100.0]

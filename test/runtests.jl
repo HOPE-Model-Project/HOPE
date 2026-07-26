@@ -4,6 +4,7 @@ using Test
 @testset "HOPE.jl" begin
     include("test-basic-test.jl")
     include("test-time-mapping.jl")
+    include("test-directional-transmission.jl")
     include("test-aggregation.jl")
     include("test-rep-day.jl")
     include("test-erec-core.jl")

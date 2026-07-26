@@ -70,7 +70,8 @@ using DataFrames
                 :From_zone => ["APS_MD"],
                 :To_zone => ["BGE"],
                 :New_Build => [1.0],
-                Symbol("Capacity (MW)") => [25.0],
+                Symbol("Forward Capacity (MW)") => [25.0],
+                Symbol("Reverse Capacity (MW)") => [15.0],
             ),
         )
 
@@ -107,7 +108,8 @@ using DataFrames
             "Linedata" => DataFrame(
                 :From_zone => ["BGE"],
                 :To_zone => ["APS_MD"],
-                Symbol("Capacity (MW)") => [100.0],
+                Symbol("Forward Capacity (MW)") => [100.0],
+                Symbol("Reverse Capacity (MW)") => [80.0],
             ),
         )
 
@@ -142,7 +144,9 @@ using DataFrames
         )
         @test observed_storage == expected_storage
 
-        @test updated_input["Linedata"][1, Symbol("Capacity (MW)")] == 125.0
+        # The candidate row is opposite the existing row, so its directions swap.
+        @test updated_input["Linedata"][1, Symbol("Forward Capacity (MW)")] == 115.0
+        @test updated_input["Linedata"][1, Symbol("Reverse Capacity (MW)")] == 105.0
     end
 
     @testset "PCM handoff persistence" begin
@@ -168,7 +172,8 @@ using DataFrames
                 :From_zone => String[],
                 :To_zone => String[],
                 :New_Build => Float64[],
-                Symbol("Capacity (MW)") => Float64[],
+                Symbol("Forward Capacity (MW)") => Float64[],
+                Symbol("Reverse Capacity (MW)") => Float64[],
             ),
         )
 
@@ -208,7 +213,8 @@ using DataFrames
             "Linedata" => DataFrame(
                 :From_zone => ["APS_MD"],
                 :To_zone => ["BGE"],
-                Symbol("Capacity (MW)") => [100.0],
+                Symbol("Forward Capacity (MW)") => [100.0],
+                Symbol("Reverse Capacity (MW)") => [90.0],
             ),
         )
 
@@ -242,7 +248,8 @@ using DataFrames
             @test observed_raw == expected_raw
 
             persisted_linedata = CSV.read(paths["linedata"], DataFrame)
-            @test persisted_linedata[1, Symbol("Capacity (MW)")] == 100.0
+            @test persisted_linedata[1, Symbol("Forward Capacity (MW)")] == 100.0
+            @test persisted_linedata[1, Symbol("Reverse Capacity (MW)")] == 90.0
         end
     end
 

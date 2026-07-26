@@ -73,8 +73,13 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone`|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone`|
 |Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
+
+Both directional capacity columns are required. For a symmetric line, repeat
+the same value in both columns. The former transmission input column
+`Capacity (MW)` is no longer accepted.
 
 ---
 
@@ -88,10 +93,33 @@ This is the input dataset for candidate transmission lines (a set of all inter-z
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone` when the candidate is built|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone` when the candidate is built|
 |Cost (M\$) |Investment cost for the generator in million dollars (M\$)|
 |X |Reactance of the line in P.U. (optional)|
 |Loss (%) *(optional)* | Candidate line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
+
+Both directional ratings are multiplied by the same candidate-line build
+decision. A candidate row represents one physical line or aggregate corridor,
+not two separately built directional paths.
+
+---
+
+### Migrating legacy transmission tables
+
+For a legacy symmetric case, replace `Capacity (MW)` with the two required
+columns and copy the old rating into each one. Repository maintainers can
+migrate CSV inputs, saved `line.csv` outputs, and `*input*.xlsx` workbooks in
+place with:
+
+```bash
+python tools/repo_utils/migrate_directional_transmission_limits.py /path/to/cases
+```
+
+The script requires Python with `openpyxl`. It rejects partial schemas,
+nonnumeric ratings, negative ratings, and files that mix the old and new
+columns. Review and commit the resulting case-data changes before running
+HOPE.
 
 ---
 

@@ -149,7 +149,7 @@ function Build-PjmZoneMapSvg([string]$rootDir, [string]$outPath) {
             }
         }
         $edgeByPair[$k].Lines += 1
-        $edgeByPair[$k].CapMW += [double]$e.'Capacity (MW)'
+        $edgeByPair[$k].CapMW += [math]::Max([double]$e.'Forward Capacity (MW)', [double]$e.'Reverse Capacity (MW)')
     }
     $edges = @($edgeByPair.Values)
     $maxCap = ($edges | Measure-Object -Property CapMW -Maximum).Maximum
@@ -250,7 +250,7 @@ function Build-RtsZoneMapSvg([string]$rootDir, [string]$outPath) {
             }
         }
         $edgeByPair[$k].Lines += 1
-        $edgeByPair[$k].CapMW += [double]$e.'Capacity (MW)'
+        $edgeByPair[$k].CapMW += [math]::Max([double]$e.'Forward Capacity (MW)', [double]$e.'Reverse Capacity (MW)')
     }
 
     $pos = @{
@@ -475,7 +475,7 @@ function Build-RtsNodalMapSvg([string]$rootDir, [string]$outPath) {
         $lineId = $idx + 1
         $fb = [int]$e.from_bus
         $tb = [int]$e.to_bus
-        $cap = [double]$e.'Capacity (MW)'
+        $cap = [math]::Max([double]$e.'Forward Capacity (MW)', [double]$e.'Reverse Capacity (MW)')
         if (-not $busPos.ContainsKey($fb) -or -not $busPos.ContainsKey($tb)) { continue }
         $sameZone = $busPos[$fb].Zone -eq $busPos[$tb].Zone
         $a = [math]::Min($fb, $tb)

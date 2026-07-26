@@ -172,8 +172,11 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
         x_val = [Float64(value(model[:x][g])) for g in axes(model[:x], 1)]
         z_val = [Float64(value(model[:z][s])) for s in axes(model[:z], 1)]
         print("Selected_lines= ", y_val, "\n\n");
-        Linedata_candidate[!, "Capacity (MW)"] =
-            Float64.(Linedata_candidate[:, "Capacity (MW)"]) .* y_val
+        for capacity_col in
+            [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
+            Linedata_candidate[!, capacity_col] =
+                Float64.(Linedata_candidate[:, capacity_col]) .* y_val
+        end
         print(
             "Selected_lines_table",
             Linedata_candidate[[i for (i, v) in enumerate(y_val) if v > 0], :],

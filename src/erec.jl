@@ -857,12 +857,20 @@ function build_fixed_fleet_input(base_input::Dict, solved_model::Model)
                 values[col] = linedata_cand[j, col]
             end
         end
-        values["Capacity (MW)"] =
-            to_float_erec(linedata_cand[j, "Capacity (MW)"]) * build_val
+        values[FORWARD_LINE_CAPACITY_COLUMN] =
+            to_float_erec(linedata_cand[j, FORWARD_LINE_CAPACITY_COLUMN]) * build_val
+        values[REVERSE_LINE_CAPACITY_COLUMN] =
+            to_float_erec(linedata_cand[j, REVERSE_LINE_CAPACITY_COLUMN]) * build_val
         append_row_with_schema!(linedata_exist, values)
     end
-    fixed_input["Linedata"] =
-        filter(row -> to_float_erec(row["Capacity (MW)"]) > 1.0e-9, linedata_exist)
+    fixed_input["Linedata"] = filter(
+        row ->
+            max(
+                to_float_erec(row[FORWARD_LINE_CAPACITY_COLUMN]),
+                to_float_erec(row[REVERSE_LINE_CAPACITY_COLUMN]),
+            ) > 1.0e-9,
+        linedata_exist,
+    )
     fixed_input["Linedata_candidate"] = empty_df_like(base_input["Linedata_candidate"])
 
     return fixed_input

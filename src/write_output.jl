@@ -1062,15 +1062,24 @@ function _write_output_impl(
             ],
             To_zone = String[to_string_output(v) for v in Linedata_candidate[:, "To_zone"]],
             New_Build = Array{Union{Missing,Bool}}(undef, Num_Cline),
-            Capacity = Float64[
-                to_float_output(v) for v in Linedata_candidate[:, "Capacity (MW)"]
+            ForwardCapacity = Float64[
+                to_float_output(v) for
+                v in Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN]
+            ],
+            ReverseCapacity = Float64[
+                to_float_output(v) for
+                v in Linedata_candidate[:, REVERSE_LINE_CAPACITY_COLUMN]
             ],
         )
         New_built_line_idx =
             map(x -> x, [i for (i, v) in enumerate(value.(model[:y])) if v > 0])
         C_line_df[!, :New_Build] .= 0
         C_line_df[New_built_line_idx, :New_Build] .= 1
-        rename!(C_line_df, :Capacity => Symbol("Capacity (MW)"))
+        rename!(
+            C_line_df,
+            :ForwardCapacity => Symbol(FORWARD_LINE_CAPACITY_COLUMN),
+            :ReverseCapacity => Symbol(REVERSE_LINE_CAPACITY_COLUMN),
+        )
         CSV.write(joinpath(outpath, "line.csv"), C_line_df, header = true)
 
         #Power flow OutputDF
@@ -1088,7 +1097,24 @@ function _write_output_impl(
                 repeat(["Candidate"], Num_Cline)
             ],
             New_Build = Array{Union{Missing,Bool}}(undef, size(L)[1]),
+            ForwardCapacity = Float64[
+                to_float_output(v) for v in vcat(
+                    Linedata[:, FORWARD_LINE_CAPACITY_COLUMN],
+                    Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN],
+                )
+            ],
+            ReverseCapacity = Float64[
+                to_float_output(v) for v in vcat(
+                    Linedata[:, REVERSE_LINE_CAPACITY_COLUMN],
+                    Linedata_candidate[:, REVERSE_LINE_CAPACITY_COLUMN],
+                )
+            ],
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1]),
+        )
+        rename!(
+            P_flow_df,
+            :ForwardCapacity => Symbol(FORWARD_LINE_CAPACITY_COLUMN),
+            :ReverseCapacity => Symbol(REVERSE_LINE_CAPACITY_COLUMN),
         )
         P_flow_df.AnnSum .=
             [weighted_rep_hour_sum((t, h) -> value(model[:f][l, h])) for l in L]
@@ -1471,7 +1497,10 @@ function _write_output_impl(
             Hour = Int[],
             Flow_MW = Float64[],
             LineLoss_MW = Float64[],
-            Limit_MW = Float64[],
+            ForwardLimit_MW = Float64[],
+            ReverseLimit_MW = Float64[],
+            ActiveLimit_MW = Float64[],
+            ActiveDirection = String[],
             Loading_pct = Float64[],
             ShadowPrice = Union{Missing,Float64}[],
             BindingSide = String[],
@@ -1483,7 +1512,11 @@ function _write_output_impl(
             To_bus = String[],
             From_zone = String[],
             To_zone = String[],
+            ForwardLimit_MW = Float64[],
+            ReverseLimit_MW = Float64[],
             HoursBinding = Int[],
+            HoursBindingForward = Int[],
+            HoursBindingReverse = Int[],
             AvgAbsShadow = Union{Missing,Float64}[],
             MaxAbsShadow = Union{Missing,Float64}[],
             AnnCongestionRent = Float64[],
@@ -1742,9 +1775,12 @@ function _write_output_impl(
             transmission_loss_raw isa Integer ? Int(transmission_loss_raw) :
             parse(Int, string(transmission_loss_raw))
         duals_available = config_set["solver"] != "cbc" && has_duals(model)
-        if duals_available && haskey(model, :TLe_con)
-            dual_tle = dual.(model[:TLe_con])
-            shadow_h = [dual_tle[l, h] for l in L, h in H]
+        if duals_available &&
+           haskey(model, :TLeLb_con) &&
+           haskey(model, :TLeUb_con)
+            dual_lb = dual.(model[:TLeLb_con])
+            dual_ub = dual.(model[:TLeUb_con])
+            shadow_h = [dual_lb[l, h] + dual_ub[l, h] for l in L, h in H]
         end
         if config_set["solver"] == "cbc"
             println("Cbc solver does not support for calaculating electricity price")
@@ -2160,6 +2196,10 @@ function _write_output_impl(
                 AnnSum = Array{Union{Missing,Float64}}(undef, Num_Eline),
             )
         end
+        P_flow_df[!, Symbol(FORWARD_LINE_CAPACITY_COLUMN)] =
+            Float64[to_float_output(v) for v in Linedata[:, FORWARD_LINE_CAPACITY_COLUMN]]
+        P_flow_df[!, Symbol(REVERSE_LINE_CAPACITY_COLUMN)] =
+            Float64[to_float_output(v) for v in Linedata[:, REVERSE_LINE_CAPACITY_COLUMN]]
         P_flow_df.AnnSum .= [sum(value.(model[:f][l, h]) for h in H) for l in L]
 
         #Retreive power data from solved model
@@ -2560,13 +2600,10 @@ function _write_output_impl(
             end
 
             ## Summary_Congestion_Line_Hourly --------------------------------------------------
-            cap_col = first_existing_col(
-                linedata_cols,
-                ["Capacity (MW)", "Line Capacity (MW)", "RateA", "RATE_A", "rateA"],
+            forward_limits, reverse_limits = parse_directional_line_limits(
+                Linedata;
+                context = "active PCM line table",
             )
-            line_limits =
-                cap_col === nothing ? fill(0.0, Num_Eline) :
-                [to_float_local(Linedata[l, cap_col]) for l in L]
             for l in L
                 from_bus_val =
                     from_bus_col === nothing ? "" : string(Linedata[l, from_bus_col])
@@ -2595,16 +2632,26 @@ function _write_output_impl(
                             string(Idx_zone_dict[nodal_output_map.bus_zone_of_n[n_to]])
                     end
                 end
-                limit_mw = line_limits[l]
+                forward_limit_mw = forward_limits[l]
+                reverse_limit_mw = reverse_limits[l]
                 for (h_idx, h) in enumerate(H)
                     flow_mw = Float64(flow[l, h])
                     line_loss_mw = Float64(hourly_line_loss[l, h_idx])
-                    loading_pct = limit_mw > 0 ? 100.0 * abs(flow_mw) / limit_mw : 0.0
-                    tol = max(1.0e-4, 1.0e-5 * max(1.0, abs(limit_mw)))
-                    binding_side = if limit_mw > 0 && abs(flow_mw - limit_mw) <= tol
-                        "Upper"
-                    elseif limit_mw > 0 && abs(flow_mw + limit_mw) <= tol
-                        "Lower"
+                    active_direction = flow_mw >= 0.0 ? "Forward" : "Reverse"
+                    active_limit_mw =
+                        flow_mw >= 0.0 ? forward_limit_mw : reverse_limit_mw
+                    loading_pct =
+                        active_limit_mw > 0.0 ?
+                        100.0 * abs(flow_mw) / active_limit_mw :
+                        (abs(flow_mw) <= 1.0e-9 ? 0.0 : Inf)
+                    tol =
+                        max(1.0e-4, 1.0e-5 * max(1.0, abs(active_limit_mw)))
+                    binding_side = if forward_limit_mw >= 0.0 &&
+                                      abs(flow_mw - forward_limit_mw) <= tol
+                        "Forward"
+                    elseif reverse_limit_mw >= 0.0 &&
+                           abs(flow_mw + reverse_limit_mw) <= tol
+                        "Reverse"
                     else
                         "None"
                     end
@@ -2623,7 +2670,10 @@ function _write_output_impl(
                             Int(h),
                             flow_mw,
                             line_loss_mw,
-                            limit_mw,
+                            forward_limit_mw,
+                            reverse_limit_mw,
+                            active_limit_mw,
+                            active_direction,
                             loading_pct,
                             shadow_val,
                             binding_side,
@@ -2662,6 +2712,14 @@ function _write_output_impl(
                     x -> x != "None",
                     Summary_Congestion_Line_Hourly_df[rows_l, :BindingSide],
                 )
+                hours_binding_forward = count(
+                    ==("Forward"),
+                    Summary_Congestion_Line_Hourly_df[rows_l, :BindingSide],
+                )
+                hours_binding_reverse = count(
+                    ==("Reverse"),
+                    Summary_Congestion_Line_Hourly_df[rows_l, :BindingSide],
+                )
                 avg_abs_shadow = isempty(shadow_vals) ? missing : mean(abs.(shadow_vals))
                 max_abs_shadow = isempty(shadow_vals) ? missing : maximum(abs.(shadow_vals))
                 ann_rent = isempty(rent_vals) ? 0.0 : sum(rent_vals)
@@ -2677,7 +2735,21 @@ function _write_output_impl(
                         string(to_bus_val),
                         string(from_zone_val),
                         string(to_zone_val),
+                        Float64(
+                            Summary_Congestion_Line_Hourly_df[
+                                rows_l[1],
+                                :ForwardLimit_MW,
+                            ],
+                        ),
+                        Float64(
+                            Summary_Congestion_Line_Hourly_df[
+                                rows_l[1],
+                                :ReverseLimit_MW,
+                            ],
+                        ),
                         Int(hours_binding),
+                        Int(hours_binding_forward),
+                        Int(hours_binding_reverse),
                         avg_abs_shadow,
                         max_abs_shadow,
                         Float64(ann_rent),
