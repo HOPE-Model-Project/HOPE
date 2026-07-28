@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Forward Capacity (MW)` and `Reverse Capacity (MW)` ratings in GTEP and PCM.
   Existing and candidate lines, nodal branches, loss bounds, holistic/EREC
   handoffs, and congestion outputs now preserve line direction explicitly.
+- Avoid GTEP resource-hour SPIN variables and zero-fixing constraints when
+  `operation_reserve_mode = 0`; zero-valued expressions preserve the same
+  downstream algebra with substantially lower model-construction overhead.
 
 ### Fixed
 

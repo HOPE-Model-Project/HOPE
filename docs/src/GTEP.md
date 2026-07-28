@@ -236,7 +236,8 @@ Activated by `operation_reserve_mode = 1`:
 \sum_{g\in G} r^{SPIN}_{g,h} + \sum_{s\in S} r^{SPIN}_{s,h} \ge \rho^{SPIN} \cdot Load_h
 ```
 
-If reserve mode is off, reserve variables are constrained to zero.
+If reserve mode is off, HOPE substitutes zero-valued reserve expressions and
+does not create resource-hour reserve variables or zero-fixing constraints.
 
 ### 8. [GTEP-C8] RPS with REC trading
 

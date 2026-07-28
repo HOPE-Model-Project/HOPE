@@ -1,5 +1,6 @@
 using DataFrames
 using CSV
+using JuMP
 using YAML
 
 function build_tiny_erec_case_tables()
@@ -225,6 +226,13 @@ end
         @test haskey(run_res, "config")
         @test haskey(run_res, "solved_model")
         @test haskey(run_res, "snapshot")
+        solved_model = run_res["solved_model"]
+        @test variable_by_name(solved_model, "r_G_SPIN[1,1]") === nothing
+        @test variable_by_name(solved_model, "r_S_SPIN[1,1]") === nothing
+        @test !haskey(object_dictionary(solved_model), :SPIN_off_g_con)
+        @test !haskey(object_dictionary(solved_model), :SPIN_off_s_con)
+        @test solved_model[:r_G_SPIN][1, 1] isa AffExpr
+        @test solved_model[:r_S_SPIN][1, 1] isa AffExpr
         @test run_res["snapshot"] !== nothing
         @test isdir(run_res["snapshot"]["snapshot_dir"])
         @test isfile(
