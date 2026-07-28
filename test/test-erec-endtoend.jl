@@ -231,8 +231,8 @@ end
         @test variable_by_name(solved_model, "r_S_SPIN[1,1]") === nothing
         @test !haskey(object_dictionary(solved_model), :SPIN_off_g_con)
         @test !haskey(object_dictionary(solved_model), :SPIN_off_s_con)
-        @test solved_model[:r_G_SPIN][1, 1] isa AffExpr
-        @test solved_model[:r_S_SPIN][1, 1] isa AffExpr
+        @test solved_model[:r_G_SPIN][1, 1] == 0.0
+        @test solved_model[:r_S_SPIN][1, 1] == 0.0
         @test run_res["snapshot"] !== nothing
         @test isdir(run_res["snapshot"]["snapshot_dir"])
         @test isfile(
