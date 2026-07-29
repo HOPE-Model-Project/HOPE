@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Add `clean_energy_policy = 2` for local annual RPS compliance without
+  renewable-credit trading variables, and avoid allocating RPS variables when
+  clean-energy policy is disabled.
 - Replaced the symmetric transmission input `Capacity (MW)` with required
   `Forward Capacity (MW)` and `Reverse Capacity (MW)` ratings in GTEP and PCM.
   Existing and candidate lines, nodal branches, loss bounds, holistic/EREC

@@ -22,7 +22,7 @@ If `unit_commitment = 1` and `write_shadow_prices = 1`, HOPE solves MILP first, 
   - `0`: off
   - `1`: REG + SPIN
   - `2`: REG + SPIN + NSPIN
-- `clean_energy_policy` (`0`/`1`)
+- `clean_energy_policy` (`0` off, `1` RPS with REC trading, `2` local RPS)
 - `carbon_policy` (`0`/`1`/`2`)
 - `flexible_demand` (`0`/`1`)
 

@@ -19,7 +19,7 @@ Planned future modes:
 
 Both `GTEP` and `PCM` support:
 
-- RPS policy on/off via `clean_energy_policy` with renewable credit trading variable `pwe`
+- RPS policy via `clean_energy_policy`: off (`0`), REC trading (`1`), or local annual compliance without `pwe` trading variables (`2`)
 - Carbon policy options via `carbon_policy`:
   - `0`: off
   - `1`: state emissions cap with penalty slack
