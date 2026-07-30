@@ -46,6 +46,46 @@ end
     @test result.contingency_generator_indices == [1]
 end
 
+@testset "DART strict and soft N-1 security" begin
+    generators = [
+        DARTGenerator(
+            name = "contingency",
+            bus = "bus",
+            pmax_mw = 10.0,
+            contingency_eligible = true,
+        ),
+        DARTGenerator(
+            name = "expensive_response",
+            bus = "bus",
+            pmax_mw = 10.0,
+            variable_cost_per_mwh = 60_000.0,
+            ramp_up_mw_per_hour = 600.0,
+            reserve_capability_mw = Dict(:spin => 10.0),
+            reserve_cost_per_mw_hour = Dict(:spin => 100_000.0),
+        ),
+    ]
+    data = DARTSystemData(generators = generators, network = single_bus())
+    forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = fill(10.0, 1, 1),
+        availability = ones(2, 1),
+    )
+    initial_state = state([1, 1], [10.0, 0.0])
+
+    strict = solve_dart_scuc(data, forecast, initial_state)
+    soft = solve_dart_scuc(
+        data,
+        forecast,
+        initial_state;
+        config = DARTConfig(allow_emergency_contingency_shed = true),
+    )
+
+    @test sum(strict.emergency_load_shed_mw) <= 1e-6
+    @test strict.generation_mw[2, 1] ≈ 10.0 atol = 1e-6
+    @test sum(soft.emergency_load_shed_mw) ≈ 10.0 atol = 1e-6
+    @test soft.generation_mw[1, 1] ≈ 10.0 atol = 1e-6
+end
+
 @testset "DART product response limits and quick start" begin
     products = [
         DARTReserveProduct(name = :reg_up, direction = :up, response_minutes = 5),
@@ -167,6 +207,28 @@ end
         config = config,
     )
     @test return_to_service.generation_mw[1, 1] ≈ 5.0 atol = 1e-6
+
+    noncommit_data = DARTSystemData(
+        generators = [
+            DARTGenerator(
+                name = "noncommit",
+                bus = "bus",
+                pmax_mw = 100.0,
+                commitment_required = false,
+            ),
+        ],
+        network = single_bus(),
+    )
+    noncommit_result = solve_dart_sced(
+        noncommit_data,
+        forecast,
+        default_dart_state(noncommit_data),
+        [0];
+        config = config,
+    )
+    @test noncommit_result.commitment[1, 1] == 1
+    @test noncommit_result.generation_mw[1, 1] ≈ 15.0 atol = 1e-6
+    @test noncommit_result.load_shed_mw[1, 1] <= 1e-6
 end
 
 @testset "DART nodal PTDF and storage chronology" begin
@@ -252,6 +314,7 @@ end
             real_time_ramp_up_mw_per_hour = 600.0,
             real_time_ramp_down_mw_per_hour = 600.0,
             reserve_capability_mw = Dict(:spin => 100.0),
+            reserve_cost_per_mw_hour = Dict(:spin => 5.0),
         ),
     ]
     data = DARTSystemData(generators = generators, network = single_bus())
@@ -280,5 +343,68 @@ end
     @test length(rolling.real_time_results) == 12
     @test all(result.generation_mw[1, 1] ≈ 70.0 for result in rolling.real_time_results)
     @test rolling.final_state.generation_mw ≈ [70.0, 0.0] atol = 1e-6
+    @test all(
+        result.reserve_requirement_shadow_price_per_mw_hour[:spin][1] ≈ 0.0 for
+        result in rolling.real_time_results
+    )
+    @test settlement.generator_reserve_credit[2] ≈ 350.0 atol = 1e-6
+    @test settlement.settlement_balance ≈ 0.0 atol = 1e-6
+end
+
+@testset "DART numerical two-settlement accounting" begin
+    generator = DARTGenerator(
+        name = "supplier",
+        bus = "bus",
+        pmax_mw = 200.0,
+        variable_cost_per_mwh = 10.0,
+        no_load_cost_per_hour = 20.0,
+        commitment_required = false,
+        reserve_capability_mw = Dict(:spin => 50.0),
+        reserve_cost_per_mw_hour = Dict(:spin => 5.0),
+    )
+    data = DARTSystemData(generators = [generator], network = single_bus())
+    day_ahead = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = fill(100.0, 1, 1),
+        availability = ones(1, 1),
+        interchange_mw = fill(10.0, 1, 1),
+        reserve_requirement_mw = Dict(:spin => [10.0]),
+    )
+    real_time = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = fill(110.0, 1, 1),
+        availability = ones(1, 1),
+        interchange_mw = fill(10.0, 1, 1),
+        reserve_requirement_mw = Dict(:spin => [12.0]),
+    )
+    rolling = run_dart_rolling(
+        data,
+        day_ahead,
+        real_time,
+        state([1], [90.0]);
+        hours_to_run = 1,
+        day_ahead_lookahead_hours = 1,
+        real_time_lookahead_intervals = 1,
+    )
+    settlement = calculate_dart_settlements(data, rolling)
+    da = only(rolling.day_ahead_results)
+    rt = only(rolling.real_time_results)
+
+    @test da.generation_mw[1, 1] ≈ 90.0 atol = 1e-6
+    @test rt.generation_mw[1, 1] ≈ 100.0 atol = 1e-6
+    @test da.generator_reserve_mw[:spin][1, 1] ≈ 10.0 atol = 1e-6
+    @test rt.generator_reserve_mw[:spin][1, 1] ≈ 12.0 atol = 1e-6
+    @test da.reserve_requirement_shadow_price_per_mw_hour[:spin][1] ≈ 5.0 atol = 1e-6
+    @test rt.reserve_requirement_shadow_price_per_mw_hour[:spin][1] ≈ 5.0 atol = 1e-6
+
+    @test settlement.generator_day_ahead_energy ≈ [900.0] atol = 1e-6
+    @test settlement.generator_real_time_deviation ≈ [100.0] atol = 1e-6
+    @test settlement.generator_reserve_credit ≈ [60.0] atol = 1e-6
+    @test settlement.generator_uplift ≈ [20.0] atol = 1e-6
+    @test settlement.load_energy_payment ≈ [1_100.0] atol = 1e-6
+    @test settlement.load_reserve_charge ≈ [60.0] atol = 1e-6
+    @test settlement.load_uplift_charge ≈ [20.0] atol = 1e-6
+    @test settlement.interchange_credit ≈ [100.0] atol = 1e-6
+    @test settlement.merchandising_surplus ≈ 0.0 atol = 1e-6
     @test settlement.settlement_balance ≈ 0.0 atol = 1e-6
 end

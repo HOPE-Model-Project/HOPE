@@ -14,7 +14,7 @@ The V1 model contains:
 - rolling real-time SCED, normally at five-minute resolution;
 - lossless nodal PTDF transmission constraints;
 - regulation, spinning, and quick-start non-spinning reserves;
-- generator N-1 corrective redispatch;
+- strict generator N-1 corrective redispatch by default;
 - chronological storage; and
 - day-ahead/real-time energy, reserve, and uplift settlements.
 
@@ -40,6 +40,17 @@ V1 deliberately uses system-wide reserve requirements, nodal load shedding,
 generator contingencies, and the lossless PTDF network option. Line outages,
 zonal transport, demand response, and policy constraints remain outside this
 small operational core.
+
+Contingency load shedding is disabled by default. Set
+`allow_emergency_contingency_shed = true` in `DARTConfig` only when a penalized
+soft-security solve is preferable to infeasibility.
+
+Energy settles at fixed-integer nodal prices. Because contingency deliverability
+can make reserve value resource-specific, V1 pays reserve awards at each
+resource's submitted reserve offer instead of reporting a misleading uniform
+security-reserve price. The result field
+`reserve_requirement_shadow_price_per_mw_hour` is the informational dual of the
+system reserve-requirement constraint; settlements do not use it.
 
 ## Minimal example
 

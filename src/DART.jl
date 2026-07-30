@@ -105,6 +105,7 @@ end
 Base.@kwdef struct DARTConfig
     value_of_lost_load_per_mwh::Float64 = 100_000.0
     emergency_load_shed_cost_per_mwh::Float64 = 50_000.0
+    allow_emergency_contingency_shed::Bool = false
     apply_for_derating::Bool = true
     security_up_products::Vector{Symbol} = [:reg_up, :spin, :nspin]
     security_down_products::Vector{Symbol} = [:reg_down]
@@ -130,7 +131,7 @@ Base.@kwdef struct DARTDispatchResult
     load_shed_mw::Matrix{Float64}
     line_flow_mw::Matrix{Float64}
     lmp_per_mwh::Matrix{Float64}
-    reserve_price_per_mw_hour::Dict{Symbol,Vector{Float64}}
+    reserve_requirement_shadow_price_per_mw_hour::Dict{Symbol,Vector{Float64}}
     emergency_load_shed_mw::Array{Float64,3}
     contingency_generator_indices::Vector{Int}
 end
@@ -300,8 +301,10 @@ function _validate_inputs(
         -1e-8 <= state.storage_soc_mwh[s] <= data.storage[s].energy_capacity_mwh + 1e-8 for
         s = 1:S
     ) || throw(ArgumentError("Initial storage SOC is outside its energy bounds."))
-    config.value_of_lost_load_per_mwh > config.emergency_load_shed_cost_per_mwh > 0 ||
-        throw(ArgumentError("Ordinary VOLL must exceed positive emergency VOLL."))
+    config.value_of_lost_load_per_mwh > 0 ||
+        throw(ArgumentError("Value of lost load must be positive."))
+    config.emergency_load_shed_cost_per_mwh > 0 ||
+        throw(ArgumentError("Emergency load-shed cost must be positive."))
     all(name in product_names for name in config.security_up_products) ||
         throw(ArgumentError("A security-up product is not defined."))
     all(name in product_names for name in config.security_down_products) ||
@@ -604,6 +607,12 @@ function _add_generator_security!(model, data, forecast, commitment, config)
     @variable(model, contingency_line_flow[1:L, 1:T, 1:C])
     @variable(model, worst_contingency_shed[1:T] >= 0)
 
+    if !config.allow_emergency_contingency_shed
+        for emergency_shed in emergency_load_shed
+            fix(emergency_shed, 0.0; force = true)
+        end
+    end
+
     for c = 1:C
         failed = contingencies[c]
         for t = 1:T
@@ -869,7 +878,8 @@ function build_dart_scuc_model(
     return model
 end
 
-function _commitment_matrix(commitment, G, T)
+function _commitment_matrix(data, commitment, T)
+    G = length(data.generators)
     matrix =
         commitment isa AbstractVector ? repeat(reshape(Int.(commitment), G, 1), 1, T) :
         Int.(commitment)
@@ -877,6 +887,11 @@ function _commitment_matrix(commitment, G, T)
         throw(ArgumentError("Fixed commitment has the wrong dimensions."))
     all(status in (0, 1) for status in matrix) ||
         throw(ArgumentError("Fixed commitment must contain only zero or one."))
+    for g = 1:G
+        if !data.generators[g].commitment_required
+            matrix[g, :] .= 1
+        end
+    end
     return matrix
 end
 
@@ -892,7 +907,7 @@ function build_dart_sced_model(
     G = length(data.generators)
     T = size(forecast.load_mw, 2)
     dt = forecast.interval_hours
-    commitment_values = _commitment_matrix(fixed_commitment, G, T)
+    commitment_values = _commitment_matrix(data, fixed_commitment, T)
     model = _new_model(optimizer, config)
     @variable(model, 0 <= commitment[1:G, 1:T] <= 1)
     for g = 1:G, t = 1:T
@@ -908,7 +923,9 @@ function build_dart_sced_model(
     for g = 1:G, t = 1:T
         generator = data.generators[g]
         previous_generation = t == 1 ? state.generation_mw[g] : generation[g, t-1]
-        previous_commitment = t == 1 ? state.commitment[g] : commitment_values[g, t-1]
+        previous_commitment =
+            generator.commitment_required ?
+            (t == 1 ? state.commitment[g] : commitment_values[g, t-1]) : 1
         current_commitment = commitment_values[g, t]
         previous_service =
             t == 1 ? state.generator_in_service[g] : forecast.generator_in_service[g, t-1]
@@ -1028,7 +1045,7 @@ function _result(award_model, pricing_model, data, forecast, stage)
         lmp_per_mwh = [
             -dual(pricing_model[:injection_definition][n, t]) / dt for n = 1:N, t = 1:T
         ],
-        reserve_price_per_mw_hour = Dict(
+        reserve_requirement_shadow_price_per_mw_hour = Dict(
             data.reserve_products[k].name =>
                 [dual(pricing_model[:reserve_requirement][k, t]) / dt for t = 1:T] for
             k = 1:K
@@ -1122,8 +1139,9 @@ function _binding_result(result::DARTDispatchResult)
         load_shed_mw = result.load_shed_mw[:, 1:1],
         line_flow_mw = result.line_flow_mw[:, 1:1],
         lmp_per_mwh = result.lmp_per_mwh[:, 1:1],
-        reserve_price_per_mw_hour = Dict(
-            name => values[1:1] for (name, values) in result.reserve_price_per_mw_hour
+        reserve_requirement_shadow_price_per_mw_hour = Dict(
+            name => values[1:1] for
+            (name, values) in result.reserve_requirement_shadow_price_per_mw_hour
         ),
         emergency_load_shed_mw = result.emergency_load_shed_mw[:, 1:1, :],
         contingency_generator_indices = result.contingency_generator_indices,
@@ -1280,7 +1298,9 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
     interchange_credit = zeros(N)
     served_energy = zeros(N)
 
-    # Day-ahead awards settle at day-ahead prices.
+    # Day-ahead energy settles at nodal prices. V1 reserve awards settle at
+    # resource offers because security deliverability can make their dual value
+    # resource-specific.
     for da in da_results
         dt = da.interval_hours
         for g = 1:G
@@ -1292,20 +1312,17 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
                 generator.startup_cost * da.startup[g, 1] +
                 generator.shutdown_cost * da.shutdown[g, 1]
             for product in data.reserve_products
+                offer = get(generator.reserve_cost_per_mw_hour, product.name, 0.0)
                 generator_reserve[g] +=
-                    da.generator_reserve_mw[product.name][g, 1] *
-                    da.reserve_price_per_mw_hour[product.name][1] *
-                    dt
+                    da.generator_reserve_mw[product.name][g, 1] * offer * dt
             end
         end
         for s = 1:S
             net = da.storage_discharge_mw[s, 1] - da.storage_charge_mw[s, 1]
             storage_da[s] += net * da.lmp_per_mwh[storage_bus[s], 1] * dt
             for product in data.reserve_products
-                storage_reserve[s] +=
-                    da.storage_reserve_mw[product.name][s, 1] *
-                    da.reserve_price_per_mw_hour[product.name][1] *
-                    dt
+                offer = get(data.storage[s].reserve_cost_per_mw_hour, product.name, 0.0)
+                storage_reserve[s] += da.storage_reserve_mw[product.name][s, 1] * offer * dt
             end
         end
         for n = 1:N
@@ -1315,7 +1332,8 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
         end
     end
 
-    # Real-time deviations settle at real-time prices.
+    # Real-time energy deviations settle at real-time nodal prices. Reserve
+    # deviations use the same resource offers as the day-ahead awards.
     for (rt_index, rt) in pairs(rt_results)
         da = da_results[rolling.rt_to_da_index[rt_index]]
         dt = rt.interval_hours
@@ -1326,15 +1344,13 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
             generator_cost[g] +=
                 generator.variable_cost_per_mwh * rt.generation_mw[g, 1] * dt
             for product in data.reserve_products
+                offer = get(generator.reserve_cost_per_mw_hour, product.name, 0.0)
                 reserve_deviation =
                     rt.generator_reserve_mw[product.name][g, 1] -
                     da.generator_reserve_mw[product.name][g, 1]
-                generator_reserve[g] +=
-                    reserve_deviation * rt.reserve_price_per_mw_hour[product.name][1] * dt
+                generator_reserve[g] += reserve_deviation * offer * dt
                 generator_cost[g] +=
-                    get(generator.reserve_cost_per_mw_hour, product.name, 0.0) *
-                    rt.generator_reserve_mw[product.name][g, 1] *
-                    dt
+                    offer * rt.generator_reserve_mw[product.name][g, 1] * dt
             end
         end
         for s = 1:S
@@ -1350,12 +1366,9 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
                 reserve_deviation =
                     rt.storage_reserve_mw[product.name][s, 1] -
                     da.storage_reserve_mw[product.name][s, 1]
-                storage_reserve[s] +=
-                    reserve_deviation * rt.reserve_price_per_mw_hour[product.name][1] * dt
-                storage_cost[s] +=
-                    get(resource.reserve_cost_per_mw_hour, product.name, 0.0) *
-                    rt.storage_reserve_mw[product.name][s, 1] *
-                    dt
+                offer = get(resource.reserve_cost_per_mw_hour, product.name, 0.0)
+                storage_reserve[s] += reserve_deviation * offer * dt
+                storage_cost[s] += offer * rt.storage_reserve_mw[product.name][s, 1] * dt
             end
         end
         for n = 1:N
