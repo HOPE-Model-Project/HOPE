@@ -1,4 +1,5 @@
 using HOPE
+using JuMP
 using Test
 
 single_bus() = DARTNetwork(bus_names = ["bus"])
@@ -44,6 +45,10 @@ end
     @test result.generator_reserve_mw[:spin][2, 1] ≈ 80.0 atol = 1e-6
     @test sum(result.emergency_load_shed_mw) <= 1e-6
     @test result.contingency_generator_indices == [1]
+    @test result.termination_status == JuMP.MOI.OPTIMAL
+    @test result.primal_status == JuMP.MOI.FEASIBLE_POINT
+    @test result.solve_time_seconds >= 0
+    @test result.relative_gap <= 1e-8
 end
 
 @testset "DART strict and soft N-1 security" begin
@@ -154,6 +159,94 @@ end
     @test quick_result.generator_reserve_mw[:nspin][2, 1] >= 15.0 - 1e-6
     @test quick_result.generator_reserve_mw[:nspin][2, 1] <= 20.0 + 1e-6
     @test sum(quick_result.emergency_load_shed_mw) <= 1e-6
+
+    unavailable_forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = fill(15.0, 1, 1),
+        availability = reshape([1.0, 0.0], 2, 1),
+    )
+    unavailable = solve_dart_scuc(
+        quick_data,
+        unavailable_forecast,
+        state([1, 0], [15.0, 0.0]);
+        config = DARTConfig(
+            allow_emergency_contingency_shed = true,
+            security_up_products = [:reg_up, :spin, :nspin],
+            security_down_products = Symbol[],
+        ),
+    )
+    @test unavailable.generator_reserve_mw[:nspin][2, 1] <= 1e-8
+    @test sum(unavailable.emergency_load_shed_mw) ≈ 15.0 atol = 1e-6
+
+    minimum_down_generator = DARTGenerator(
+        name = "minimum_down_quick_start",
+        bus = "bus",
+        pmax_mw = 10.0,
+        min_down_hours = 2,
+        quick_start_eligible = true,
+        quick_start_time_minutes = 20,
+        reserve_capability_mw = Dict(:nspin => 10.0),
+    )
+    minimum_down_data = DARTSystemData(
+        generators = [minimum_down_generator],
+        network = single_bus(),
+        reserve_products = products,
+    )
+    minimum_down_forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = zeros(1, 2),
+        availability = ones(1, 2),
+        reserve_requirement_mw = Dict(:nspin => [0.0, 10.0]),
+    )
+    @test_throws ErrorException solve_dart_scuc(
+        minimum_down_data,
+        minimum_down_forecast,
+        state([1], [0.0]);
+        config = config,
+    )
+
+    offline_products = [
+        DARTReserveProduct(
+            name = :nspin_10,
+            direction = :up,
+            response_minutes = 10,
+            requires_online = false,
+        ),
+        DARTReserveProduct(
+            name = :nspin_30,
+            direction = :up,
+            response_minutes = 30,
+            requires_online = false,
+        ),
+    ]
+    aggregate_quick_start = DARTGenerator(
+        name = "aggregate_quick_start",
+        bus = "bus",
+        pmax_mw = 10.0,
+        quick_start_eligible = true,
+        quick_start_time_minutes = 10,
+        reserve_capability_mw = Dict(:nspin_10 => 10.0, :nspin_30 => 10.0),
+    )
+    aggregate_data = DARTSystemData(
+        generators = [aggregate_quick_start],
+        network = single_bus(),
+        reserve_products = offline_products,
+    )
+    aggregate_forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = zeros(1, 1),
+        availability = ones(1, 1),
+        reserve_requirement_mw = Dict(:nspin_10 => [10.0], :nspin_30 => [10.0]),
+    )
+    @test_throws ErrorException solve_dart_scuc(
+        aggregate_data,
+        aggregate_forecast,
+        state([0], [0.0]);
+        config = DARTConfig(
+            security_up_products = Symbol[],
+            security_down_products = Symbol[],
+        ),
+    )
 end
 
 @testset "DART real-time ramp and equipment transitions" begin
@@ -294,6 +387,53 @@ end
         solve_dart_scuc(storage_data, storage_forecast, state([1], [0.0]; soc = [10.0]))
     @test storage_result.storage_discharge_mw[1, 1] ≈ 10.0 atol = 1e-6
     @test storage_result.storage_soc_mwh[1, 1] <= 1e-6
+    @test storage_result.storage_charge_mw[1, 1] *
+          storage_result.storage_discharge_mw[1, 1] <= 1e-8
+
+    storage_rt = solve_dart_sced(
+        storage_data,
+        storage_forecast,
+        state([1], [0.0]; soc = [10.0]),
+        [1],
+    )
+    @test storage_rt.storage_discharge_mw[1, 1] ≈ 10.0 atol = 1e-6
+    @test isfinite(storage_rt.lmp_per_mwh[1, 1])
+
+    terminal_forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = reshape([0.0, 8.0], 1, 2),
+        availability = reshape([1.0, 0.0], 1, 2),
+        terminal_storage_soc_mwh = [0.0],
+    )
+    terminal_result =
+        solve_dart_scuc(storage_data, terminal_forecast, state([1], [0.0]; soc = [0.0]))
+    @test terminal_result.storage_charge_mw[1, 1] ≈ 8.0 atol = 1e-6
+    @test terminal_result.storage_discharge_mw[1, 2] ≈ 8.0 atol = 1e-6
+    @test terminal_result.storage_soc_mwh[1, 2] ≈ 0.0 atol = 1e-6
+
+    must_run = DARTGenerator(name = "must_run", bus = "bus", pmax_mw = 20.0, pmin_mw = 20.0)
+    inefficient_storage = DARTStorage(
+        name = "inefficient",
+        bus = "bus",
+        energy_capacity_mwh = 10.0,
+        charge_capacity_mw = 100.0,
+        discharge_capacity_mw = 100.0,
+        charge_efficiency = 0.8,
+        discharge_efficiency = 0.8,
+    )
+    physical_data = DARTSystemData(
+        generators = [must_run],
+        storage = [inefficient_storage],
+        network = single_bus(),
+    )
+    zero_load =
+        DARTForecast(interval_hours = 1.0, load_mw = zeros(1, 1), availability = ones(1, 1))
+    @test_throws ErrorException solve_dart_sced(
+        physical_data,
+        zero_load,
+        state([1], [20.0]; soc = [10.0]),
+        [1],
+    )
 end
 
 @testset "DART rolling simulation and settlements" begin
@@ -349,6 +489,14 @@ end
     )
     @test settlement.generator_reserve_credit[2] ≈ 350.0 atol = 1e-6
     @test settlement.settlement_balance ≈ 0.0 atol = 1e-6
+
+    incomplete = DARTRollingResult(
+        day_ahead_results = rolling.day_ahead_results,
+        real_time_results = rolling.real_time_results[1:11],
+        rt_to_da_index = rolling.rt_to_da_index[1:11],
+        final_state = rolling.final_state,
+    )
+    @test_throws ArgumentError calculate_dart_settlements(data, incomplete)
 end
 
 @testset "DART numerical two-settlement accounting" begin
@@ -407,4 +555,156 @@ end
     @test settlement.interchange_credit ≈ [100.0] atol = 1e-6
     @test settlement.merchandising_surplus ≈ 0.0 atol = 1e-6
     @test settlement.settlement_balance ≈ 0.0 atol = 1e-6
+end
+
+@testset "DART zero-load settlement residual" begin
+    generator = DARTGenerator(
+        name = "reserve_supplier",
+        bus = "bus",
+        pmax_mw = 100.0,
+        commitment_required = false,
+        reserve_capability_mw = Dict(:spin => 10.0),
+        reserve_cost_per_mw_hour = Dict(:spin => 5.0),
+    )
+    data = DARTSystemData(generators = [generator], network = single_bus())
+    forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = zeros(1, 1),
+        availability = ones(1, 1),
+        reserve_requirement_mw = Dict(:spin => [10.0]),
+    )
+    rolling = run_dart_rolling(
+        data,
+        forecast,
+        forecast;
+        hours_to_run = 1,
+        day_ahead_lookahead_hours = 1,
+        real_time_lookahead_intervals = 1,
+    )
+    settlement = calculate_dart_settlements(data, rolling)
+
+    @test settlement.reserve_settlement_rule == :pay_as_bid
+    @test settlement.generator_reserve_credit ≈ [50.0] atol = 1e-6
+    @test settlement.load_reserve_charge ≈ [0.0] atol = 1e-6
+    @test settlement.unallocated_reserve_charge ≈ 50.0 atol = 1e-6
+    @test settlement.unallocated_uplift_charge ≈ 0.0 atol = 1e-6
+    @test settlement.settlement_balance ≈ 0.0 atol = 1e-6
+
+    invalid_mapping = DARTRollingResult(
+        day_ahead_results = rolling.day_ahead_results,
+        real_time_results = rolling.real_time_results,
+        rt_to_da_index = [2],
+        final_state = rolling.final_state,
+    )
+    @test_throws ArgumentError calculate_dart_settlements(data, invalid_mapping)
+end
+
+@testset "DART 24-hour generator N-1 case and size safeguard" begin
+    generators = [
+        DARTGenerator(
+            name = "unit_$(g)",
+            bus = "bus",
+            pmax_mw = 100.0,
+            variable_cost_per_mwh = Float64(g),
+            commitment_required = false,
+            contingency_eligible = true,
+            reserve_capability_mw = Dict(:spin => 100.0),
+        ) for g = 1:12
+    ]
+    data = DARTSystemData(generators = generators, network = single_bus())
+    forecast = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = fill(600.0, 1, 24),
+        availability = ones(12, 24),
+    )
+    result = solve_dart_scuc(data, forecast, default_dart_state(data))
+
+    @test result.termination_status == JuMP.MOI.OPTIMAL
+    @test size(result.emergency_load_shed_mw) == (1, 24, 12)
+    @test sum(result.emergency_load_shed_mw) <= 1e-6
+    @test all(
+        isapprox(sum(result.generation_mw[:, t]), 600.0; atol = 1e-6) for
+        t in axes(result.generation_mw, 2)
+    )
+
+    @test_throws ArgumentError build_dart_scuc_model(
+        data,
+        forecast,
+        default_dart_state(data);
+        config = DARTConfig(maximum_security_variables = 100),
+    )
+end
+
+@testset "DART production input validation" begin
+    generator = DARTGenerator(
+        name = "unit",
+        bus = "bus",
+        pmax_mw = 10.0,
+        commitment_required = false,
+    )
+    data = DARTSystemData(generators = [generator], network = single_bus())
+    forecast =
+        DARTForecast(interval_hours = 1.0, load_mw = zeros(1, 1), availability = ones(1, 1))
+
+    invalid_availability = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = zeros(1, 1),
+        availability = fill(NaN, 1, 1),
+    )
+    @test_throws ArgumentError build_dart_scuc_model(
+        data,
+        invalid_availability,
+        default_dart_state(data),
+    )
+
+    invalid_terminal = DARTForecast(
+        interval_hours = 1.0,
+        load_mw = zeros(1, 1),
+        availability = ones(1, 1),
+        terminal_storage_soc_mwh = [0.0],
+    )
+    @test_throws ArgumentError build_dart_scuc_model(
+        data,
+        invalid_terminal,
+        default_dart_state(data),
+    )
+
+    invalid_generator =
+        DARTGenerator(name = "unit", bus = "bus", pmax_mw = 10.0, startup_limit_mw = -1.0)
+    invalid_generator_data =
+        DARTSystemData(generators = [invalid_generator], network = single_bus())
+    @test_throws ArgumentError build_dart_scuc_model(
+        invalid_generator_data,
+        forecast,
+        default_dart_state(invalid_generator_data),
+    )
+
+    invalid_network = DARTNetwork(
+        bus_names = ["bus"],
+        line_names = ["line"],
+        ptdf = zeros(1, 1),
+        line_limit_mw = [-1.0],
+        emergency_line_limit_mw = [0.0],
+    )
+    invalid_network_data =
+        DARTSystemData(generators = [generator], network = invalid_network)
+    @test_throws ArgumentError build_dart_scuc_model(
+        invalid_network_data,
+        forecast,
+        default_dart_state(invalid_network_data),
+    )
+
+    @test_throws ArgumentError build_dart_scuc_model(
+        data,
+        forecast,
+        default_dart_state(data);
+        config = DARTConfig(maximum_security_variables = 0),
+    )
+    @test_throws ArgumentError run_dart_rolling(
+        data,
+        forecast,
+        forecast;
+        hours_to_run = 1,
+        day_ahead_lookahead_hours = 0,
+    )
 end

@@ -90,6 +90,7 @@ Base.@kwdef struct DARTForecast
     generator_in_service::Matrix{Bool} = trues(size(availability))
     interchange_mw::Matrix{Float64} = zeros(size(load_mw))
     reserve_requirement_mw::Dict{Symbol,Vector{Float64}} = Dict{Symbol,Vector{Float64}}()
+    terminal_storage_soc_mwh::Union{Nothing,Vector{Float64}} = nothing
 end
 
 """Physical state immediately before an optimization horizon."""
@@ -109,12 +110,19 @@ Base.@kwdef struct DARTConfig
     apply_for_derating::Bool = true
     security_up_products::Vector{Symbol} = [:reg_up, :spin, :nspin]
     security_down_products::Vector{Symbol} = [:reg_down]
+    accept_feasible_time_limit::Bool = true
+    maximum_relative_gap::Float64 = 0.01
+    maximum_security_variables::Int = 2_000_000
     silent::Bool = true
 end
 
 Base.@kwdef struct DARTDispatchResult
     stage::Symbol
     objective_value::Float64
+    termination_status::MOI.TerminationStatusCode
+    primal_status::MOI.ResultStatusCode
+    solve_time_seconds::Float64
+    relative_gap::Float64
     interval_hours::Float64
     load_mw::Matrix{Float64}
     interchange_mw::Matrix{Float64}
@@ -144,6 +152,7 @@ Base.@kwdef struct DARTRollingResult
 end
 
 Base.@kwdef struct DARTSettlementResult
+    reserve_settlement_rule::Symbol
     generator_day_ahead_energy::Vector{Float64}
     generator_real_time_deviation::Vector{Float64}
     generator_reserve_credit::Vector{Float64}
@@ -155,6 +164,8 @@ Base.@kwdef struct DARTSettlementResult
     load_energy_payment::Vector{Float64}
     load_reserve_charge::Vector{Float64}
     load_uplift_charge::Vector{Float64}
+    unallocated_reserve_charge::Float64
+    unallocated_uplift_charge::Float64
     interchange_credit::Vector{Float64}
     merchandising_surplus::Float64
     settlement_balance::Float64
@@ -196,6 +207,8 @@ function _bus_indices(data::DARTSystemData)
     return generator_bus, storage_bus
 end
 
+_is_nonnegative_or_infinite(value) = !isnan(value) && value >= 0
+
 function _validate_inputs(
     data::DARTSystemData,
     forecast::DARTForecast,
@@ -213,6 +226,12 @@ function _validate_inputs(
     T > 0 || throw(ArgumentError("DART requires at least one interval."))
     length(unique(data.network.bus_names)) == N ||
         throw(ArgumentError("DART bus names must be unique."))
+    length(unique(data.network.line_names)) == L ||
+        throw(ArgumentError("DART line names must be unique."))
+    length(unique(getfield.(data.generators, :name))) == G ||
+        throw(ArgumentError("DART generator names must be unique."))
+    length(unique(getfield.(data.storage, :name))) == S ||
+        throw(ArgumentError("DART storage names must be unique."))
     all(generator.bus in data.network.bus_names for generator in data.generators) ||
         throw(ArgumentError("Every generator must reference a DART bus."))
     all(resource.bus in data.network.bus_names for resource in data.storage) ||
@@ -231,13 +250,30 @@ function _validate_inputs(
         throw(ArgumentError("Every line requires a normal limit."))
     length(data.network.emergency_line_limit_mw) == L ||
         throw(ArgumentError("Every line requires an emergency limit."))
+    all(isfinite, data.network.ptdf) || throw(ArgumentError("PTDF entries must be finite."))
+    all(value -> isfinite(value) && value >= 0, data.network.line_limit_mw) ||
+        throw(ArgumentError("Normal line limits must be finite and nonnegative."))
+    all(value -> isfinite(value) && value >= 0, data.network.emergency_line_limit_mw) ||
+        throw(ArgumentError("Emergency line limits must be finite and nonnegative."))
     all(data.network.emergency_line_limit_mw .>= data.network.line_limit_mw) ||
         throw(ArgumentError("Emergency line limits must be at least normal limits."))
-    forecast.interval_hours > 0 ||
-        throw(ArgumentError("Forecast interval length must be positive."))
+    isfinite(forecast.interval_hours) && forecast.interval_hours > 0 ||
+        throw(ArgumentError("Forecast interval length must be finite and positive."))
+    all(isfinite, forecast.load_mw) || throw(ArgumentError("Load must be finite."))
+    all(isfinite, forecast.interchange_mw) ||
+        throw(ArgumentError("Interchange must be finite."))
     all(forecast.load_mw .>= 0) || throw(ArgumentError("Load cannot be negative."))
     all(value -> 0 <= value <= 1, forecast.availability) ||
         throw(ArgumentError("Availability must be between zero and one."))
+    if forecast.terminal_storage_soc_mwh !== nothing
+        target = forecast.terminal_storage_soc_mwh
+        length(target) == S ||
+            throw(ArgumentError("Terminal storage SOC must match the storage count."))
+        all(
+            isfinite(target[s]) && 0 <= target[s] <= data.storage[s].energy_capacity_mwh for
+            s = 1:S
+        ) || throw(ArgumentError("Terminal storage SOC is outside its energy bounds."))
+    end
 
     product_names = getfield.(data.reserve_products, :name)
     length(unique(product_names)) == length(product_names) ||
@@ -256,33 +292,90 @@ function _validate_inputs(
             throw(ArgumentError("Unknown reserve requirement $(name)."))
         length(requirement) == T ||
             throw(ArgumentError("Reserve requirements must match the horizon."))
-        all(requirement .>= 0) ||
-            throw(ArgumentError("Reserve requirements cannot be negative."))
+        all(value -> isfinite(value) && value >= 0, requirement) ||
+            throw(ArgumentError("Reserve requirements must be finite and nonnegative."))
     end
+    product_by_name = Dict(product.name => product for product in data.reserve_products)
 
     for generator in data.generators
+        all(
+            isfinite,
+            (
+                generator.pmax_mw,
+                generator.pmin_mw,
+                generator.variable_cost_per_mwh,
+                generator.no_load_cost_per_hour,
+                generator.startup_cost,
+                generator.shutdown_cost,
+                generator.startup_limit_mw,
+                generator.shutdown_limit_mw,
+                generator.forced_outage_rate,
+            ),
+        ) || throw(ArgumentError("Generator inputs must be finite for $(generator.name)."))
         0 <= generator.pmin_mw <= generator.pmax_mw ||
             throw(ArgumentError("Generator limits are invalid for $(generator.name)."))
         0 <= generator.forced_outage_rate < 1 ||
             throw(ArgumentError("FOR must be in [0, 1) for $(generator.name)."))
         generator.min_up_hours >= 0 && generator.min_down_hours >= 0 ||
             throw(ArgumentError("Minimum up/down times cannot be negative."))
-        generator.startup_limit_mw <= generator.pmax_mw ||
-            throw(ArgumentError("Startup limit exceeds pmax for $(generator.name)."))
-        generator.shutdown_limit_mw <= generator.pmax_mw ||
-            throw(ArgumentError("Shutdown limit exceeds pmax for $(generator.name)."))
+        0 <= generator.startup_limit_mw <= generator.pmax_mw ||
+            throw(ArgumentError("Startup limit is invalid for $(generator.name)."))
+        0 <= generator.shutdown_limit_mw <= generator.pmax_mw ||
+            throw(ArgumentError("Shutdown limit is invalid for $(generator.name)."))
         all(
-            value -> 0 <= value <= generator.pmax_mw,
+            _is_nonnegative_or_infinite,
+            (
+                generator.ramp_up_mw_per_hour,
+                generator.ramp_down_mw_per_hour,
+                generator.real_time_ramp_up_mw_per_hour,
+                generator.real_time_ramp_down_mw_per_hour,
+            ),
+        ) || throw(ArgumentError("Ramp limits are invalid for $(generator.name)."))
+        generator.quick_start_time_minutes >= 0 || throw(
+            ArgumentError("Quick-start time cannot be negative for $(generator.name)."),
+        )
+        all(name in product_names for name in keys(generator.reserve_capability_mw)) ||
+            throw(ArgumentError("Generator reserve capability uses an unknown product."))
+        all(name in product_names for name in keys(generator.reserve_cost_per_mw_hour)) ||
+            throw(ArgumentError("Generator reserve cost uses an unknown product."))
+        all(
+            value -> isfinite(value) && 0 <= value <= generator.pmax_mw,
             values(generator.reserve_capability_mw),
         ) || throw(ArgumentError("Reserve capability is invalid for $(generator.name)."))
+        all(isfinite, values(generator.reserve_cost_per_mw_hour)) ||
+            throw(ArgumentError("Reserve costs must be finite for $(generator.name)."))
     end
     for resource in data.storage
+        all(
+            isfinite,
+            (
+                resource.energy_capacity_mwh,
+                resource.charge_capacity_mw,
+                resource.discharge_capacity_mw,
+                resource.charge_efficiency,
+                resource.discharge_efficiency,
+                resource.variable_cost_per_mwh,
+            ),
+        ) || throw(ArgumentError("Storage inputs must be finite for $(resource.name)."))
         resource.energy_capacity_mwh >= 0 &&
             resource.charge_capacity_mw >= 0 &&
             resource.discharge_capacity_mw >= 0 ||
             throw(ArgumentError("Storage limits cannot be negative."))
         0 < resource.charge_efficiency <= 1 && 0 < resource.discharge_efficiency <= 1 ||
             throw(ArgumentError("Storage efficiencies must be in (0, 1]."))
+        all(name in product_names for name in keys(resource.reserve_capability_mw)) ||
+            throw(ArgumentError("Storage reserve capability uses an unknown product."))
+        all(name in product_names for name in keys(resource.reserve_cost_per_mw_hour)) ||
+            throw(ArgumentError("Storage reserve cost uses an unknown product."))
+        for (name, capability) in resource.reserve_capability_mw
+            limit =
+                product_by_name[name].direction == :up ? resource.discharge_capacity_mw :
+                resource.charge_capacity_mw
+            isfinite(capability) && 0 <= capability <= limit ||
+                throw(ArgumentError("Reserve capability is invalid for $(resource.name)."))
+        end
+        all(isfinite, values(resource.reserve_cost_per_mw_hour)) ||
+            throw(ArgumentError("Reserve costs must be finite for $(resource.name)."))
     end
 
     length(state.commitment) == G &&
@@ -295,20 +388,41 @@ function _validate_inputs(
         throw(ArgumentError("Storage state vector has the wrong length."))
     all(status in (0, 1) for status in state.commitment) ||
         throw(ArgumentError("Commitment state must contain only zero or one."))
-    all(state.generation_mw .>= -1e-8) ||
-        throw(ArgumentError("Initial generation cannot be negative."))
     all(
-        -1e-8 <= state.storage_soc_mwh[s] <= data.storage[s].energy_capacity_mwh + 1e-8 for
-        s = 1:S
+        isfinite(state.generation_mw[g]) &&
+            -1e-8 <= state.generation_mw[g] <= data.generators[g].pmax_mw + 1e-8 for g = 1:G
+    ) || throw(ArgumentError("Initial generation is outside its physical bounds."))
+    all(_is_nonnegative_or_infinite, state.on_duration_hours) &&
+        all(_is_nonnegative_or_infinite, state.off_duration_hours) ||
+        throw(ArgumentError("Initial on/off durations must be nonnegative."))
+    all(
+        isfinite(state.storage_soc_mwh[s]) &&
+            -1e-8 <= state.storage_soc_mwh[s] <= data.storage[s].energy_capacity_mwh + 1e-8
+        for s = 1:S
     ) || throw(ArgumentError("Initial storage SOC is outside its energy bounds."))
-    config.value_of_lost_load_per_mwh > 0 ||
-        throw(ArgumentError("Value of lost load must be positive."))
-    config.emergency_load_shed_cost_per_mwh > 0 ||
-        throw(ArgumentError("Emergency load-shed cost must be positive."))
+    isfinite(config.value_of_lost_load_per_mwh) && config.value_of_lost_load_per_mwh > 0 ||
+        throw(ArgumentError("Value of lost load must be finite and positive."))
+    isfinite(config.emergency_load_shed_cost_per_mwh) &&
+        config.emergency_load_shed_cost_per_mwh > 0 ||
+        throw(ArgumentError("Emergency load-shed cost must be finite and positive."))
+    length(unique(config.security_up_products)) == length(config.security_up_products) ||
+        throw(ArgumentError("Security-up products cannot contain duplicates."))
+    length(unique(config.security_down_products)) ==
+    length(config.security_down_products) ||
+        throw(ArgumentError("Security-down products cannot contain duplicates."))
     all(name in product_names for name in config.security_up_products) ||
         throw(ArgumentError("A security-up product is not defined."))
     all(name in product_names for name in config.security_down_products) ||
         throw(ArgumentError("A security-down product is not defined."))
+    all(product_by_name[name].direction == :up for name in config.security_up_products) ||
+        throw(ArgumentError("Security-up products must provide upward reserve."))
+    all(
+        product_by_name[name].direction == :down for name in config.security_down_products
+    ) || throw(ArgumentError("Security-down products must provide downward reserve."))
+    isfinite(config.maximum_relative_gap) && config.maximum_relative_gap >= 0 ||
+        throw(ArgumentError("Maximum relative gap must be finite and nonnegative."))
+    config.maximum_security_variables > 0 ||
+        throw(ArgumentError("Maximum security variables must be positive."))
     return nothing
 end
 
@@ -334,9 +448,68 @@ function _new_model(optimizer, config)
     return model
 end
 
-function _require_optimal(model, stage)
-    termination_status(model) == MOI.OPTIMAL ||
-        error("DART $(stage) solve failed with status $(termination_status(model)).")
+function _model_relative_gap(model)
+    try
+        return relative_gap(model)
+    catch
+        return NaN
+    end
+end
+
+function _model_solve_time(model)
+    try
+        return solve_time(model)
+    catch
+        return NaN
+    end
+end
+
+function _require_solution(model, stage, config; require_optimal::Bool = false)
+    termination = termination_status(model)
+    primal = primal_status(model)
+    gap = _model_relative_gap(model)
+    termination == MOI.OPTIMAL && return nothing
+
+    acceptable_time_limit =
+        !require_optimal &&
+        config.accept_feasible_time_limit &&
+        termination == MOI.TIME_LIMIT &&
+        primal == MOI.FEASIBLE_POINT &&
+        isfinite(gap) &&
+        gap <= config.maximum_relative_gap
+    acceptable_time_limit && return nothing
+
+    error(
+        "DART $(stage) solve failed with termination status $(termination), " *
+        "primal status $(primal), and relative gap $(gap).",
+    )
+end
+
+function _has_discrete_variables(model)
+    return any(
+        variable -> is_binary(variable) || is_integer(variable),
+        all_variables(model),
+    )
+end
+
+function _security_variable_count(data, forecast)
+    G = length(data.generators)
+    N = length(data.network.bus_names)
+    L = length(data.network.line_names)
+    T = size(forecast.load_mw, 2)
+    C = count(generator.contingency_eligible for generator in data.generators)
+    return Int128(2G + 2N + L) * T * C + T
+end
+
+function _check_security_model_size(data, forecast, config)
+    count = _security_variable_count(data, forecast)
+    count <= config.maximum_security_variables || throw(
+        ArgumentError(
+            "Generator N-1 security would create approximately $(count) scenario " *
+            "variables, above maximum_security_variables=$(config.maximum_security_variables). " *
+            "Reduce the horizon or contingency set, or explicitly raise the safeguard.",
+        ),
+    )
     return nothing
 end
 
@@ -368,6 +541,9 @@ function _add_dispatch!(
     @variable(model, storage_discharge[1:S, 1:T] >= 0)
     @variable(model, storage_soc[1:S, 1:T] >= 0)
     @variable(model, storage_reserve[1:S, 1:T, 1:K] >= 0)
+    if S > 0
+        @variable(model, storage_charging_mode[1:S, 1:T], Bin)
+    end
     @variable(model, load_shed[1:N, 1:T] >= 0)
     @variable(model, injection[1:N, 1:T])
     @variable(model, line_flow[1:L, 1:T])
@@ -379,6 +555,10 @@ function _add_dispatch!(
     online_down = [
         k for k = 1:K if data.reserve_products[k].direction == :down &&
         data.reserve_products[k].requires_online
+    ]
+    offline_up = [
+        k for k = 1:K if data.reserve_products[k].direction == :up &&
+        !data.reserve_products[k].requires_online
     ]
     all_up = [k for k = 1:K if data.reserve_products[k].direction == :up]
     all_down = [k for k = 1:K if data.reserve_products[k].direction == :down]
@@ -441,19 +621,36 @@ function _add_dispatch!(
             elseif generator.quick_start_eligible &&
                    product.direction == :up &&
                    generator.quick_start_time_minutes <= product.response_minutes
-                service = forecast.generator_in_service[g, t] ? 1.0 : 0.0
-                @constraint(model, reserve <= capability * service * (1 - commitment[g, t]))
+                available_quick_start =
+                    min(capability, _available_pmax(data, forecast, config, g, t))
+                @constraint(
+                    model,
+                    reserve <= available_quick_start * (1 - commitment[g, t])
+                )
             else
                 fix(reserve, 0.0; force = true)
             end
         end
+        @constraint(
+            model,
+            sum((generator_reserve[g, t, k] for k in offline_up); init = 0.0) <=
+            pmax * (1 - commitment[g, t])
+        )
     end
 
-    # STO-1 through STO-6.
+    # STO-1 through STO-6. The mode binary prevents simultaneous operation.
     for s = 1:S, t = 1:T
         resource = data.storage[s]
-        @constraint(model, storage_charge[s, t] <= resource.charge_capacity_mw)
-        @constraint(model, storage_discharge[s, t] <= resource.discharge_capacity_mw)
+        @constraint(
+            model,
+            storage_charge[s, t] <=
+            resource.charge_capacity_mw * storage_charging_mode[s, t]
+        )
+        @constraint(
+            model,
+            storage_discharge[s, t] <=
+            resource.discharge_capacity_mw * (1 - storage_charging_mode[s, t])
+        )
         @constraint(model, storage_soc[s, t] <= resource.energy_capacity_mwh)
         previous_soc = t == 1 ? state.storage_soc_mwh[s] : storage_soc[s, t-1]
         @constraint(
@@ -502,6 +699,13 @@ function _add_dispatch!(
                 );
                 init = 0.0,
             ) <= resource.energy_capacity_mwh - previous_soc
+        )
+    end
+    if forecast.terminal_storage_soc_mwh !== nothing
+        @constraint(
+            model,
+            storage_terminal_soc[s = 1:S],
+            storage_soc[s, T] == forecast.terminal_storage_soc_mwh[s]
         )
     end
 
@@ -593,6 +797,7 @@ function _add_generator_security!(model, data, forecast, commitment, config)
     C = length(contingencies)
     model[:contingency_generator_indices] = contingencies
     C == 0 && return @expression(model, emergency_cost, 0.0)
+    _check_security_model_size(data, forecast, config)
 
     generator_bus, _ = _bus_indices(data)
     generation = model[:generation]
@@ -848,6 +1053,7 @@ function build_dart_scuc_model(
     # An offline quick-start unit must first complete its minimum-down obligation.
     for g = 1:G
         generator = data.generators[g]
+        minimum_down_intervals = ceil(Int, generator.min_down_hours / dt - 1e-9)
         remaining_down =
             state.commitment[g] == 0 ?
             ceil(
@@ -859,6 +1065,16 @@ function build_dart_scuc_model(
             product.requires_online && continue
             for t = 1:min(T, remaining_down)
                 fix(reserve[g, t, k], 0.0; force = true)
+            end
+            capability = get(generator.reserve_capability_mw, product.name, 0.0)
+            capability == 0 && continue
+            for t = 1:T
+                first_shutdown = max(1, t - minimum_down_intervals + 1)
+                @constraint(
+                    model,
+                    reserve[g, t, k] <=
+                    capability * (1 - sum(shutdown[g, tau] for tau = first_shutdown:t))
+                )
             end
         end
     end
@@ -1021,6 +1237,10 @@ function _result(award_model, pricing_model, data, forecast, stage)
     return DARTDispatchResult(
         stage = stage,
         objective_value = objective_value(award_model),
+        termination_status = termination_status(award_model),
+        primal_status = primal_status(award_model),
+        solve_time_seconds = _model_solve_time(award_model),
+        relative_gap = _model_relative_gap(award_model),
         interval_hours = dt,
         load_mw = copy(forecast.load_mw),
         interchange_mw = copy(forecast.interchange_mw),
@@ -1065,13 +1285,13 @@ function solve_dart_scuc(
     award =
         build_dart_scuc_model(data, forecast, state; config = config, optimizer = optimizer)
     optimize!(award)
-    _require_optimal(award, :day_ahead)
+    _require_solution(award, :day_ahead, config)
 
     pricing =
         build_dart_scuc_model(data, forecast, state; config = config, optimizer = optimizer)
     _fix_discrete_decisions!(pricing, award)
     optimize!(pricing)
-    _require_optimal(pricing, :day_ahead_pricing)
+    _require_solution(pricing, :day_ahead_pricing, config; require_optimal = true)
     return _result(award, pricing, data, forecast, :day_ahead)
 end
 
@@ -1083,7 +1303,7 @@ function solve_dart_sced(
     config::DARTConfig = DARTConfig(),
     optimizer = HiGHS.Optimizer,
 )
-    model = build_dart_sced_model(
+    award = build_dart_sced_model(
         data,
         forecast,
         state,
@@ -1091,9 +1311,24 @@ function solve_dart_sced(
         config = config,
         optimizer = optimizer,
     )
-    optimize!(model)
-    _require_optimal(model, :real_time)
-    return _result(model, model, data, forecast, :real_time)
+    optimize!(award)
+    _require_solution(award, :real_time, config)
+
+    pricing = award
+    if _has_discrete_variables(award)
+        pricing = build_dart_sced_model(
+            data,
+            forecast,
+            state,
+            fixed_commitment;
+            config = config,
+            optimizer = optimizer,
+        )
+        _fix_discrete_decisions!(pricing, award)
+        optimize!(pricing)
+        _require_solution(pricing, :real_time_pricing, config; require_optimal = true)
+    end
+    return _result(award, pricing, data, forecast, :real_time)
 end
 
 # -----------------------------------------------------------------------------
@@ -1112,6 +1347,8 @@ function _slice_forecast(forecast::DARTForecast, first_interval, last_interval)
             name => requirement[columns] for
             (name, requirement) in forecast.reserve_requirement_mw
         ),
+        terminal_storage_soc_mwh = last_interval == size(forecast.load_mw, 2) ?
+                                   forecast.terminal_storage_soc_mwh : nothing,
     )
 end
 
@@ -1119,6 +1356,10 @@ function _binding_result(result::DARTDispatchResult)
     return DARTDispatchResult(
         stage = result.stage,
         objective_value = result.objective_value,
+        termination_status = result.termination_status,
+        primal_status = result.primal_status,
+        solve_time_seconds = result.solve_time_seconds,
+        relative_gap = result.relative_gap,
         interval_hours = result.interval_hours,
         load_mw = result.load_mw[:, 1:1],
         interchange_mw = result.interchange_mw[:, 1:1],
@@ -1201,12 +1442,19 @@ function run_dart_rolling(
     config::DARTConfig = DARTConfig(),
     optimizer = HiGHS.Optimizer,
 )
-    isapprox(day_ahead_forecast.interval_hours, 1.0; atol = 1e-9) ||
+    isfinite(day_ahead_forecast.interval_hours) &&
+        isapprox(day_ahead_forecast.interval_hours, 1.0; atol = 1e-9) ||
         throw(ArgumentError("Day-ahead rolling input must be hourly."))
+    isfinite(real_time_forecast.interval_hours) && real_time_forecast.interval_hours > 0 ||
+        throw(ArgumentError("RT interval length must be finite and positive."))
     intervals_per_hour = round(Int, 1 / real_time_forecast.interval_hours)
     isapprox(intervals_per_hour * real_time_forecast.interval_hours, 1.0; atol = 1e-9) ||
         throw(ArgumentError("RT interval length must divide one hour."))
     hours_to_run > 0 || throw(ArgumentError("hours_to_run must be positive."))
+    day_ahead_lookahead_hours > 0 ||
+        throw(ArgumentError("day_ahead_lookahead_hours must be positive."))
+    real_time_lookahead_intervals > 0 ||
+        throw(ArgumentError("real_time_lookahead_intervals must be positive."))
     hours_to_run <= size(day_ahead_forecast.load_mw, 2) ||
         throw(ArgumentError("The DA forecast is shorter than hours_to_run."))
     hours_to_run * intervals_per_hour <= size(real_time_forecast.load_mw, 2) ||
@@ -1276,11 +1524,133 @@ function _allocate_to_load(total, served_energy)
     return total .* served_energy ./ sum(served_energy)
 end
 
+function _validate_binding_result(data, result, expected_stage)
+    G = length(data.generators)
+    S = length(data.storage)
+    N = length(data.network.bus_names)
+    L = length(data.network.line_names)
+    product_names = Set(getfield.(data.reserve_products, :name))
+
+    result.stage == expected_stage || throw(
+        ArgumentError(
+            "Settlement result has stage $(result.stage), expected $(expected_stage).",
+        ),
+    )
+    isfinite(result.interval_hours) && result.interval_hours > 0 ||
+        throw(ArgumentError("Settlement intervals must be finite and positive."))
+    isfinite(result.objective_value) ||
+        throw(ArgumentError("Settlement results must have a finite objective value."))
+
+    expected_dimensions = (
+        (:load_mw, result.load_mw, (N, 1)),
+        (:interchange_mw, result.interchange_mw, (N, 1)),
+        (:generator_in_service, result.generator_in_service, (G, 1)),
+        (:generation_mw, result.generation_mw, (G, 1)),
+        (:commitment, result.commitment, (G, 1)),
+        (:startup, result.startup, (G, 1)),
+        (:shutdown, result.shutdown, (G, 1)),
+        (:storage_charge_mw, result.storage_charge_mw, (S, 1)),
+        (:storage_discharge_mw, result.storage_discharge_mw, (S, 1)),
+        (:storage_soc_mwh, result.storage_soc_mwh, (S, 1)),
+        (:load_shed_mw, result.load_shed_mw, (N, 1)),
+        (:line_flow_mw, result.line_flow_mw, (L, 1)),
+        (:lmp_per_mwh, result.lmp_per_mwh, (N, 1)),
+    )
+    for (name, values, dimensions) in expected_dimensions
+        size(values) == dimensions || throw(
+            ArgumentError("Settlement field $(name) must have dimensions $(dimensions)."),
+        )
+        all(isfinite, values) ||
+            throw(ArgumentError("Settlement field $(name) must contain finite values."))
+    end
+
+    Set(keys(result.generator_reserve_mw)) == product_names || throw(
+        ArgumentError("Generator reserve settlement products do not match system data."),
+    )
+    Set(keys(result.storage_reserve_mw)) == product_names || throw(
+        ArgumentError("Storage reserve settlement products do not match system data."),
+    )
+    Set(keys(result.reserve_requirement_shadow_price_per_mw_hour)) == product_names ||
+        throw(ArgumentError("Reserve shadow-price products do not match system data."))
+    for name in product_names
+        generator_reserve = result.generator_reserve_mw[name]
+        storage_reserve = result.storage_reserve_mw[name]
+        shadow_price = result.reserve_requirement_shadow_price_per_mw_hour[name]
+        size(generator_reserve) == (G, 1) || throw(
+            ArgumentError(
+                "Generator reserve result $(name) must be generator count by one.",
+            ),
+        )
+        size(storage_reserve) == (S, 1) || throw(
+            ArgumentError("Storage reserve result $(name) must be storage count by one."),
+        )
+        length(shadow_price) == 1 ||
+            throw(ArgumentError("Reserve shadow price $(name) must contain one interval."))
+        all(isfinite, generator_reserve) &&
+            all(isfinite, storage_reserve) &&
+            all(isfinite, shadow_price) ||
+            throw(ArgumentError("Reserve settlement values must be finite."))
+    end
+
+    contingencies = result.contingency_generator_indices
+    length(unique(contingencies)) == length(contingencies) &&
+        all(index in 1:G for index in contingencies) ||
+        throw(ArgumentError("Contingency generator indices are invalid."))
+    size(result.emergency_load_shed_mw) == (N, 1, length(contingencies)) ||
+        throw(ArgumentError("Emergency load-shed settlement dimensions are invalid."))
+    all(isfinite, result.emergency_load_shed_mw) ||
+        throw(ArgumentError("Emergency load-shed values must be finite."))
+    return nothing
+end
+
+function _validate_settlement_inputs(data, rolling)
+    da_results = rolling.day_ahead_results
+    rt_results = rolling.real_time_results
+    isempty(da_results) &&
+        throw(ArgumentError("Settlement requires at least one day-ahead result."))
+    isempty(rt_results) &&
+        throw(ArgumentError("Settlement requires at least one real-time result."))
+    length(rolling.rt_to_da_index) == length(rt_results) ||
+        throw(ArgumentError("Every RT result must map to a DA result."))
+    issorted(rolling.rt_to_da_index) ||
+        throw(ArgumentError("RT-to-DA settlement mappings must be chronological."))
+    all(index in eachindex(da_results) for index in rolling.rt_to_da_index) ||
+        throw(ArgumentError("An RT result maps to a nonexistent DA result."))
+
+    for result in da_results
+        _validate_binding_result(data, result, :day_ahead)
+        isapprox(result.interval_hours, 1.0; atol = 1e-9) ||
+            throw(ArgumentError("Day-ahead settlement results must be hourly."))
+    end
+    for result in rt_results
+        _validate_binding_result(data, result, :real_time)
+    end
+
+    covered_hours = zeros(length(da_results))
+    for (rt_index, da_index) in pairs(rolling.rt_to_da_index)
+        covered_hours[da_index] += rt_results[rt_index].interval_hours
+    end
+    for da_index in eachindex(da_results)
+        isapprox(
+            covered_hours[da_index],
+            da_results[da_index].interval_hours;
+            atol = 1e-8,
+            rtol = 1e-8,
+        ) || throw(
+            ArgumentError(
+                "RT results mapped to DA interval $(da_index) cover " *
+                "$(covered_hours[da_index]) hours instead of " *
+                "$(da_results[da_index].interval_hours).",
+            ),
+        )
+    end
+    return nothing
+end
+
 function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingResult)
     da_results = rolling.day_ahead_results
     rt_results = rolling.real_time_results
-    length(rolling.rt_to_da_index) == length(rt_results) ||
-        throw(ArgumentError("Every RT result must map to a DA result."))
+    _validate_settlement_inputs(data, rolling)
     G = length(data.generators)
     S = length(data.storage)
     N = length(data.network.bus_names)
@@ -1391,6 +1761,8 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
     total_uplift = sum(generator_uplift) + sum(storage_uplift)
     load_reserve = _allocate_to_load(total_reserve, served_energy)
     load_uplift = _allocate_to_load(total_uplift, served_energy)
+    unallocated_reserve = total_reserve - sum(load_reserve)
+    unallocated_uplift = total_uplift - sum(load_uplift)
 
     energy_supplier_credit =
         sum(generator_da) +
@@ -1400,10 +1772,15 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
         sum(interchange_credit)
     merchandising_surplus = sum(load_energy) - energy_supplier_credit
     settlement_balance =
-        sum(load_energy) + sum(load_reserve) + sum(load_uplift) - energy_supplier_credit -
-        total_reserve - total_uplift - merchandising_surplus
+        sum(load_energy) +
+        sum(load_reserve) +
+        sum(load_uplift) +
+        unallocated_reserve +
+        unallocated_uplift - energy_supplier_credit - total_reserve - total_uplift -
+        merchandising_surplus
 
     return DARTSettlementResult(
+        reserve_settlement_rule = :pay_as_bid,
         generator_day_ahead_energy = generator_da,
         generator_real_time_deviation = generator_rt,
         generator_reserve_credit = generator_reserve,
@@ -1415,6 +1792,8 @@ function calculate_dart_settlements(data::DARTSystemData, rolling::DARTRollingRe
         load_energy_payment = load_energy,
         load_reserve_charge = load_reserve,
         load_uplift_charge = load_uplift,
+        unallocated_reserve_charge = unallocated_reserve,
+        unallocated_uplift_charge = unallocated_uplift,
         interchange_credit = interchange_credit,
         merchandising_surplus = merchandising_surplus,
         settlement_balance = settlement_balance,
