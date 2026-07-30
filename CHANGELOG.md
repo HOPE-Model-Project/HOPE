@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<!-- No unreleased changes yet. -->
+### Added
+
+- Lightweight in-memory DART SCUC, SCED, generator N-1, rolling, and settlement
+  functionality.
 
 ## [1.1.0] - 2026-04-08
 

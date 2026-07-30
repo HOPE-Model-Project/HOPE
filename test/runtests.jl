@@ -13,4 +13,5 @@ using Test
     include("test-holistic.jl")
     include("test-lmp-sign-regression.jl")
     include("test-pcm-constraints.jl")
+    include("test-dart.jl")
 end

@@ -1167,7 +1167,15 @@ function build_storage_rep_linkage(day_assignments::DataFrame)
         for (prev, cnt) in incoming
             weight = total_incoming > 0 ? cnt / total_incoming : 0.0
             predecessor_weight[(prev, rep)] = weight
-            push!(transition_rows, (prev, rep, cnt, weight))
+            push!(
+                transition_rows,
+                (
+                    PredecessorRepresentativePeriod = prev,
+                    RepresentativePeriod = rep,
+                    Count = cnt,
+                    Weight = weight,
+                ),
+            )
         end
     end
 
@@ -1192,7 +1200,15 @@ function build_storage_rep_linkage(day_assignments::DataFrame)
         lengths = get(run_lengths, rep, Int[])
         avg_len = isempty(lengths) ? 0.0 : mean(lengths)
         max_len = isempty(lengths) ? 0 : maximum(lengths)
-        push!(run_rows, (rep, length(lengths), avg_len, max_len))
+        push!(
+            run_rows,
+            (
+                RepresentativePeriod = rep,
+                NumRuns = length(lengths),
+                AverageRunLength = avg_len,
+                MaxRunLength = max_len,
+            ),
+        )
     end
 
     return Dict(

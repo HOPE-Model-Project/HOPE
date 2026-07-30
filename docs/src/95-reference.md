@@ -18,3 +18,9 @@ Pages = ["95-reference.md"]
 ```@autodocs
 Modules = [HOPE]
 ```
+
+## DART module
+
+```@autodocs
+Modules = [HOPE.DART]
+```

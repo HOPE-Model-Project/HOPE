@@ -75,6 +75,39 @@ instantiate_jump_model(optimizer) = Base.invokelatest(Model, optimizer)
 
 instantiate_jump_direct_model(optimizer) = Base.invokelatest(direct_model, optimizer)
 
+"""
+    initiate_solver(config::AbstractDict)
+
+Create the solver named by `config["solver"]` without case-specific settings.
+"""
+function initiate_solver(config::AbstractDict)
+    haskey(config, "solver") ||
+        throw(ArgumentError("Solver configuration is missing the 'solver' key."))
+    solver = lowercase(string(config["solver"]))
+    if solver == "cbc"
+        return optimizer_with_attributes(Cbc.Optimizer)
+    elseif solver == "clp"
+        if CLP_AVAILABLE
+            return optimizer_with_attributes(Clp.Optimizer)
+        end
+        @warn "Clp is unavailable on Apple Silicon; using HiGHS instead."
+        return optimizer_with_attributes(HiGHS.Optimizer)
+    elseif solver == "glpk"
+        return optimizer_with_attributes(GLPK.Optimizer)
+    elseif solver == "highs"
+        return optimizer_with_attributes(HiGHS.Optimizer)
+    elseif haskey(OPTIONAL_SOLVER_PACKAGES, solver)
+        _ensure_optional_solver_loaded(solver)
+        builder =
+            solver == "gurobi" ? _gurobi_optimizer :
+            solver == "scip" ? _scip_optimizer : _cplex_optimizer
+        return _worldsafe_optimizer_with_attributes(
+            Base.invokelatest(builder, Dict{String,Any}()),
+        )
+    end
+    throw(ArgumentError("Unknown solver '$(solver)'."))
+end
+
 function initiate_solver(case::AbstractString, solver::AbstractString)
     solver_settings_path = joinpath(case, "Settings", solver * "_settings.yml")
     solver_settings = open(solver_settings_path) do io
@@ -124,6 +157,8 @@ function initiate_solver(case::AbstractString, solver::AbstractString)
         )
     end
     if solver == "clp"
+        CLP_AVAILABLE ||
+            error("solver='clp' is unavailable on Apple Silicon. Use solver='highs'.")
         # Optional solver parameters ############################################
         Myfeasib_Tol = 1e-7
         if (haskey(solver_settings, "Feasib_Tol"))
