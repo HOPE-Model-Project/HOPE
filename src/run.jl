@@ -179,7 +179,7 @@ function _run_hope_impl(case::AbstractString, path::AbstractString)
         return Results
 
     catch e
-        @error "Error running HOPE case: $case" exception=(e, catch_backtrace())
+        @error "Error running HOPE case: $case" exception = (e, catch_backtrace())
         rethrow()
     end
 end
@@ -234,7 +234,8 @@ function write_hope(case::AbstractString, solved_case::Model)
         input_data = load_data(config_set, path)
         write_output(outpath, config_set, input_data, solved_case)
     catch e
-        @error "Error writing HOPE output for case: $case" exception=(e, catch_backtrace())
+        @error "Error writing HOPE output for case: $case" exception =
+            (e, catch_backtrace())
         rethrow()
     end
 end

@@ -1,5 +1,6 @@
 using DataFrames
 using CSV
+using JuMP
 using YAML
 
 function build_tiny_erec_case_tables()
@@ -43,12 +44,14 @@ function build_tiny_erec_case_tables()
     linedata = DataFrame(
         :From_zone => String[],
         :To_zone => String[],
-        Symbol("Capacity (MW)") => Float64[],
+        Symbol("Forward Capacity (MW)") => Float64[],
+        Symbol("Reverse Capacity (MW)") => Float64[],
     )
     linedata_candidate = DataFrame(
         :From_zone => ["Z1"],
         :To_zone => ["Z1"],
-        Symbol("Capacity (MW)") => [1.0],
+        Symbol("Forward Capacity (MW)") => [1.0],
+        Symbol("Reverse Capacity (MW)") => [1.0],
         Symbol("Cost (M\$)") => [1.0e6],
     )
 
@@ -115,7 +118,11 @@ function build_tiny_erec_case_tables()
     )
 end
 
-function write_tiny_erec_case(case_dir::AbstractString)
+function write_tiny_erec_case(
+    case_dir::AbstractString;
+    clean_energy_policy::Int = 0,
+    rps_requirement::Float64 = 0.0,
+)
     settings_dir = joinpath(case_dir, "Settings")
     data_dir = joinpath(case_dir, "Data")
     mkpath(settings_dir)
@@ -132,7 +139,7 @@ representative_day!: 0
 flexible_demand: 0
 inv_dcs_bin: 0
 carbon_policy: 0
-clean_energy_policy: 0
+clean_energy_policy: $(clean_energy_policy)
 planning_reserve_mode: 0
 operation_reserve_mode: 0
 transmission_loss: 0
@@ -174,7 +181,12 @@ LogLevel: 0
         )
     end
 
-    for (filename, table) in build_tiny_erec_case_tables()
+    tables = build_tiny_erec_case_tables()
+    tables["rpspolicies.csv"][!, :RPS] .= rps_requirement
+    if rps_requirement > 0.0
+        tables["gendata.csv"][!, :Flag_RPS] .= 1
+    end
+    for (filename, table) in tables
         CSV.write(joinpath(data_dir, filename), table)
     end
 
@@ -223,6 +235,17 @@ end
         @test haskey(run_res, "config")
         @test haskey(run_res, "solved_model")
         @test haskey(run_res, "snapshot")
+        solved_model = run_res["solved_model"]
+        @test variable_by_name(solved_model, "r_G_SPIN[1,1]") === nothing
+        @test variable_by_name(solved_model, "r_S_SPIN[1,1]") === nothing
+        @test !haskey(object_dictionary(solved_model), :SPIN_off_g_con)
+        @test !haskey(object_dictionary(solved_model), :SPIN_off_s_con)
+        @test solved_model[:r_G_SPIN][1, 1] == 0.0
+        @test solved_model[:r_S_SPIN][1, 1] == 0.0
+        @test !haskey(object_dictionary(solved_model), :pw)
+        @test !haskey(object_dictionary(solved_model), :pwe)
+        @test !haskey(object_dictionary(solved_model), :RPS_off_con)
+        @test solved_model[:pt_rps]["S1"] == 0.0
         @test run_res["snapshot"] !== nothing
         @test isdir(run_res["snapshot"]["snapshot_dir"])
         @test isfile(
@@ -305,5 +328,57 @@ end
             atol = 1.0e-6,
             rtol = 0.0,
         )
+    end
+end
+
+@testset "GTEP Local RPS Matches Self-Only REC Policy" begin
+    mktempdir() do tmpdir
+        trading_case = write_tiny_erec_case(
+            joinpath(tmpdir, "trading_rps_case");
+            clean_energy_policy = 1,
+            rps_requirement = 0.5,
+        )
+        local_case = write_tiny_erec_case(
+            joinpath(tmpdir, "local_rps_case");
+            clean_energy_policy = 2,
+            rps_requirement = 0.5,
+        )
+
+        trading_result = HOPE.run_hope(trading_case)
+        local_result = HOPE.run_hope(local_case)
+        trading_model = trading_result["solved_model"]
+        local_model = local_result["solved_model"]
+
+        @test termination_status(trading_model) == MOI.OPTIMAL
+        @test termination_status(local_model) == MOI.OPTIMAL
+        @test isapprox(
+            objective_value(local_model),
+            objective_value(trading_model);
+            atol = 1.0e-6,
+            rtol = 0.0,
+        )
+        @test isapprox(
+            value(local_model[:RPSPenalty]),
+            value(trading_model[:RPSPenalty]);
+            atol = 1.0e-6,
+            rtol = 0.0,
+        )
+        @test isapprox(
+            value(local_model[:pt_rps]["S1"]),
+            value(trading_model[:pt_rps]["S1"]);
+            atol = 1.0e-6,
+            rtol = 0.0,
+        )
+
+        @test haskey(object_dictionary(trading_model), :pw)
+        @test haskey(object_dictionary(trading_model), :pwe)
+        @test constraint_by_name(trading_model, "RPS_con[S1]") !== nothing
+        @test constraint_by_name(trading_model, "RPS_local_con[S1]") === nothing
+
+        @test !haskey(object_dictionary(local_model), :pw)
+        @test !haskey(object_dictionary(local_model), :pwe)
+        @test constraint_by_name(local_model, "RPS_con[S1]") === nothing
+        @test constraint_by_name(local_model, "RPS_local_con[S1]") !== nothing
+        @test num_variables(local_model) < num_variables(trading_model)
     end
 end

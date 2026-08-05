@@ -355,6 +355,16 @@ def _detect_n_periods(data: GTEPCaseData) -> int:
     return max(period_nums) if period_nums else 4
 
 
+def _directional_line_limits(row: pd.Series) -> tuple[float, float]:
+    """Return the positive forward and reverse ratings for a transmission row."""
+    forward = pd.to_numeric(row.get("Forward Capacity (MW)", 0.0), errors="coerce")
+    reverse = pd.to_numeric(row.get("Reverse Capacity (MW)", 0.0), errors="coerce")
+    return (
+        0.0 if pd.isna(forward) else float(forward),
+        0.0 if pd.isna(reverse) else float(reverse),
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # KPI strip (toolbar)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -367,8 +377,10 @@ def _gtep_kpi_strip(data: GTEPCaseData) -> html.Div:
 
     if not data.line_results.empty:
         nb = data.line_results[data.line_results.get("New_Build", pd.Series([0])).astype(int) == 1]
-        if "Capacity (MW)" in nb.columns:
-            new_tx_mw = float(nb["Capacity (MW)"].sum())
+        required = ["Forward Capacity (MW)", "Reverse Capacity (MW)"]
+        if set(required).issubset(nb.columns):
+            directional = nb[required].apply(pd.to_numeric, errors="coerce").fillna(0.0)
+            new_tx_mw = float(directional.max(axis=1).sum())
 
     ren_techs = {"SolarPV", "WindOn", "WindOff", "Hydro", "Bio", "Landfill_NG"}
     if not data.capacity.empty and "Capacity_FIN (MW)" in data.capacity.columns:
@@ -775,14 +787,18 @@ def _map_figure(
             existing_lines_drawn.add(key)
             lat_f, lon_f = _ZONE_CENTROIDS[fz]
             lat_t, lon_t = _ZONE_CENTROIDS[tz]
-            cap = float(row.get("Capacity (MW)", 0))
+            forward, reverse = _directional_line_limits(row)
             fig.add_trace(go.Scattergeo(
                 lat=[lat_f, lat_t, None],
                 lon=[lon_f, lon_t, None],
                 mode="lines",
                 line=dict(width=1.8, color="#94a3b8"),
                 hoverinfo="text",
-                text=f"{fz}→{tz}<br>Existing: {cap:.0f} MW",
+                text=(
+                    f"{fz}→{tz}<br>"
+                    f"Forward: {forward:.0f} MW<br>"
+                    f"Reverse: {reverse:.0f} MW"
+                ),
                 legendgroup="existing_line",
                 showlegend=False,
             ))
@@ -797,7 +813,8 @@ def _map_figure(
             tz = str(row.get("To_zone", ""))
             if fz not in _ZONE_CENTROIDS or tz not in _ZONE_CENTROIDS:
                 continue
-            cap = float(row.get("Capacity (MW)", 0))
+            forward, reverse = _directional_line_limits(row)
+            cap = max(forward, reverse)
             if cap < 1.0:
                 continue
             lat_f, lon_f = _ZONE_CENTROIDS[fz]
@@ -808,7 +825,11 @@ def _map_figure(
                 mode="lines",
                 line=dict(width=1.8, color="#f97316"),
                 hoverinfo="text",
-                text=f"NEW: {fz}→{tz}<br>{cap:.0f} MW",
+                text=(
+                    f"NEW: {fz}→{tz}<br>"
+                    f"Forward: {forward:.0f} MW<br>"
+                    f"Reverse: {reverse:.0f} MW"
+                ),
                 legendgroup="new_line",
                 showlegend=False,
             ))
@@ -819,7 +840,7 @@ def _map_figure(
                 lat=[mid_lat],
                 lon=[mid_lon],
                 mode="text",
-                text=[f"+{cap:.0f} MW"],
+                text=[f"+{forward:.0f}/{reverse:.0f} MW"],
                 textfont=dict(size=10, color="#f97316"),
                 hoverinfo="skip",
                 legendgroup="new_line",

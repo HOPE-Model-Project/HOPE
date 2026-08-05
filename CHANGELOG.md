@@ -12,6 +12,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lightweight in-memory DART SCUC, SCED, generator N-1, rolling, and settlement
   functionality.
 
+### Changed
+
+- Add `clean_energy_policy = 2` for local annual RPS compliance without
+  renewable-credit trading variables, and avoid allocating RPS variables when
+  clean-energy policy is disabled.
+- Replaced the symmetric transmission input `Capacity (MW)` with required
+  `Forward Capacity (MW)` and `Reverse Capacity (MW)` ratings in GTEP and PCM.
+  Existing and candidate lines, nodal branches, loss bounds, holistic/EREC
+  handoffs, and congestion outputs now preserve line direction explicitly.
+- Avoid GTEP resource-hour SPIN variables and zero-fixing constraints when
+  `operation_reserve_mode = 0`; zero-valued expressions preserve the same
+  downstream algebra with substantially lower model-construction overhead.
+
+### Fixed
+
+- Reject multiple `Time Period` values in full chronological mode so hourly
+  storage state-of-charge transitions cannot be silently omitted.
+- Select full-year storage boundary equations from the configured temporal
+  mode instead of inferring the mode from the input period IDs.
+- Scale candidate renewable curtailment by the candidate build decision.
+
 ## [1.1.0] - 2026-04-08
 
 ### Added

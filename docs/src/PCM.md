@@ -22,7 +22,7 @@ If `unit_commitment = 1` and `write_shadow_prices = 1`, HOPE solves MILP first, 
   - `0`: off
   - `1`: REG + SPIN
   - `2`: REG + SPIN + NSPIN
-- `clean_energy_policy` (`0`/`1`)
+- `clean_energy_policy` (`0` off, `1` RPS with REC trading, `2` local RPS)
 - `carbon_policy` (`0`/`1`/`2`)
 - `flexible_demand` (`0`/`1`)
 
@@ -89,10 +89,11 @@ When `transmission_loss = 1`, HOPE adds endpoint-allocated line losses to the zo
 loss_{l,h} = \rho_l |f_{l,h}|
 ```
 
-Corridor flow bounds:
+Positive flow follows the input row from `From_zone`/`from_bus` to
+`To_zone`/`to_bus`. Corridor flow bounds are:
 
 ```math
--F^{max}_l \le f_{l,h} \le F^{max}_l
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
 ```
 
 #### [PCM-C1.2] `network_model = 2` (nodal DCOPF, angle-based)
@@ -137,6 +138,16 @@ DC line physics:
 f_{l,h} = B_l(\theta_{from(l),h} - \theta_{to(l),h})
 ```
 
+All transport, angle-based, and PTDF network formulations apply directional
+line limits:
+
+```math
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
+```
+
+Positive flow follows the input row from `From_zone`/`from_bus` to
+`To_zone`/`to_bus`. For symmetric branches, the two ratings are equal.
+
 Reference angle and optional bounds:
 
 ```math
@@ -176,13 +187,16 @@ PTDF mode in the current HOPE release is lossless. Keep `transmission_loss = 0` 
 Line flow bounds in PTDF mode:
 
 ```math
--F^{eff}_l \le f_{l,h} \le F^{eff}_l
+-F^{reverse,eff}_l \le f_{l,h} \le F^{forward,eff}_l
 ```
 
-`F^{eff}_l` is used for PTDF mode and equals thermal limit by default; it can be tightened by angle-difference limits via:
+Each effective directional rating equals its corresponding thermal limit by
+default and can be tightened independently by an angle-difference limit:
 
 ```math
-F^{eff}_l = \min\left(F^{max}_l,\; |B_l|\Delta\theta^{max}_l\right)
+F^{d,eff}_l =
+\min\left(F^{d}_l,\; |B_l|\Delta\theta^{max}_l\right),
+\qquad d\in\{forward,reverse\}
 ```
 
 ### 2. [PCM-C2] Operating reserve
@@ -250,6 +264,7 @@ This equality (rather than inequality) ensures that committed units always face 
 ```math
 dc_{s,h} + ReserveUp_{S,s,h} \le SD_s\,SCAP_s
 ```
+
 ```math
 c_{s,h} + ReserveDn_{S,s,h} \le SC_s\,SCAP_s
 ```
@@ -271,9 +286,11 @@ soc_{s,h} = soc_{s,h-1} + \eta^{ch}_s c_{s,h} - dc_{s,h}/\eta^{dis}_s
   ```math
   r^{REG\uparrow}_{S,s,h}\cdot\Delta^{REG} \le soc_{s,h}
   ```
+
   ```math
   r^{SPIN}_{S,s,h}\cdot\Delta^{SPIN} \le soc_{s,h}
   ```
+
   ```math
   r^{NSPIN}_{S,s,h}\cdot\Delta^{NSPIN} \le soc_{s,h}
   ```

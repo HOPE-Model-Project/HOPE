@@ -22,7 +22,7 @@ The `HOPE_model_settings.yml` file configures model switches and run controls.
 |`inv_dcs_bin:`| `0` | `GTEP`: `1` binary investment decisions; `0` relaxed investments.|
 |`unit_commitment:`| `1` | `PCM`: `0` no UC; `1` integer UC; `2` convexified UC.|
 |`carbon_policy:`| `1` | `0` off; `1` emissions cap; `2` cap-and-trade style.|
-|`clean_energy_policy:`| `1` | `0` off; `1` enforce RPS-style constraints.|
+|`clean_energy_policy:`| `1` | `0` off; `1` RPS with REC trading; `2` local RPS without REC trading.|
 |`planning_reserve_mode:`| `1` | `GTEP`: `0` off; `1` system-level RA; `2` zonal RA.|
 |`operation_reserve_mode:`| `2` | `GTEP`: `0` off, `1` SPIN only. `PCM`: `0` off, `1` REG+SPIN, `2` REG+SPIN+NSPIN.|
 |`network_model:`| `3` | `PCM`: `0` no network, `1` zonal transport, `2` nodal DCOPF angle-based, `3` nodal DCOPF PTDF-based.|

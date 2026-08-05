@@ -23,20 +23,20 @@ This is the input dataset for existing generators.
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Flag_RET | 1 if the generator is eligible for retirement, and 0 otherwise|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator |
-|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Flag_RET|1 if the generator is eligible for retirement, and 0 otherwise|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator|
+|AF *(optional)*|Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 
 ---
 
@@ -46,20 +46,20 @@ This is the input dataset for candidate generators (a set of all generators that
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Cost (\$/MW/yr) |Annualized investment cost for the generator in \$/MW/yr|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator|
-|AF *(optional)* |Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Cost (\$/MW/yr)|Annualized investment cost for the generator in \$/MW/yr|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator|
+|AF *(optional)*|Fallback availability factor for non-VRE generators. If omitted, default = 1. This value is used to construct hourly availability \(AF_{g,h}\) for non-VRE units.|
 
 ---
 
@@ -73,8 +73,13 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone`|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone`|
 |Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
+
+Both directional capacity columns are required. For a symmetric line, repeat
+the same value in both columns. The former transmission input column
+`Capacity (MW)` is no longer accepted.
 
 ---
 
@@ -88,10 +93,33 @@ This is the input dataset for candidate transmission lines (a set of all inter-z
 | :------------ | :-----------|
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone` when the candidate is built|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone` when the candidate is built|
 |Cost (M\$) |Investment cost for the generator in million dollars (M\$)|
 |X |Reactance of the line in P.U. (optional)|
 |Loss (%) *(optional)* | Candidate line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`.|
+
+Both directional ratings are multiplied by the same candidate-line build
+decision. A candidate row represents one physical line or aggregate corridor,
+not two separately built directional paths.
+
+---
+
+### Migrating legacy transmission tables
+
+For a legacy symmetric case, replace `Capacity (MW)` with the two required
+columns and copy the old rating into each one. Repository maintainers can
+migrate CSV inputs, saved `line.csv` outputs, and `*input*.xlsx` workbooks in
+place with:
+
+```bash
+python tools/repo_utils/migrate_directional_transmission_limits.py /path/to/cases
+```
+
+The script requires Python with `openpyxl`. It rejects partial schemas,
+nonnumeric ratings, negative ratings, and files that mix the old and new
+columns. Review and commit the resulting case-data changes before running
+HOPE.
 
 ---
 
@@ -109,19 +137,19 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |The technology type of the storage|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
-|EF |The CO2 emission factor for the storage in tons/MWh|
-|CC |The capacity credit for the storage|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the storage is belonging to|
+|Type|The technology type of the storage|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MWh)|Operating cost of the storage in \$/MWh|
+|EF|The CO2 emission factor for the storage in tons/MWh|
+|CC|The capacity credit for the storage|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -131,20 +159,20 @@ This is the input dataset for candidate energy storage units (a set of all stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the storage is belonging to|
-|Type |The technology type of the storage|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MW/yr) |Annualized investment cost for the storage in \$/MW/yr|
-|Cost (\$/MWh) |Operating cost of the storage in \$/MWh|
-|EF |The CO2 emission factor for the storage in tons/MWh|
-|CC |The capacity credit for the storage|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the storage is belonging to|
+|Type|The technology type of the storage|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MW/yr)|Annualized investment cost for the storage in \$/MW/yr|
+|Cost (\$/MWh)|Operating cost of the storage in \$/MWh|
+|EF|The CO2 emission factor for the storage in tons/MWh|
+|CC|The capacity credit for the storage|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -156,9 +184,10 @@ This is the input dataset for the annual hourly generator-level availability pro
 
 |**Column Name** | **Description**|
 | :------------ | :-----------|
+|Time Period | Full chronological mode: `1` for all 8760 rows. External representative-day mode: representative-period ID.|
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
+|Hours | Hours of the day, ranging from 1 to 24|
 |G1 | Hourly availability factor of generator index 1 (optional if fallback is acceptable)|
 |G2 | Hourly availability factor of generator index 2 (optional if fallback is acceptable)|
 |... | Optional columns through `G(N)`, where `N = (# existing generators + # candidate generators)` and ordering is `[gendata; gendata_candidate]`|
@@ -167,7 +196,8 @@ This is the input dataset for the annual hourly generator-level availability pro
 
 Notes:
 
-- Only `Month`, `Day`, and `Period` are strictly required.
+- `Time Period`, `Month`, `Day`, and `Hours` are required.
+- Full chronological mode must use `Time Period = 1` for every row. Multiple time-period IDs are reserved for representative-day mode.
 - Missing generator columns will fallback to the generator static `AF` in `gendata/gendata_candidate` (default `1` if missing there).
 - Recommended: provide hourly profiles for all VRE/RPS-relevant generators to avoid unintended static fallback.
 
@@ -179,15 +209,20 @@ This is the input dataset for the annual hourly load profile in each zone. Each 
 
 |**Column Name** | **Description**|
 | :------------ | :-----------|
+|Time Period | Full chronological mode: `1` for all 8760 rows. External representative-day mode: representative-period ID.|
 |Month | Months of the year, ranging from 1 to 12|
 |Day | Days of the month, ranging from 1 to 31|
-|Period | Hours of the day, ranging from 1 to 24|
+|Hours | Hours of the day, ranging from 1 to 24|
 |Zone 1 | Load data in zone 1 on a specific period, day, and month|
 |Zone 2 | Load data in zone 2 on a specific period, day, and month|
 |... |...|
 |NI | Net load import on a specific period, day, and month|
 
 ---
+
+Full chronological mode must use `Time Period = 1` for every row. Multiple
+time-period IDs are reserved for representative-day mode. All aligned hourly
+timeseries files must use the same chronology columns row by row.
 
 ## flexddata
 
@@ -244,11 +279,11 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_state | State that trading the renewable credits from |
-|To_state | State that trading the renewable credits to |
-|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
+| **Column Name** | **Description** |
+| :------------ | :----------- |
+| From_state | State that trading the renewable credits from |
+| To_state | State that trading the renewable credits to |
+| RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless |
 
 ---
 

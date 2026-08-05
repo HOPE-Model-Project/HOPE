@@ -17,7 +17,7 @@ Once configured, Claude Desktop will have access to **16 HOPE tools** organized 
 ### Job Execution
 
 | Tool | Description |
-|------|-------------|
+| ------ | ------------- |
 | `hope_warmup` | Pre-compiles the Julia/HOPE environment in the background. Call once per session before the first run. Returns a `job_id` immediately. |
 | `hope_run_hope` | Launches a HOPE single-case optimization run (GTEP or PCM) in the background. Returns a `job_id` immediately. |
 | `hope_run_holistic` | Launches a two-stage GTEP→PCM holistic workflow: Stage 1 solves capacity expansion; Stage 2 fixes the built fleet and runs production-cost dispatch. Returns a `job_id` immediately. |
@@ -34,7 +34,7 @@ Once configured, Claude Desktop will have access to **16 HOPE tools** organized 
 ### Output Reading
 
 | Tool | Description |
-|------|-------------|
+| ------ | ------------- |
 | `hope_case_info` | Reads case settings and output file inventory instantly — no Julia required. |
 | `hope_output_summary` | Reads and summarizes existing output CSVs (system cost, capacity builds, storage builds) instantly — no Julia required. |
 | `hope_read_output` | Reads any specific output CSV with optional column filters — e.g., dispatch for a single zone, or capacity for one technology. |

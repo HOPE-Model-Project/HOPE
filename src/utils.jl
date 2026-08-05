@@ -52,7 +52,7 @@ if !@isdefined(validate_case_directory)
         try
             return reader_func(filepath)
         catch e
-            @error "Error reading file: $filepath" exception=(e, catch_backtrace())
+            @error "Error reading file: $filepath" exception = (e, catch_backtrace())
             rethrow()
         end
     end
@@ -68,10 +68,8 @@ if !@isdefined(validate_case_directory)
                 mkpath(outpath)
                 @info "Created output directory: $outpath"
             catch e
-                @error "Failed to create output directory: $outpath" exception=(
-                    e,
-                    catch_backtrace(),
-                )
+                @error "Failed to create output directory: $outpath" exception =
+                    (e, catch_backtrace())
                 rethrow()
             end
         end
@@ -300,6 +298,26 @@ if !@isdefined(validate_case_directory)
         H_T = collect(1:nrow(df))
         has_custom_time_periods = length(t_vals) > 1
         return t_vals, H_t, H_T, has_custom_time_periods
+    end
+
+    """
+        validate_full_chronological_time_periods(t_vals)
+
+    Require a single time period in full chronological mode. Representative-period
+    identifiers are only valid when representative-day mode is enabled.
+    """
+    function validate_full_chronological_time_periods(t_vals::AbstractVector{<:Integer})
+        periods = sort(unique(collect(t_vals)))
+        if periods != [1]
+            throw(
+                ArgumentError(
+                    "Full chronological mode requires 'Time Period' = 1 for every timeseries row. " *
+                    "Found $(length(periods)) distinct period(s): $(periods). " *
+                    "Use representative-day mode for multiple Time Period values.",
+                ),
+            )
+        end
+        return true
     end
 
     """

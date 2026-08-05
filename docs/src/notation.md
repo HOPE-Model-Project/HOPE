@@ -55,7 +55,8 @@ CurrentModule = HOPE
 | $DR_r^{max}$ | MW | Maximum DR power of resource $r$ |
 | $DR_{r,h}^{DF/PB,max}$ | MW | Deferrable/payback DR upper bounds of resource $r$ in hour $h$ |
 | $ELMT_w$ | ton | Carbon emission limits at state $w$ |
-| $F_l^{max}$ | MW | Maximum capacity of transmission corridor/line $l$ |
+| $F_l^{forward}$ | MW | Maximum positive flow from the listed `From` endpoint to the listed `To` endpoint of line $l$ |
+| $F_l^{reverse}$ | MW | Maximum magnitude of negative flow from the listed `To` endpoint to the listed `From` endpoint of line $l$ |
 | $\tilde{I}_g$ | MUSD | Investment cost of candidate generator $g$ |
 | $\tilde{I}_l$ | MUSD | Investment cost of transmission line $l$ |
 | $\tilde{I}_s$ | MUSD | Investment cost of storage unit $s$ |

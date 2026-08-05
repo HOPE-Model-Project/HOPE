@@ -11,6 +11,93 @@ function first_existing_col(colset::Set{String}, candidates::Vector{String})
     return nothing
 end
 
+const FORWARD_LINE_CAPACITY_COLUMN = "Forward Capacity (MW)"
+const REVERSE_LINE_CAPACITY_COLUMN = "Reverse Capacity (MW)"
+const LEGACY_LINE_CAPACITY_COLUMN = "Capacity (MW)"
+
+"""
+    parse_directional_line_limits(df; context="linedata")
+
+Read HOPE's required directional transmission ratings.
+
+Positive flow follows the row orientation (`From_zone`/`from_bus` to
+`To_zone`/`to_bus`) and is limited by `Forward Capacity (MW)`. Negative flow
+uses `Reverse Capacity (MW)`. Both columns are required, including for empty
+candidate-line tables. Symmetric lines repeat the same rating in both columns.
+
+The former transmission column `Capacity (MW)` is intentionally rejected so a
+case cannot silently mix the old symmetric schema with directional limits.
+"""
+function parse_directional_line_limits(df::DataFrame; context::AbstractString = "linedata")
+    cols = Set(string.(names(df)))
+    required = [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
+    missing_cols = [col for col in required if !(col in cols)]
+    if !isempty(missing_cols)
+        legacy_note =
+            LEGACY_LINE_CAPACITY_COLUMN in cols ?
+            " Remove '$(LEGACY_LINE_CAPACITY_COLUMN)' and copy its value into both directional columns for a symmetric line." :
+            ""
+        throw(
+            ArgumentError(
+                "$(context) is missing required transmission column(s): $(join(missing_cols, ", "))." *
+                " HOPE requires both '$(FORWARD_LINE_CAPACITY_COLUMN)' and '$(REVERSE_LINE_CAPACITY_COLUMN)'." *
+                legacy_note,
+            ),
+        )
+    end
+    if LEGACY_LINE_CAPACITY_COLUMN in cols
+        throw(
+            ArgumentError(
+                "$(context) still contains deprecated transmission column '$(LEGACY_LINE_CAPACITY_COLUMN)'." *
+                " Delete it; use only '$(FORWARD_LINE_CAPACITY_COLUMN)' and '$(REVERSE_LINE_CAPACITY_COLUMN)'.",
+            ),
+        )
+    end
+
+    parse_rating(raw, column, row) = begin
+        if raw === missing || raw === nothing || (raw isa AbstractString && isempty(strip(raw)))
+            throw(
+                ArgumentError(
+                    "$(context) has a blank $(column) value at row $(row). Directional transmission ratings must be finite and non-negative.",
+                ),
+            )
+        end
+        value = try
+            raw isa Number ? Float64(raw) : parse(Float64, strip(string(raw)))
+        catch
+            throw(
+                ArgumentError(
+                    "$(context) has a nonnumeric $(column) value '$(raw)' at row $(row).",
+                ),
+            )
+        end
+        if !isfinite(value) || value < 0.0
+            throw(
+                ArgumentError(
+                    "$(context) $(column) must be finite and non-negative; found $(value) at row $(row).",
+                ),
+            )
+        end
+        value
+    end
+
+    forward = Float64[
+        parse_rating(
+            df[row, FORWARD_LINE_CAPACITY_COLUMN],
+            FORWARD_LINE_CAPACITY_COLUMN,
+            row,
+        ) for row = 1:nrow(df)
+    ]
+    reverse = Float64[
+        parse_rating(
+            df[row, REVERSE_LINE_CAPACITY_COLUMN],
+            REVERSE_LINE_CAPACITY_COLUMN,
+            row,
+        ) for row = 1:nrow(df)
+    ]
+    return forward, reverse
+end
+
 """
 Parse optional per-line loss rates from a line table.
 

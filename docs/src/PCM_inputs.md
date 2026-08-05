@@ -68,20 +68,20 @@ This is the input dataset for existing generators.
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Pmax (MW) |Maximum generation (nameplate) capacity of the generator in MW|
-|Pmin (MW) |Minimum generation (nameplate) capacity of the generator in MW|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Flag_thermal | 1 if the generator belongs to thermal units, and 0 otherwise|
-|Flag_VRE | 1 if the generator belongs to variable renewable energy units, and 0 otherwise|
-|Flag_mustrun | 1 if the generator must run at its nameplate capacity, and 0 otherwise|
-|Flag_UC | 1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Pmax (MW)|Maximum generation (nameplate) capacity of the generator in MW|
+|Pmin (MW)|Minimum generation (nameplate) capacity of the generator in MW|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Flag_thermal|1 if the generator belongs to thermal units, and 0 otherwise|
+|Flag_VRE|1 if the generator belongs to variable renewable energy units, and 0 otherwise|
+|Flag_mustrun|1 if the generator must run at its nameplate capacity, and 0 otherwise|
+|Flag_UC|1 if the generator is eligible for unit commitment constraints, and 0 otherwise|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
 |Start_up_cost (\$/MW)|Start up cost for UC generator in \$/MW|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
 |FOR|Forced outrage rate, unitless|
 |RM_SPIN|Spinning reserve margin, unitless|
 |RU|Ramp up rate, unitless|
@@ -135,8 +135,17 @@ This is the input dataset for existing transmission lines (e.g., transmission ca
 |From_zone | Starting zone of the inter-zonal transmission line|
 |To_zone | Ending zone of the inter-zonal transmission line|
 |X or Reactance | Line reactance (recommended for nodal modes). If omitted, current code falls back to unit values (`B_l = 1` / `X = 1`) with a warning.|
-|Capacity (MW) | Transmission capacity limit for the transmission line|
+|Forward Capacity (MW) | Maximum positive flow from `From_zone` to `To_zone`|
+|Reverse Capacity (MW) | Maximum magnitude of negative flow from `To_zone` to `From_zone`|
 |Loss (%) *(optional)* | Line loss rate used only when `transmission_loss = 1`. Values can be given as percent (`2`) or fraction (`0.02`). Missing values default to `0`. Shipped example files may keep this column at `0` so the default case behavior stays lossless.|
+
+Both directional capacity columns are required. For a symmetric line, repeat
+the same value in both columns. The former transmission input column
+`Capacity (MW)` is no longer accepted.
+
+See [GTEP inputs: migrating legacy transmission tables](GTEP_inputs.md#migrating-legacy-transmission-tables)
+for the repository migration utility. The same strict contract applies to PCM
+`linedata` and `branchdata`.
 
 ---
 
@@ -169,12 +178,17 @@ This dataset defines nodal transmission branches.
 Recommended columns:
 
 - `from_bus`/`to_bus` (or MATPOWER-style `F_BUS`/`T_BUS`)
-- `Capacity (MW)` (line thermal limit)
+- `Forward Capacity (MW)` (positive-flow thermal/transfer limit)
+- `Reverse Capacity (MW)` (negative-flow thermal/transfer limit magnitude)
 - `X` or `Reactance` (for DC angle/PTDF physics)
 - `Loss (%)` *(optional; supported when `network_model = 2` and `transmission_loss = 1`)*
 - `delta_theta_max` *(optional)*: per-line max angle difference (radians). If omitted/<=0, disabled.
 
 If `branchdata` is provided and `network_model` is nodal, HOPE uses it as network branch input.
+
+Positive branch flow follows `from_bus` to `to_bus`; negative flow follows the
+opposite direction. Both directional limits are required, even when they are
+equal.
 
 PTDF note:
 
@@ -207,19 +221,19 @@ This is the input dataset for existing energy storage units (e.g., battery stora
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|Zone |The zone that the generator is belonging to|
-|Type |The technology type of the generator|
-|Capacity (MWh) |Maximun energy capacity of the storage in MWh|
-|Max Power (MW) |Maximum energy rate (power capacity) of the storage in MW|
-|Charging efficiency |Ratio of how much energy is transferred from the charger to the storage unit|
-|Discharging efficiency |Ratio of how much energy is transferred from the storage unit to the charger|
-|Cost (\$/MWh) |Operating cost of the generator in \$/MWh|
-|EF |The CO2 emission factor for the generator in tons/MWh|
-|CC |The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
-|Charging Rate |The maximum rates of charging, unitless|
-|Discharging Rate |The maximum rates of discharging, unitless|
+|**Column Name**|**Description**|
+|:------------|:-----------|
+|Zone|The zone that the generator is belonging to|
+|Type|The technology type of the generator|
+|Capacity (MWh)|Maximun energy capacity of the storage in MWh|
+|Max Power (MW)|Maximum energy rate (power capacity) of the storage in MW|
+|Charging efficiency|Ratio of how much energy is transferred from the charger to the storage unit|
+|Discharging efficiency|Ratio of how much energy is transferred from the storage unit to the charger|
+|Cost (\$/MWh)|Operating cost of the generator in \$/MWh|
+|EF|The CO2 emission factor for the generator in tons/MWh|
+|CC|The capacity credit for the generator (it is the fraction of the installed/nameplate capacity of a generator that can be relied upon at a given time)|
+|Charging Rate|The maximum rates of charging, unitless|
+|Discharging Rate|The maximum rates of discharging, unitless|
 
 ---
 
@@ -326,7 +340,7 @@ Required load columns:
 Example:
 
 | Time Period | Hours | Month | Day | Bus 1 | Bus 2 | Bus 3 |
-| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| :------------ | :----------- | :----------- | :----------- | :----------- | :----------- | :----------- |
 | 1 | 1 | 7 | 1 | 0.82 | 0.79 | 0.91 |
 | 1 | 2 | 7 | 1 | 0.80 | 0.77 | 0.88 |
 
@@ -375,7 +389,7 @@ Required NI columns:
 Example:
 
 | Time Period | Hours | Month | Day | Bus 118 | Bus 182 | Bus 249 |
-| :------------ | :-----------| :-----------| :-----------| :-----------| :-----------| :-----------|
+| :------------ | :----------- | :----------- | :----------- | :----------- | :----------- | :----------- |
 | 1 | 1 | 7 | 1 | 250 | 120 | -40 |
 | 1 | 2 | 7 | 1 | 260 | 110 | -35 |
 
@@ -499,11 +513,11 @@ This is the input dataset for renewable portfolio standard (RPS) policies. It de
 
 ---
 
-|**Column Name** | **Description**|
-| :------------ | :-----------|
-|From_state | State that trading the renewable credits from |
-|To_state | State that trading the renewable credits to |
-|RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless|
+| **Column Name** | **Description** |
+| :------------ | :----------- |
+| From_state | State that trading the renewable credits from |
+| To_state | State that trading the renewable credits to |
+| RPS | RPS requirement (renewable generation percentage) for the state in "From_state" column, range from 0-1, unitless |
 
 ---
 

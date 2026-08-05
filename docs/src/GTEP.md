@@ -29,7 +29,8 @@ If a MILP is solved and `write_shadow_prices = 1`, HOPE performs a fixed-LP re-s
   - `1`: SPIN reserve only
 - `clean_energy_policy`:
   - `0`: RPS off
-  - `1`: RPS on
+  - `1`: RPS with REC trading
+  - `2`: local RPS without REC trading
 - `carbon_policy`:
   - `0`: off
   - `1`: state emissions cap with slack penalty
@@ -128,17 +129,21 @@ loss_{l,h} = \rho_l |f_{l,h}|
 
 ### 3. [GTEP-C3] Transmission limits
 
-For existing lines $l\in L^{E}$:
+Positive flow follows the input row from `From_zone` to `To_zone`. For existing
+lines $l\in L^{E}$:
 
 ```math
--F^{max}_l \le f_{l,h} \le F^{max}_l
+-F^{reverse}_l \le f_{l,h} \le F^{forward}_l
 ```
 
 For candidate lines $l\in L^{+}$:
 
 ```math
--F^{max}_l\,y_l \le f_{l,h} \le F^{max}_l\,y_l
+-F^{reverse}_l\,y_l \le f_{l,h} \le F^{forward}_l\,y_l
 ```
+
+The same build decision activates both ratings. Symmetric corridors are entered
+with $F^{forward}_l=F^{reverse}_l$.
 
 ### 4. [GTEP-C4] Generator operating limits (with SPIN headroom)
 
@@ -232,7 +237,8 @@ Activated by `operation_reserve_mode = 1`:
 \sum_{g\in G} r^{SPIN}_{g,h} + \sum_{s\in S} r^{SPIN}_{s,h} \ge \rho^{SPIN} \cdot Load_h
 ```
 
-If reserve mode is off, reserve variables are constrained to zero.
+If reserve mode is off, HOPE substitutes zero-valued reserve expressions and
+does not create resource-hour reserve variables or zero-fixing constraints.
 
 ### 8. [GTEP-C8] RPS with REC trading
 
@@ -280,11 +286,20 @@ pw_{g,w^\prime}\ge pwe_{g,w^\prime,w},
 \end{aligned}
 ```
 
-If `clean_energy_policy = 0`, the model enforces:
+When `clean_energy_policy = 2`, HOPE enforces the same annual RPS energy
+requirement locally in each policy region:
 
 ```math
-pt^{rps}_w=0,\quad \forall w\in W
+\sum_{g\in G^{RPS}\cap G_w}\sum_{t\in T}N_t\sum_{h\in H_t}p_{g,h}
++pt^{rps}_w
+\ge
+RPS_w\sum_{t\in T}N_t\sum_{h\in H_t}\sum_{d\in D_w}P_{h,d}PK_d.
 ```
+
+Mode `2` does not create the generator-state accounting variables `pw` or the
+generator-state-pair REC-trading variables `pwe`. When
+`clean_energy_policy = 0`, HOPE substitutes zero-valued RPS slack expressions
+and does not create RPS variables or constraints.
 
 ### 9. [GTEP-C9A/C9B/C9O] Carbon policy
 
