@@ -19,7 +19,7 @@ The **Holistic Optimization Program for Electricity (HOPE)** model is a transpar
 
 1. `GTEP` mode: a generation & transmission expansion planning model
 2. `PCM` mode: a production cost model
-3. `DART` mode: (under development): a SCUC/SCED market model for simulating day-ahead and real-time markets
+3. `DART` module: an individual-generator SCUC/SCED model for day-ahead and real-time markets
 4. `OPF` mode: (under development): an optimal power flow model
 5. `HOPE-AI` mode: an AI agent helps connect all HOPE modules and enables complex modeling workflows. The current HOPE-AI framework is powered by [PowerAgent](https://github.com/Power-Agent), while more specialized agents are under development.
 
