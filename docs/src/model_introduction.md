@@ -60,3 +60,9 @@ Both `GTEP` and `PCM` support:
   - `2`: REG + SPIN + NSPIN
 - `summary_table`:
   - `1`: write summary analytics to `output/Analysis/Summary_*.csv`
+
+## DART Module
+
+The lightweight in-memory DART API provides individual-generator day-ahead
+SCUC, rolling real-time SCED, generator N-1 security, and two-settlement
+accounting. See [DART](@ref).

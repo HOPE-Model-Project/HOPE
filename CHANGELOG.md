@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Lightweight in-memory DART SCUC, SCED, generator N-1, rolling, and settlement
+  functionality.
+
 ### Changed
 
 - Add `clean_energy_policy = 2` for local annual RPS compliance without
