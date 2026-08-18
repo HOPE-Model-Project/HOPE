@@ -29,7 +29,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 
 Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel).
 
-The `DART` mode development is lead by [Aidan Looney](https://www.linkedin.com/in/aidan-looney-3142582b8/) at Harvard University.
+The `DART` mode development is led by [Aidan Looney](https://www.linkedin.com/in/aidan-looney-3142582b8/) at Harvard University.
 The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.harvard.edu/person/qian-zhang) at Harvard University.
 
 > **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
