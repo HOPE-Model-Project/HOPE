@@ -187,6 +187,18 @@ to_float_output(x, default::Float64 = 0.0) =
     (x isa Number ? Float64(x) : parse(Float64, string(x)))
 to_string_output(x) = ismissing(x) || x === nothing ? "" : string(x)
 
+function scaled_candidate_output_values(candidate_values, build_values, build_indices)
+    length(candidate_values) == length(build_indices) || throw(
+        DimensionMismatch(
+            "Candidate capacity values and build-decision indices must have the same length.",
+        ),
+    )
+    return Float64[
+        to_float_output(candidate_values[row]) * to_float_output(build_values[index]) for
+        (row, index) in enumerate(build_indices)
+    ]
+end
+
 function write_rep_day_audit_outputs(
     outpath::AbstractString,
     representative_day_mode::Int,
@@ -849,6 +861,38 @@ function _write_output_impl(
             [Storagedata[:, "Max Power (MW)"]; Estoragedata_candidate[:, "Max Power (MW)"]]#s		#Maximum capacity of storage unit s, MWh
         unit_converter = 10^6
 
+        # Keep the input tables as immutable model assumptions. Candidate output capacities
+        # are derived explicitly from the optimized build fractions instead of relying on
+        # solve_model to overwrite the input tables for its diagnostic printout.
+        x = value.(model[:x])
+        y = value.(model[:y])
+        z = value.(model[:z])
+        candidate_gen_capacity = scaled_candidate_output_values(
+            Gendata_candidate[:, "Pmax (MW)"],
+            x,
+            G_new,
+        )
+        candidate_line_forward_capacity = scaled_candidate_output_values(
+            Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN],
+            y,
+            L_new,
+        )
+        candidate_line_reverse_capacity = scaled_candidate_output_values(
+            Linedata_candidate[:, REVERSE_LINE_CAPACITY_COLUMN],
+            y,
+            L_new,
+        )
+        candidate_storage_energy_capacity = scaled_candidate_output_values(
+            Estoragedata_candidate[:, "Capacity (MWh)"],
+            z,
+            S_new,
+        )
+        candidate_storage_power_capacity = scaled_candidate_output_values(
+            Estoragedata_candidate[:, "Max Power (MW)"],
+            z,
+            S_new,
+        )
+
         #representative day clustering
         if representative_day_mode == 1
             if external_rep_day == 1
@@ -1042,7 +1086,7 @@ function _write_output_impl(
             New_Build = Array{Union{Missing,Bool}}(undef, size(G)[1]),
             Capacity_IN = vcat(Gendata[:, "Pmax (MW)"], zeros(size(G_new)[1])),
             Capacity_RET = Array{Union{Missing,Float64,Int64}}(undef, size(G)[1]),
-            Capacity = vcat(Gendata[:, "Pmax (MW)"], Gendata_candidate[:, "Pmax (MW)"]),
+            Capacity = vcat(Gendata[:, "Pmax (MW)"], candidate_gen_capacity),
         )
         C_gen_df[!, :New_Build] .= 0
         C_gen_df[New_built_idx, :New_Build] .= 1
@@ -1073,12 +1117,10 @@ function _write_output_impl(
             To_zone = String[to_string_output(v) for v in Linedata_candidate[:, "To_zone"]],
             New_Build = Array{Union{Missing,Bool}}(undef, Num_Cline),
             ForwardCapacity = Float64[
-                to_float_output(v) for
-                v in Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN]
+                to_float_output(v) for v in candidate_line_forward_capacity
             ],
             ReverseCapacity = Float64[
-                to_float_output(v) for
-                v in Linedata_candidate[:, REVERSE_LINE_CAPACITY_COLUMN]
+                to_float_output(v) for v in candidate_line_reverse_capacity
             ],
         )
         New_built_line_idx =
@@ -1110,13 +1152,13 @@ function _write_output_impl(
             ForwardCapacity = Float64[
                 to_float_output(v) for v in vcat(
                     Linedata[:, FORWARD_LINE_CAPACITY_COLUMN],
-                    Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN],
+                    candidate_line_forward_capacity,
                 )
             ],
             ReverseCapacity = Float64[
                 to_float_output(v) for v in vcat(
                     Linedata[:, REVERSE_LINE_CAPACITY_COLUMN],
-                    Linedata_candidate[:, REVERSE_LINE_CAPACITY_COLUMN],
+                    candidate_line_reverse_capacity,
                 )
             ],
             AnnSum = Array{Union{Missing,Float64}}(undef, size(L)[1]),
@@ -1246,13 +1288,13 @@ function _write_output_impl(
             EnergyCapacity = Float64[
                 to_float_output(v) for v in vcat(
                     Storagedata[:, "Capacity (MWh)"],
-                    Estoragedata_candidate[:, "Capacity (MWh)"],
+                    candidate_storage_energy_capacity,
                 )
             ],
             Capacity = Float64[
                 to_float_output(v) for v in vcat(
                     Storagedata[:, "Max Power (MW)"],
-                    Estoragedata_candidate[:, "Max Power (MW)"],
+                    candidate_storage_power_capacity,
                 )
             ],
         )
@@ -1334,9 +1376,6 @@ function _write_output_impl(
             Total_cost = Array{Union{Missing,Float64}}(undef, Num_zone),
         )
 
-        x = value.(model[:x])
-        y = value.(model[:y])
-        z = value.(model[:z])
         p = value.(model[:p])
         c = value.(model[:c])
         dc = value.(model[:dc])

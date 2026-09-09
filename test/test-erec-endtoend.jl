@@ -122,6 +122,7 @@ function write_tiny_erec_case(
     case_dir::AbstractString;
     clean_energy_policy::Int = 0,
     rps_requirement::Float64 = 0.0,
+    tables = nothing,
 )
     settings_dir = joinpath(case_dir, "Settings")
     data_dir = joinpath(case_dir, "Data")
@@ -181,7 +182,7 @@ LogLevel: 0
         )
     end
 
-    tables = build_tiny_erec_case_tables()
+    tables = tables === nothing ? build_tiny_erec_case_tables() : deepcopy(tables)
     tables["rpspolicies.csv"][!, :RPS] .= rps_requirement
     if rps_requirement > 0.0
         tables["gendata.csv"][!, :Flag_RPS] .= 1

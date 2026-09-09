@@ -9,6 +9,7 @@ using Test
     include("test-rep-day.jl")
     include("test-erec-core.jl")
     include("test-erec-endtoend.jl")
+    include("test-gtep-output-regression.jl")
     include("test-erec-integration.jl")
     include("test-erec-settings.jl")
     include("test-erec-snapshot.jl")

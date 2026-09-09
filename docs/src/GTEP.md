@@ -367,5 +367,10 @@ r^{SPIN}_{g,h},\;r^{SPIN}_{s,h}\ge 0
 
 ## Output and Dual Notes
 
+- Candidate capacity columns in `capacity.csv`, `es_capacity.csv`, `line.csv`, and
+  `power_flow.csv` report installed capacity: the input candidate block size multiplied
+  by its optimized build decision. HOPE keeps the source input tables unchanged, and
+  `system_cost.csv` applies each build decision exactly once when calculating investment
+  cost. This distinction matters when `inv_dcs_bin = 0` permits fractional builds.
 - `power_price.csv` in GTEP requires duals of `PB_con`.
 - For MILP (`inv_dcs_bin = 1`), enable `write_shadow_prices = 1` to trigger fixed-LP dual recovery before output writing.

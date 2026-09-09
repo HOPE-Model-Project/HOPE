@@ -172,31 +172,34 @@ function solve_model(config_set::Dict, input_data::Dict, model::Model)
         x_val = [Float64(value(model[:x][g])) for g in axes(model[:x], 1)]
         z_val = [Float64(value(model[:z][s])) for s in axes(model[:z], 1)]
         print("Selected_lines= ", y_val, "\n\n")
+        selected_lines_table = copy(Linedata_candidate)
         for capacity_col in [FORWARD_LINE_CAPACITY_COLUMN, REVERSE_LINE_CAPACITY_COLUMN]
-            Linedata_candidate[!, capacity_col] =
-                Float64.(Linedata_candidate[:, capacity_col]) .* y_val
+            selected_lines_table[!, capacity_col] =
+                Float64.(selected_lines_table[:, capacity_col]) .* y_val
         end
         print(
             "Selected_lines_table",
-            Linedata_candidate[[i for (i, v) in enumerate(y_val) if v > 0], :],
+            selected_lines_table[[i for (i, v) in enumerate(y_val) if v > 0], :],
             "\n\n",
         )
         print("Selected_units= ", x_val, "\n\n")
-        Gendata_candidate[!, "Pmax (MW)"] =
-            Float64.(Gendata_candidate[:, "Pmax (MW)"]) .* x_val
+        selected_units_table = copy(Gendata_candidate)
+        selected_units_table[!, "Pmax (MW)"] =
+            Float64.(selected_units_table[:, "Pmax (MW)"]) .* x_val
         print(
             "Selected_units_table",
-            Gendata_candidate[[i for (i, v) in enumerate(x_val) if v > 0], :],
+            selected_units_table[[i for (i, v) in enumerate(x_val) if v > 0], :],
             "\n\n",
         )
         print("Selected_storage= ", z_val, "\n\n")
-        Estoragedata_candidate[!, "Capacity (MWh)"] =
-            Float64.(Estoragedata_candidate[:, "Capacity (MWh)"]) .* z_val
-        Estoragedata_candidate[!, "Max Power (MW)"] =
-            Float64.(Estoragedata_candidate[:, "Max Power (MW)"]) .* z_val
+        selected_storage_table = copy(Estoragedata_candidate)
+        selected_storage_table[!, "Capacity (MWh)"] =
+            Float64.(selected_storage_table[:, "Capacity (MWh)"]) .* z_val
+        selected_storage_table[!, "Max Power (MW)"] =
+            Float64.(selected_storage_table[:, "Max Power (MW)"]) .* z_val
         print(
             "Selected_storage_table",
-            Estoragedata_candidate[[i for (i, v) in enumerate(z_val) if v > 0], :],
+            selected_storage_table[[i for (i, v) in enumerate(z_val) if v > 0], :],
             "\n\n",
         )
         #-----------------------------------------------------------
