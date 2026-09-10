@@ -30,7 +30,7 @@ The HOPE model was originally developed by a team of researchers in Prof. [Benja
 Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel).
 
 The `DART` mode development is led by [Aidan Looney](https://www.linkedin.com/in/aidan-looney-3142582b8/) at Harvard University.
-The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.harvard.edu/person/qian-zhang) at Harvard University.
+The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.harvard.edu/person/qian-zhang) and Prof. [Le Xie](https://seas.harvard.edu/person/le-xie) at Harvard University.
 
 > **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
 
@@ -242,3 +242,5 @@ This project is funded by [Maryland Energy Administration](https://energy.maryla
 <img src="https://ceepr.mit.edu/wp-content/uploads/2024/01/CEEPR_Logo_05_revised.png" width="280" alt="MIT CEEPR logo" />
 <br clear="both"/>
 <img src="docs/src/assets/poweragent-logo.png" width="280" alt="PowerAgent logo" />
+<br clear="both"/>
+<img src="docs/src/assets/pai-logo.png" width="320" alt="Power and AI Initiative at Harvard SEAS logo" />
