@@ -33,7 +33,7 @@ HOPESCIPExt = "SCIP"
 
 [compat]
 CPLEX = "1"
-CSV = "0.10"
+CSV = "0.10, 1"
 Cbc = "1"
 Clp = "1"
 Clustering = "0.15"
