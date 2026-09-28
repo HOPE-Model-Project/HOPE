@@ -25,7 +25,7 @@ The implementation is contained in `src/DART.jl`. The main entry points are
 ## Formulation mapping
 
 | Formulation group | Implementation |
-|:--|:--|
+| :-- | :-- |
 | SCUC-OBJ, UC-1--UC-4 | Commitment, startup/shutdown, minimum up/down time, and commitment costs |
 | GEN-1--GEN-7, RAMP-1--RAMP-2 | Generator bounds, transition limits, hourly ramps, and reserve headroom |
 | REN-1--REN-2 | Time-varying availability; zero-cost curtailment is eliminated algebraically |

@@ -1266,7 +1266,7 @@ function build_erec_results(
         EREC = Float64[],
     )
 
-    gen_targets = eval_targets[eval_targets.ResourceType .== "generator", :]
+    gen_targets = eval_targets[eval_targets.ResourceType.=="generator", :]
     for target in eachrow(gen_targets)
         zone = target.Zone
         if !haskey(perfect_eue_by_zone, zone)
@@ -1315,7 +1315,7 @@ function build_erec_results(
         )
     end
 
-    sto_targets = eval_targets[eval_targets.ResourceType .== "storage", :]
+    sto_targets = eval_targets[eval_targets.ResourceType.=="storage", :]
     for target in eachrow(sto_targets)
         zone = target.Zone
         if !haskey(perfect_eue_by_zone, zone)
@@ -1395,8 +1395,8 @@ function build_cc_export_tables(
     end
     gendata[!, "CC"] = Float64.(to_float_erec.(gendata[:, "CC"]))
     storagedata[!, "CC"] = Float64.(to_float_erec.(storagedata[:, "CC"]))
-    gen_rows = erec_results[erec_results.ResourceType .== "generator", :]
-    sto_rows = erec_results[erec_results.ResourceType .== "storage", :]
+    gen_rows = erec_results[erec_results.ResourceType.=="generator", :]
+    sto_rows = erec_results[erec_results.ResourceType.=="storage", :]
 
     if resource_scope == "all" &&
        all(("Source" in names(gen_rows), "SourceIndex" in names(gen_rows)))

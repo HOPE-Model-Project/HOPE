@@ -5,23 +5,46 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   CompatHelper:
     runs-on: ubuntu-latest
     steps:
+      - name: Check pull-request token
+        id: token
+        shell: bash
+        env:
+          AUTOMATION_TOKEN: ${{ secrets.COMPATHELPER_TOKEN }}
+        run: |
+          if [[ -n "$AUTOMATION_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### CompatHelper skipped"
+              echo
+              echo "The repository does not have a COMPATHELPER_TOKEN secret."
+              echo "Configure a fine-grained token with repository contents and pull-request write access to enable automated compatibility pull requests."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/checkout@v6
+        if: steps.token.outputs.available == 'true'
+        with:
+          token: ${{ secrets.COMPATHELPER_TOKEN }}
       - uses: julia-actions/setup-julia@v2
+        if: steps.token.outputs.available == 'true'
         with:
           version: "1"
       - name: Use Julia cache
+        if: steps.token.outputs.available == 'true'
         uses: julia-actions/cache@v2
       - name: Pkg.add("CompatHelper")
+        if: steps.token.outputs.available == 'true'
         run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
       - name: CompatHelper.main()
+        if: steps.token.outputs.available == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.COMPATHELPER_TOKEN != '' && secrets.COMPATHELPER_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COMPATHELPER_TOKEN }}
           COMPATHELPER_PRIV: ${{ secrets.DOCUMENTER_KEY }}
         run: julia -e 'using CompatHelper; CompatHelper.main()'

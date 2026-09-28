@@ -37,7 +37,7 @@
         @test run_res["input"]["Gendata_candidate"][1, "Pmax (MW)"] == 100.0
 
         capacity = run_res["output"]["capacity"]
-        candidate_capacity = capacity[capacity.EC_Category .== "Candidate", :]
+        candidate_capacity = capacity[capacity.EC_Category.=="Candidate", :]
         @test nrow(candidate_capacity) == 1
         @test isapprox(
             candidate_capacity[1, Symbol("Capacity_FIN (MW)")],
@@ -61,8 +61,10 @@
             run_res["input"],
             model,
         )
-        repeated_candidate =
-            repeated_output["capacity"][repeated_output["capacity"].EC_Category .== "Candidate", :]
+        repeated_candidate = repeated_output["capacity"][
+            repeated_output["capacity"].EC_Category.=="Candidate",
+            :,
+        ]
         @test repeated_candidate[1, Symbol("Capacity_FIN (MW)")] ==
               candidate_capacity[1, Symbol("Capacity_FIN (MW)")]
         @test repeated_output["system_cost"][!, Symbol("Inv_cost (\$)")] ==

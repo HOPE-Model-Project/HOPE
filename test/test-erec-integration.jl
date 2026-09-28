@@ -47,9 +47,9 @@ const EREC_PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
                     @test any(string.(fixed_storage[:, "EREC_Source"]) .== "candidate")
 
                     candidate_gen_rows =
-                        fixed_gens[string.(fixed_gens[:, "EREC_Source"]) .== "candidate", :]
+                        fixed_gens[string.(fixed_gens[:, "EREC_Source"]).=="candidate", :]
                     candidate_storage_rows = fixed_storage[
-                        string.(fixed_storage[:, "EREC_Source"]) .== "candidate",
+                        string.(fixed_storage[:, "EREC_Source"]).=="candidate",
                         :,
                     ]
                     @test all(
@@ -168,19 +168,19 @@ const EREC_PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
                     @test all((isnan(x) || x <= 1.0 + 1.0e-8) for x in results.EREC)
 
                     wind_erec = results[
-                        (results.Technology .== "WindOn") .& (results.Zone .== "APS_MD"),
+                        (results.Technology.=="WindOn").&(results.Zone.=="APS_MD"),
                         "EREC",
                     ][1]
                     solar_erec = results[
-                        (results.Technology .== "SolarPV") .& (results.Zone .== "APS_MD"),
+                        (results.Technology.=="SolarPV").&(results.Zone.=="APS_MD"),
                         "EREC",
                     ][1]
                     thermal_erec = results[
-                        (results.Technology .== "NGCC_CCS") .& (results.Zone .== "PEPCO"),
+                        (results.Technology.=="NGCC_CCS").&(results.Zone.=="PEPCO"),
                         "EREC",
                     ][1]
                     hydro_erec = results[
-                        (results.Technology .== "Hydro") .& (results.Zone .== "APS_MD"),
+                        (results.Technology.=="Hydro").&(results.Zone.=="APS_MD"),
                         "EREC",
                     ][1]
 
@@ -276,13 +276,13 @@ const EREC_PROJECT_ROOT = normpath(joinpath(@__DIR__, ".."))
                         x in results.EREC
                     )
 
-                    existing_row = results[results.Source .== "existing", :][1, :]
+                    existing_row = results[results.Source.=="existing", :][1, :]
                     @test existing_row["Technology"] == "Battery"
                     @test existing_row["Zone"] == "APS_MD"
                     @test existing_row["BaselinePowerMW"] ≈ 11.0
                     @test existing_row["BaselineEnergyMWh"] ≈ 44.0
 
-                    candidate_rows = results[results.Source .== "candidate", :]
+                    candidate_rows = results[results.Source.=="candidate", :]
                     @test Set(candidate_rows.Zone) ==
                           Set(["APS_MD", "BGE", "DPL_MD", "PEPCO"])
                     @test all(candidate_rows.BaselinePowerMW .== 0.0)

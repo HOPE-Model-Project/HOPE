@@ -283,10 +283,11 @@ function write_rep_day_audit_outputs(
             nrow => :NumRepresentativePeriods,
         )
         weight_check_df = leftjoin(original_days_df, represented_days_df, on = :TimePeriod)
-        weight_check_df[!, :WeightDifferenceDays] = Float64.(
-            weight_check_df[!, :RepresentativeWeightDays] .-
-            weight_check_df[!, :OriginalDays],
-        )
+        weight_check_df[!, :WeightDifferenceDays] =
+            Float64.(
+                weight_check_df[!, :RepresentativeWeightDays] .-
+                weight_check_df[!, :OriginalDays],
+            )
         CSV.write(
             joinpath(outpath, "representative_period_weight_check.csv"),
             sort(weight_check_df, :TimePeriod),
@@ -867,11 +868,8 @@ function _write_output_impl(
         x = value.(model[:x])
         y = value.(model[:y])
         z = value.(model[:z])
-        candidate_gen_capacity = scaled_candidate_output_values(
-            Gendata_candidate[:, "Pmax (MW)"],
-            x,
-            G_new,
-        )
+        candidate_gen_capacity =
+            scaled_candidate_output_values(Gendata_candidate[:, "Pmax (MW)"], x, G_new)
         candidate_line_forward_capacity = scaled_candidate_output_values(
             Linedata_candidate[:, FORWARD_LINE_CAPACITY_COLUMN],
             y,
@@ -1012,11 +1010,11 @@ function _write_output_impl(
         P_ct_df = DataFrame(
             Technology = vcat(
                 Gendata[[g for g in G_vre_exist_rps], "Type"],
-                Gendata_candidate[[g for g in G_vre_new_rps] .- Num_Egen, "Type"],
+                Gendata_candidate[[g for g in G_vre_new_rps].-Num_Egen, "Type"],
             ),
             Zone = vcat(
                 Gendata[[g for g in G_vre_exist_rps], "Zone"],
-                Gendata_candidate[[g for g in G_vre_new_rps] .- Num_Egen, "Zone"],
+                Gendata_candidate[[g for g in G_vre_new_rps].-Num_Egen, "Zone"],
             ),
             EC_Category = [
                 repeat(["Existing"], size(G_vre_exist_rps)[1])
@@ -1292,10 +1290,8 @@ function _write_output_impl(
                 )
             ],
             Capacity = Float64[
-                to_float_output(v) for v in vcat(
-                    Storagedata[:, "Max Power (MW)"],
-                    candidate_storage_power_capacity,
-                )
+                to_float_output(v) for v in
+                vcat(Storagedata[:, "Max Power (MW)"], candidate_storage_power_capacity)
             ],
         )
         C_es_df[!, :New_Build] .= 0

@@ -237,16 +237,16 @@ using DataFrames
     @test Set(custom_targets.Label) ==
           Set(["existing_1", "candidate_2", "existing_1", "candidate_1"])
     @test custom_targets[
-        (custom_targets.ResourceType .== "generator") .& (custom_targets.Label .== "existing_1"),
+        (custom_targets.ResourceType.=="generator").&(custom_targets.Label.=="existing_1"),
         "EvalMode",
     ][1] == "fixed"
-    @test custom_targets[custom_targets.Label .== "candidate_2", "EvalMode"][1] == "virtual"
+    @test custom_targets[custom_targets.Label.=="candidate_2", "EvalMode"][1] == "virtual"
     @test custom_targets[
-        (custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "existing_1"),
+        (custom_targets.ResourceType.=="storage").&(custom_targets.Label.=="existing_1"),
         "EvalMode",
     ][1] == "fixed"
     @test custom_targets[
-        (custom_targets.ResourceType .== "storage") .& (custom_targets.Label .== "candidate_1"),
+        (custom_targets.ResourceType.=="storage").&(custom_targets.Label.=="candidate_1"),
         "EvalMode",
     ][1] == "virtual"
 end

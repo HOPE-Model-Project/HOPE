@@ -6,40 +6,66 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   pre-commit-update:
     runs-on: ubuntu-latest
     steps:
+      - name: Check pull-request token
+        id: token
+        shell: bash
+        env:
+          AUTOMATION_TOKEN: ${{ secrets.PRECOMMIT_UPDATE_TOKEN }}
+        run: |
+          if [[ -n "$AUTOMATION_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### pre-commit update skipped"
+              echo
+              echo "The repository does not have a PRECOMMIT_UPDATE_TOKEN secret."
+              echo "Configure a fine-grained token with repository contents and pull-request write access to enable automated pre-commit update pull requests."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/checkout@v6
+        if: steps.token.outputs.available == 'true'
+        with:
+          token: ${{ secrets.PRECOMMIT_UPDATE_TOKEN }}
       - name: Hack for setup-python cache # https://github.com/actions/setup-python/issues/807
+        if: steps.token.outputs.available == 'true'
         run: touch requirements.txt
       - name: Setup Python
+        if: steps.token.outputs.available == 'true'
         uses: actions/setup-python@v6
         with:
           cache: pip
           python-version: "3.11"
       - name: Hack for setup-python cache # https://github.com/actions/setup-python/issues/807
+        if: steps.token.outputs.available == 'true'
         run: rm requirements.txt
       - name: Install pre-commit
+        if: steps.token.outputs.available == 'true'
         run: pip install pre-commit
       - name: Run pre-commit's autoupdate
+        if: steps.token.outputs.available == 'true'
         run: |
           # ignore exit code
           pre-commit autoupdate || true
       - name: Create Pull Request
+        if: steps.token.outputs.available == 'true'
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PRECOMMIT_UPDATE_TOKEN }}
           commit-message: "chore: :robot: pre-commit update"
           title: "[AUTO] pre-commit update"
           branch: auto-pre-commit-update
           delete-branch: true
           labels: chore
       - name: Check outputs
+        if: steps.token.outputs.available == 'true'
         run: |
           echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
           echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"

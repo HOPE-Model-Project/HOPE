@@ -453,7 +453,7 @@ function extract_new_generation_rows(capacity_df::DataFrame)
     build_df = filter(
         row ->
             to_float_output(row["New_Build"], 0.0) > 0 &&
-            to_float_output(row[Symbol("Capacity_FIN (MW)")], 0.0) > 0,
+                to_float_output(row[Symbol("Capacity_FIN (MW)")], 0.0) > 0,
         capacity_df,
     )
     if nrow(build_df) == 0
@@ -480,7 +480,7 @@ function extract_new_storage_rows(es_capacity_df::DataFrame)
     build_df = filter(
         row ->
             to_float_output(row["New_Build"], 0.0) > 0 &&
-            to_float_output(row[Symbol("Capacity (MW)")], 0.0) > 0,
+                to_float_output(row[Symbol("Capacity (MW)")], 0.0) > 0,
         es_capacity_df,
     )
     if nrow(build_df) == 0
@@ -520,14 +520,14 @@ function apply_line_builds!(linedata::DataFrame, line_builds::DataFrame)
         matches = findall(
             i ->
                 string(linedata[i, "From_zone"]) == from_zone &&
-                string(linedata[i, "To_zone"]) == to_zone,
+                    string(linedata[i, "To_zone"]) == to_zone,
             1:nrow(linedata),
         )
         if isempty(matches)
             reverse_matches = findall(
                 i ->
                     string(linedata[i, "From_zone"]) == to_zone &&
-                    string(linedata[i, "To_zone"]) == from_zone,
+                        string(linedata[i, "To_zone"]) == from_zone,
                 1:nrow(linedata),
             )
             matches = reverse_matches
@@ -753,10 +753,10 @@ function prepare_pcm_inputs_from_gtep(gtep_output::Dict, pcm_input::Dict, pcm_co
     line_builds = filter(
         row ->
             to_float_output(row["New_Build"], 0.0) > 0 &&
-            max(
-                to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0),
-                to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0),
-            ) > 0,
+                max(
+                    to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0),
+                    to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0),
+                ) > 0,
         gtep_output["line"],
     )
     holistic_debug_stage_log(
@@ -1054,10 +1054,10 @@ function run_hope_holistic(GTEP_case::AbstractString, PCM_case::AbstractString)
             filter(
                 row ->
                     to_float_output(row["New_Build"], 0.0) > 0 &&
-                    max(
-                        to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0),
-                        to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0),
-                    ) > 0,
+                        max(
+                            to_float_output(row[Symbol(FORWARD_LINE_CAPACITY_COLUMN)], 0.0),
+                            to_float_output(row[Symbol(REVERSE_LINE_CAPACITY_COLUMN)], 0.0),
+                        ) > 0,
                 gtep_output["line"],
             ),
         ),
