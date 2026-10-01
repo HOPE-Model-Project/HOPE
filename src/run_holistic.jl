@@ -430,19 +430,19 @@ function persist_pcm_inputs_for_holistic(
     CSV.write(
         gendata_path,
         pcm_gendata_for_holistic_persistence(updated_input, pcm_config),
-        writeheader = true,
+        header = true,
     )
     written_paths["gendata"] = gendata_path
 
     if haskey(updated_input, "Storagedata")
         storagedata_path = joinpath(data_dir, "storagedata.csv")
-        CSV.write(storagedata_path, updated_input["Storagedata"], writeheader = true)
+        CSV.write(storagedata_path, updated_input["Storagedata"], header = true)
         written_paths["storagedata"] = storagedata_path
     end
 
     if haskey(updated_input, "Linedata")
         linedata_path = joinpath(data_dir, "linedata.csv")
-        CSV.write(linedata_path, updated_input["Linedata"], writeheader = true)
+        CSV.write(linedata_path, updated_input["Linedata"], header = true)
         written_paths["linedata"] = linedata_path
     end
 

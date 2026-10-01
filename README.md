@@ -34,39 +34,46 @@ The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.
 
 > **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
 
-# Preparation Phase
+# Installation
 
 ## 1. Install Julia
 
 Install [Julia](http://julialang.org/) language (Julia 1.9 or later is required for the current HOPE package setup). A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
-## 2. Download HOPE repository
+## 2. Install HOPE
 
-Clone OR download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose **"Clone"** (recommended) or **"Download ZIP"**.
-![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
-Then save the `HOPE` project in your working folder/home directory (e.g., the path to the `HOPE` project could be: `/yourpath/home/HOPE`).
->[!NOTE]
->If you downloaded the ZIP, rename the extracted folder to `HOPE` (the zip extracts to a folder named after the branch, e.g., `HOPE-main`).
+After registration in Julia's General registry:
 
-In your `HOPE` project, the files should be something like below:
-![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/6bd739bd-b5a7-4fdb-95a5-d8115de23c38)
+```julia
+import Pkg
+Pkg.add("HOPE")
+```
+
+Until registration is complete, install directly from GitHub:
+
+```julia
+import Pkg
+Pkg.add(url = "https://github.com/HOPE-Model-Project/HOPE")
+```
+
+Installation requires neither model cases nor commercial solver licenses.
 
 ## 3. Get model cases
 
-Model cases are maintained in a separate repository: [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases). Clone it into the `ModelCases/` folder inside your HOPE directory:
+Model cases are maintained separately in [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases). Clone them explicitly to a user-selected path:
 
 ```bash
-git clone https://github.com/HOPE-Model-Project/HOPEModelCases HOPE/ModelCases
+git clone https://github.com/HOPE-Model-Project/HOPEModelCases /path/to/HOPEModelCases
 ```
 
-This is the **recommended setup** — HOPE will find the cases automatically with no extra configuration. To update your model cases later, run `git pull` inside `HOPE/ModelCases/`.
+Set `HOPE_MODELCASES_PATH` to that directory before running file-based GTEP,
+PCM, holistic, or EREC examples. In a source checkout, cloning to
+`HOPE/ModelCases` also enables automatic discovery. Package installation never
+downloads or modifies the model-case repository.
 
->[!NOTE]
->If you prefer to store model cases elsewhere, clone `HOPEModelCases` to any path and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE. See the [HOPEModelCases README](https://github.com/HOPE-Model-Project/HOPEModelCases) for details.
+## 4. Development checkout and solvers
 
-## 4. Install the HOPE Julia environment
-
-From the HOPE repository root, activate the project and install the default dependencies:
+To work on HOPE itself, clone the repository, then activate and instantiate it:
 
 ```julia
 import Pkg
@@ -74,15 +81,18 @@ Pkg.activate(".")
 Pkg.instantiate()
 ```
 
-This installs HOPE together with the default open-source solver stack used by the
-project, including **HiGHS**, **GLPK**, **Clp**, and **Cbc**.
-
-Commercial solvers such as **Gurobi**, **SCIP**, and **CPLEX** are **not** installed by
-`Pkg.instantiate()` by default. They are only added if you explicitly run
-`Pkg.add("Gurobi")`, `Pkg.add("SCIP")`, or `Pkg.add("CPLEX")` while the HOPE project
-environment is active.
+HOPE installs HiGHS, GLPK, Clp, and Cbc as its open-source solver stack.
+Gurobi, SCIP, and CPLEX are optional extensions: install the corresponding Julia
+package and solver license only when you choose to use one of them. Dashboards
+and the MCP server under `tools/` are separate Python applications and are not
+started or installed with the Julia package.
 
 # Run a Case in HOPE
+
+> **Source-checkout note:** The screenshot-based workflows below assume a development
+> checkout with HOPEModelCases cloned into `HOPE/ModelCases`. With a registered or
+> URL-based installation, activate your own Julia environment and pass the absolute
+> or user-selected case path to `run_hope`; do not write into the installed package.
 
 ## Using VScode to Run a Case (Recommend)
 

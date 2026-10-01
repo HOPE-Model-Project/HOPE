@@ -171,3 +171,44 @@ Here is how you do it:
 - Create a release PR targeting `main`.
 - Verify test, lint, and docs workflows on that PR.
 - Merge only after the release branch strategy, docs deployment branch, and badges all agree.
+
+### Initial registration in General
+
+HOPE's existing GitHub tags predate registration in Julia's General registry.
+The first registry submission is therefore a new-package registration, not a
+new-version registration.
+
+After the final release commit is reviewed and merged to `main`:
+
+1. Confirm that the JuliaRegistrator GitHub App is installed for this
+   repository. Only a repository collaborator or a public member of the owning
+   organization can trigger it.
+2. Open the final commit on GitHub and add this comment:
+
+   ```text
+   @JuliaRegistrator register
+
+   Release notes:
+
+   HOPE 2.0 adds the DART SCUC/SCED and settlement APIs, EREC postprocessing,
+   representative-day and resource-aggregation workflows, and the holistic
+   GTEP-to-PCM handoff. This is a breaking release: transmission cases must
+   replace `Capacity (MW)` with `Forward Capacity (MW)` and
+   `Reverse Capacity (MW)`; see CHANGELOG.md.
+   ```
+
+3. On the General registration pull request, explain that HOPE is the
+   established, published name for the Holistic Optimization Program for
+   Electricity. Its four-letter uppercase acronym and repository URL without a
+   `.jl` suffix do not satisfy the conservative automatic-name checks, so the
+   initial registration needs manual review. Do not change the package UUID.
+4. Wait for the required new-package review period and address RegistryCI or
+   maintainer feedback. Registration is permanent; do not merge around a
+   substantive unresolved concern.
+5. After the General pull request merges, let TagBot create `v2.0.0` and the
+   GitHub release. Confirm that the `DOCUMENTER_KEY` secret contains the
+   private half of a write-enabled deploy key so the tag-triggered docs workflow
+   can run. Do not create the release tag before registration.
+
+If the GitHub App cannot be installed, use Registrator's JuliaHub web interface
+with the same final commit and release notes.

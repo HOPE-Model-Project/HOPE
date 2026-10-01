@@ -5,15 +5,15 @@ CurrentModule = HOPE
 
 # Model Overview
 
-HOPE currently supports two operational model modes:
+HOPE currently supports three operational model modes:
 
 1. `GTEP`: generation and transmission expansion planning
 2. `PCM`: production cost model (system operation)
+3. `DART`: in-memory day-ahead and real-time SCUC/SCED and settlement modeling
 
-Planned future modes:
+Planned future mode:
 
 1. `OPF` (under development)
-2. `DART` (under development)
 
 ## Shared Modeling Features
 

@@ -21,13 +21,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - "1"
-          - "nightly"
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          - windows-latest
-        arch:
-          - x64
-        allow_failure: [false]
+        include:
+          - version: "1.9"
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: false
+          - version: "1"
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: false
+          - version: "1"
+            os: macOS-latest
+            arch: x64
+            allow_failure: false
+          - version: "1"
+            os: windows-latest
+            arch: x64
+            allow_failure: false
+          - version: "nightly"
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: true

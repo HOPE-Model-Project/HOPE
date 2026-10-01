@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-01
+
+### Breaking
+
+- Transmission input now requires directional `Forward Capacity (MW)` and
+  `Reverse Capacity (MW)` columns instead of the former symmetric
+  `Capacity (MW)` column. Existing cases must add both directional columns;
+  use the former capacity value for each direction to preserve symmetric limits.
+
 ### Added
 
 - Lightweight in-memory DART SCUC, SCED, generator N-1, rolling, and settlement
@@ -90,6 +99,7 @@ Initial release of the current HOPE Julia package.
 - Multi-solver support: HiGHS, GLPK, Clp, Cbc; optional Gurobi and SCIP.
 - XLSX and CSV input data formats.
 
-[Unreleased]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/HOPE-Model-Project/HOPE/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/HOPE-Model-Project/HOPE/releases/tag/v1.0.0

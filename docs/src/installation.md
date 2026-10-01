@@ -8,40 +8,54 @@ CurrentModule = HOPE
 
 Install [Julia](http://julialang.org/) language. Julia 1.9 or later is required for the current HOPE package setup. A short video tutorial on how to download and install Julia is provided [here](https://www.youtube.com/watch?v=t67TGcf4SmM).
 
-## 2. Download HOPE repository
+## 2. Install HOPE
 
-Clone or download the **HOPE** repository to your local directory - click the green "Code" button on the **HOPE** main page and choose "Download ZIP" (remember to change the folder name to **HOPE** after you decompress the zip file). You need to save the `HOPE` project in your `home` directory like: `/yourpath/home/HOPE`.
-![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/6cd0feae-dec8-439f-a44d-98896228029e)
+After registration in General, install the latest release by package name:
+
+```julia
+import Pkg
+Pkg.add("HOPE")
+```
+
+Until the initial registration is accepted, or to install the development branch
+directly, use the repository URL:
+
+```julia
+import Pkg
+Pkg.add(url = "https://github.com/HOPE-Model-Project/HOPE")
+```
+
+Both commands install and precompile the Julia package. They do not download
+model cases, start dashboards or MCP services, install Python, or require a
+commercial solver license.
 
 ## 3. Get model cases
 
-Model cases are maintained in a separate repository: [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases). Clone it into the `ModelCases/` folder inside your HOPE directory:
+Model cases are maintained in the separate [HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases) repository. Clone them to a user-selected location:
 
 ```bash
-git clone https://github.com/HOPE-Model-Project/HOPEModelCases /yourpath/home/HOPE/ModelCases
+git clone https://github.com/HOPE-Model-Project/HOPEModelCases /path/to/HOPEModelCases
 ```
 
-This is the **recommended setup** — HOPE will find the cases automatically with no extra configuration.
-
-**Alternative:** If you prefer to store model cases in a different location, clone `HOPEModelCases` anywhere and set the `HOPE_MODELCASES_PATH` environment variable to that path before running HOPE:
+Model-case downloads are explicit and separate from package installation. Set `HOPE_MODELCASES_PATH` to that location before running a file-based case:
 
 - **Linux / macOS:** `export HOPE_MODELCASES_PATH=/path/to/HOPEModelCases`
 - **Windows (PowerShell):** `$env:HOPE_MODELCASES_PATH = "C:\path\to\HOPEModelCases"`
 
-## 4. Solver Packages
+## 4. Solvers and source development
 
-After cloning the repo, activate the HOPE project and install the default dependencies:
+A normal package installation includes the open-source solvers
+[HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc),
+[GLPK](https://github.com/jump-dev/GLPK.jl), and
+[Clp](https://github.com/jump-dev/Clp.jl). No commercial license is required.
+
+For development from a source checkout, activate and instantiate the repository:
 
 ```julia
 import Pkg
 Pkg.activate(".")
 Pkg.instantiate()
 ```
-
-This installs HOPE together with the bundled open-source solvers, including
-[HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc),
-[GLPK](https://github.com/firedrakeproject/glpk), and
-[Clp](https://github.com/coin-or/Clp).
 
 Commercial solver packages such as [Gurobi](https://www.gurobi.com/),
 [SCIP](https://scipopt.org/), and
@@ -58,6 +72,35 @@ Pkg.add("Gurobi")   # or "SCIP" / "CPLEX"
 When you do this from an active HOPE environment, the commercial solver package is added
 to the **HOPE project environment**, not just Julia's global default environment.
 
-```julia-repl
-pkg> add https://github.com/HOPE-Model-Project/HOPE
+## 5. Minimal self-contained example
+
+This one-bus DART SCUC example uses only package dependencies and creates no files:
+
+```julia
+using HOPE
+
+data = DARTSystemData(
+    generators = [
+        DARTGenerator(
+            name = "unit",
+            bus = "bus",
+            pmax_mw = 100.0,
+            variable_cost_per_mwh = 25.0,
+            commitment_required = false,
+        ),
+    ],
+    network = DARTNetwork(bus_names = ["bus"]),
+)
+forecast = DARTForecast(
+    interval_hours = 1.0,
+    load_mw = reshape([40.0], 1, 1),
+    availability = ones(1, 1),
+)
+result = solve_dart_scuc(data, forecast, default_dart_state(data))
+
+result.generation_mw
 ```
+
+The expected dispatch is 40 MW. Larger GTEP, PCM, holistic, and EREC examples
+are maintained separately in
+[HOPEModelCases](https://github.com/HOPE-Model-Project/HOPEModelCases).

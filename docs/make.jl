@@ -45,7 +45,8 @@ pages = OrderedDict(
         "Solver Settings" => "solver_settings.md",
     ],
     "Postprocessing" => ["EREC" => "EREC.md"],
-    "Reference" => ["API Reference" => "95-reference.md"],
+    "Reference" =>
+        ["Package scope" => "package_scope.md", "API Reference" => "95-reference.md"],
     "HOPE-AI" => ["HOPE-AI (LLM Agent)" => "hope_ai.md"],
     "Project" => [
         "Contributing" => "90-contributing.md",
