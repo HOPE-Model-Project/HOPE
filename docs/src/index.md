@@ -7,17 +7,15 @@ CurrentModule = HOPE
 # Overview
 
 The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modular tool coded in the [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/).
-HOPE currently supports these operational modes:
+HOPE currently provides five primary Julia workflows:
 
-1. `GTEP` mode: a generation and transmission expansion planning model
-2. `PCM` mode: a production cost model
-3. `DART` mode: an in-memory day-ahead and real-time SCUC/SCED and settlement model
+1. the `GTEP` generation and transmission expansion planning model;
+2. the `PCM` production cost model;
+3. the `DART` module for in-memory day-ahead and real-time SCUC/SCED and settlement modeling;
+4. the holistic two-stage `GTEP`-to-`PCM` workflow; and
+5. the `EREC` postprocessing workflow.
 
-Planned future mode:
-
-1. `OPF` mode: an optimal power flow model
-
-Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear or mixed-integer linear programming and can be solved with open-source (e.g., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
+An OPF formulation is planned for future development. The GTEP, PCM, and DART optimization models can be solved with open-source packages such as [HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/jump-dev/GLPK.jl), and [Clp](https://github.com/coin-or/Clp), or optional commercial packages such as [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio).
 
 # Interactive Dashboards
 

@@ -15,21 +15,23 @@ Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimiza
 
 # Overview
 
-The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modulized tool coded in the  [Julia](http://julialang.org/) language and optimization package [JuMP](http://jump.dev/). The HOPE consists of multiple modes for modeling optimization problems of modern power systems and electricity markets, including:
+The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modular tool written in the [Julia](http://julialang.org/) language with the [JuMP](http://jump.dev/) optimization package. HOPE provides five primary Julia workflows:
 
-1. `GTEP` mode: a generation & transmission expansion planning model
-2. `PCM` mode: a production cost model
-3. `DART` module: an individual-generator SCUC/SCED model for day-ahead and real-time markets
-4. `OPF` mode: (under development): an optimal power flow model
-5. `HOPE-AI` mode: an AI agent helps connect all HOPE modules and enables complex modeling workflows. The current HOPE-AI framework is powered by [PowerAgent](https://github.com/Power-Agent), while more specialized agents are under development.
+1. the `GTEP` generation and transmission expansion planning model;
+2. the `PCM` production cost model;
+3. the `DART` module for individual-generator day-ahead and real-time SCUC/SCED and settlement modeling;
+4. the holistic two-stage `GTEP`-to-`PCM` workflow; and
+5. the `EREC` postprocessing workflow.
 
-Users can select the proper mode of HOPE based on their research needs. Each mode is modeled as linear/mixed linear programming and can be solved with open-source (i.e., [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/firedrakeproject/glpk), [Clp](https://github.com/coin-or/Clp), etc.) or commercial (e.g., [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio)) solver packages.
+An OPF formulation is planned for future development. The optional HOPE-AI companion connects HOPE workflows through AI agents; the current framework is powered by [PowerAgent](https://github.com/Power-Agent), with more specialized agents under development.
 
-The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Verson 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/), and [Zoe Song](https://pwrlab.org/team.html). The current developers include [Ziting Huang](https://hobbsgroup.johnshopkins.edu/members.html), etc.
+Users can select the workflow appropriate for their research needs. The GTEP, PCM, and DART optimization models can be solved with open-source packages such as [HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/jump-dev/GLPK.jl), and [Clp](https://github.com/coin-or/Clp), or optional commercial packages such as [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio).
 
-Current HOPE model is also maintaining by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel).
+The HOPE model was originally developed by a team of researchers in Prof. [Benjamin F. Hobbs's group](https://hobbsgroup.johnshopkins.edu/) at [Johns Hopkins University](https://www.jhu.edu/). The main contributors for Version 1 include Dr. [Shen Wang](https://ceepr.mit.edu/people/wang/), Dr. [Mahdi Mehrtash](https://www.mahdimehrtash.com/), and [Zoe Song](https://pwrlab.org/team.html). The current developers include [Ziting Huang](https://hobbsgroup.johnshopkins.edu/members.html), etc.
 
-The `DART` mode development is led by [Aidan Looney](https://www.linkedin.com/in/aidan-looney-3142582b8/) at Harvard University.
+The current HOPE model is also maintained by researchers at MIT, including Shen Wang, Dr. [Juan Senga](https://ceepr.mit.edu/people/senga/) and Prof. [Christopher Knittel](https://mitsloan.mit.edu/faculty/directory/christopher-knittel).
+
+The `DART` module development is led by [Aidan Looney](https://www.linkedin.com/in/aidan-looney-3142582b8/) at Harvard University.
 The HOPE-AI module is developed in collaboration with [Qian Zhang](https://seas.harvard.edu/person/qian-zhang) and Prof. [Le Xie](https://seas.harvard.edu/person/le-xie) at Harvard University.
 
 > **Looking for the legacy Maryland-focused version?** The pre-v2 codebase is archived at [HOPE-MD](https://github.com/HOPE-Model-Project/HOPE-MD).
@@ -126,7 +128,7 @@ This installs the default HOPE environment and the bundled open-source solvers. 
 
 ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/1eddf81c-97e4-4334-85ee-44958fcf8c2f)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed! Then, press `Backspace` button to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 100% clean case in `GTEP` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_GTEP_clean_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed! Then, press `Backspace` button to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 100% clean case with the `GTEP` model), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_GTEP_clean_case/")`, you will see the **HOPE** is running:
 ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/519de1bf-03d0-4bad-8e69-a8a4fe2ad682)
 The results will be saved in `yourpath/home/HOPE/ModelCases/MD_GTEP_clean_case/output`. An example of a successful run in Julia prompt can be seen below.
 ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/99790827-4337-4991-a320-85ae2bd10be2)
@@ -155,7 +157,7 @@ This installs the default HOPE environment and the bundled open-source solvers. 
 **(5)** Type `st` to check that the dependencies (packages that HOPE needs) have been installed. Type `up` to update the version of dependencies (packages). (This step may take some time when you install HOPE for the first time. After the HOPE is successfully installed, you can skip this step)
 ![ccf1c53042925fcfb13ee232c13210e](https://github.com/HOPE-Model-Project/HOPE/assets/144710777/6efb4646-8c81-4f4b-bcfc-6daabbdeb615)
 
-**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 100% clean case in `GTEP` mode), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_GTEP_clean_case/")`, you will see the **HOPE** is running:
+**(6)** If there is no error in the above processes, the **HOPE** model has been successfully installed. Then, click `Backspace` to return to the Juila prompt. To run an example case (e.g., default Maryland 2035 100% clean case with the `GTEP` model), type `using HOPE`, and type `HOPE.run_hope("HOPE/ModelCases/MD_GTEP_clean_case/")`, you will see the **HOPE** is running:
 
 ![image](https://github.com/HOPE-Model-Project/HOPE/assets/125523842/519de1bf-03d0-4bad-8e69-a8a4fe2ad682)
 

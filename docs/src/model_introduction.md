@@ -5,15 +5,15 @@ CurrentModule = HOPE
 
 # Model Overview
 
-HOPE currently supports three operational model modes:
+HOPE's core optimization models and workflows are:
 
-1. `GTEP`: generation and transmission expansion planning
-2. `PCM`: production cost model (system operation)
-3. `DART`: in-memory day-ahead and real-time SCUC/SCED and settlement modeling
+1. the `GTEP` generation and transmission expansion planning model;
+2. the `PCM` production cost model for system operation;
+3. the `DART` module for in-memory day-ahead and real-time SCUC/SCED and settlement modeling;
+4. the holistic two-stage `GTEP`-to-`PCM` workflow; and
+5. the `EREC` postprocessing workflow.
 
-Planned future mode:
-
-1. `OPF` (under development)
+An OPF formulation is planned for future development.
 
 ## Shared Modeling Features
 
@@ -27,7 +27,7 @@ Both `GTEP` and `PCM` support:
 - Flexible demand (DR) on/off via `flexible_demand`
 - Optional MILP fixed-LP dual recovery via `write_shadow_prices = 1`
 
-## GTEP-Specific Modes
+## GTEP Configuration Options
 
 - `inv_dcs_bin`:
   - `1`: binary investment/retirement decisions (MILP)
@@ -43,7 +43,7 @@ Both `GTEP` and `PCM` support:
   - Full-year mode (`endogenous_rep_day = 0` and `external_rep_day = 0`): cyclic SOC wrap across hour 8760 -> hour 1
   - Representative-day mode (`endogenous_rep_day = 1` or `external_rep_day = 1`): short-duration storage uses day anchors; long-duration storage links across representative periods
 
-## PCM-Specific Modes
+## PCM Configuration Options
 
 - `unit_commitment`:
   - `0`: no UC
