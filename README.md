@@ -15,15 +15,13 @@ Wang, S., Song, Z., Mehrtash, M., & Hobbs, B. F. (2025). HOPE: Holistic Optimiza
 
 # Overview
 
-The **Holistic Optimization Program for Electricity (HOPE)** model is a transparent and open-source tool for evaluating electric sector transition pathways and policy scenarios regarding power system planning, system operation, optimal power flow, and market designs. It is a highly configurable and modular tool written in the [Julia](http://julialang.org/) language with the [JuMP](http://jump.dev/) optimization package. HOPE provides five primary Julia workflows:
+The **Holistic Optimization Program for Electricity (HOPE)** is a transparent and open-source platform for evaluating electric sector transition pathways and policy scenarios across power system planning, operation, optimal power flow, and market design. It is a highly configurable and modular platform written in the [Julia](http://julialang.org/) language with the [JuMP](http://jump.dev/) optimization package. HOPE's current and planned top-level modes and modules include:
 
-1. the `GTEP` generation and transmission expansion planning model;
-2. the `PCM` production cost model;
-3. the `DART` module for individual-generator day-ahead and real-time SCUC/SCED and settlement modeling;
-4. the holistic two-stage `GTEP`-to-`PCM` workflow; and
-5. the `EREC` postprocessing workflow.
-
-An OPF formulation is planned for future development. The optional HOPE-AI companion connects HOPE workflows through AI agents; the current framework is powered by [PowerAgent](https://github.com/Power-Agent), with more specialized agents under development.
+1. `GTEP`: a generation and transmission expansion planning mode for evaluating long-term investment and policy pathways;
+2. `PCM`: a production cost modeling mode for simulating power system operations and dispatch;
+3. `DART`: a module for individual-generator day-ahead and real-time SCUC/SCED, market operations, and settlement modeling;
+4. `OPF`: an optimal power flow mode, under development, that will support network-constrained power flow and related analyses; and
+5. `HOPE-AI`: an AI-agent module, under active development, envisioned as a multi-agent coordination layer that connects HOPE's planning, operations, markets, policy, data, and analytical capabilities into accessible modeling workflows. The current framework is powered by [PowerAgent](https://github.com/Power-Agent), with more specialized agents under development.
 
 Users can select the workflow appropriate for their research needs. The GTEP, PCM, and DART optimization models can be solved with open-source packages such as [HiGHS](https://github.com/jump-dev/HiGHS.jl), [Cbc](https://github.com/coin-or/Cbc), [GLPK](https://github.com/jump-dev/GLPK.jl), and [Clp](https://github.com/coin-or/Clp), or optional commercial packages such as [Gurobi](https://www.gurobi.com/) and [CPLEX](https://www.ibm.com/products/ilog-cplex-optimization-studio).
 
