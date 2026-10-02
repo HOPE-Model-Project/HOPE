@@ -1,7 +1,7 @@
 exclude = [
   '@ref',
   '^https://doi.org/10\..*$',
-  '^https://github.com/HOPE-Model-Project/HOPE/compare/.*$',
+  '^https://github.com/HOPE-Model-Project/HOPE.jl/compare/.*$',
   '^https://github.com/.*/releases/tag/v.*$',
   '^https://github.com/swang22/HOPE/assets/.*$',
   '^https://hobbsgroup\.johnshopkins\.edu/.*$',

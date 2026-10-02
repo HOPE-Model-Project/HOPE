@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Use HiGHS in solver-backed constraint tests and run macOS CI on the native
+  runner architecture so the test suite works on Apple Silicon.
+- Restore authenticated Codecov uploads and track coverage against the `main`
+  branch.
 - Preserve candidate input capacities during GTEP solve diagnostics and derive built
   generator, storage, and transmission capacities explicitly in output writing. This
   prevents fractional build decisions from being applied twice in `system_cost.csv`.
@@ -99,7 +103,7 @@ Initial release of the current HOPE Julia package.
 - Multi-solver support: HiGHS, GLPK, Clp, Cbc; optional Gurobi and SCIP.
 - XLSX and CSV input data formats.
 
-[Unreleased]: https://github.com/HOPE-Model-Project/HOPE/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.1.0...v2.0.0
-[1.1.0]: https://github.com/HOPE-Model-Project/HOPE/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/HOPE-Model-Project/HOPE/releases/tag/v1.0.0
+[Unreleased]: https://github.com/HOPE-Model-Project/HOPE.jl/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/HOPE-Model-Project/HOPE.jl/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/HOPE-Model-Project/HOPE.jl/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/HOPE-Model-Project/HOPE.jl/releases/tag/v1.0.0

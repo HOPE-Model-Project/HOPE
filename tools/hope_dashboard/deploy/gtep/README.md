@@ -12,7 +12,7 @@ short_description: Interactive GTEP Expansion Planning viewer (HOPE)
 
 # HOPE GTEP Dashboard
 
-Interactive generation & transmission expansion planning dashboard for the [HOPE model](https://github.com/HOPE-Model-Project/HOPE).
+Interactive generation & transmission expansion planning dashboard for the [HOPE model](https://github.com/HOPE-Model-Project/HOPE.jl).
 
 **Features:**
 - Geo-map with pie-chart capacity overlays per zone
@@ -23,4 +23,4 @@ Interactive generation & transmission expansion planning dashboard for the [HOPE
 
 **Bundled demo case:** PJM MD100 GTEP case
 
-**Documentation:** https://hope-model-project.github.io/HOPE/
+**Documentation:** https://hope-model-project.github.io/HOPE.jl/

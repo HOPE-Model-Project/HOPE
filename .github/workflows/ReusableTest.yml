@@ -23,15 +23,15 @@ on:
         required: false
         type: boolean
         default: false
-    secrets:
-      codecov_token:
-        required: true
 
 jobs:
   test:
     name: Julia ${{ inputs.version }} - ${{ inputs.os }} - ${{ inputs.arch }} - ${{ github.event_name }}
     runs-on: ${{ inputs.os }}
     continue-on-error: ${{ inputs.allow_failure }}
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v6
@@ -49,4 +49,5 @@ jobs:
         if: ${{ inputs.run_codecov }}
         with:
           files: lcov.info
-          token: ${{ secrets.codecov_token }}
+          fail_ci_if_error: true
+          use_oidc: true

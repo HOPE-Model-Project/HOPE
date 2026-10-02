@@ -6,7 +6,7 @@ message: >-
   If you use this software, please cite both the software
   and the paper listed under preferred-citation.
 type: software
-repository-code: "https://github.com/hope-model-project/HOPE"
+repository-code: "https://github.com/hope-model-project/HOPE.jl"
 license: MIT
 authors:
   - given-names: Shen

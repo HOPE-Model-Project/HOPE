@@ -1,4 +1,4 @@
-﻿# HOPE-AI: Running HOPE with an LLM Agent
+# HOPE-AI: Running HOPE with an LLM Agent
 
 HOPE supports agentic AI control via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) — a standard that lets LLM hosts invoke tools, run models, and read results without any manual scripting. This page explains two supported setups:
 
@@ -234,7 +234,7 @@ If you test that URL with a plain browser or `curl`, you may see a `406 Not Acce
 
 For the full current ChatGPT read-only deployment notes, see:
 
-- [`tools/hope_mcp_server/README.md`](https://github.com/HOPE-Model-Project/HOPE/blob/main/tools/hope_mcp_server/README.md)
+- [`tools/hope_mcp_server/README.md`](https://github.com/HOPE-Model-Project/HOPE.jl/blob/main/tools/hope_mcp_server/README.md)
 
 ---
 

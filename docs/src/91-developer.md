@@ -26,7 +26,7 @@ If this is the first time you work with this repository, the safest setup is:
 3. Add the main repository as `upstream`:
 
    ```bash
-   git remote add upstream https://github.com/HOPE-Model-Project/HOPE.git
+   git remote add upstream https://github.com/HOPE-Model-Project/HOPE.jl.git
    ```
 
 4. Fetch the latest branches:

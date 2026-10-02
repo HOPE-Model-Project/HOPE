@@ -106,7 +106,7 @@ function _minimal_config(; unit_commitment = 0, operation_reserve_mode = 0)
         "clean_energy_policy" => 0,
         "flexible_demand" => 0,
         "transmission_loss" => 0,
-        "solver" => "clp",
+        "solver" => "highs",
         "write_shadow_prices" => 0,
         "summary_table" => 0,
         "debug" => 0,
@@ -117,8 +117,8 @@ function _minimal_optimizer()
     mktempdir() do case_path
         settings_path = joinpath(case_path, "Settings")
         mkpath(settings_path)
-        write(joinpath(settings_path, "clp_settings.yml"), "{}\n")
-        return HOPE.initiate_solver(case_path, "clp")
+        write(joinpath(settings_path, "highs_settings.yml"), "{}\n")
+        return HOPE.initiate_solver(case_path, "highs")
     end
 end
 

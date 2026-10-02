@@ -12,7 +12,7 @@ short_description: Interactive Production Cost Model viewer (HOPE)
 
 # HOPE PCM Dashboard
 
-Interactive nodal production cost model dashboard for the [HOPE model](https://github.com/HOPE-Model-Project/HOPE).
+Interactive nodal production cost model dashboard for the [HOPE model](https://github.com/HOPE-Model-Project/HOPE.jl).
 
 **Features:**
 - Hourly nodal LMP map with energy / congestion / loss overlays
@@ -29,4 +29,4 @@ Interactive nodal production cost model dashboard for the [HOPE model](https://g
 - `ISONE_PCM_250bus_case`
 - `RTS24_PCM_multizone4_congested_1month_case`
 
-**Documentation:** https://hope-model-project.github.io/HOPE/
+**Documentation:** https://hope-model-project.github.io/HOPE.jl/

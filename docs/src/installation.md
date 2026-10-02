@@ -22,7 +22,7 @@ directly, use the repository URL:
 
 ```julia
 import Pkg
-Pkg.add(url = "https://github.com/HOPE-Model-Project/HOPE")
+Pkg.add(url = "https://github.com/HOPE-Model-Project/HOPE.jl")
 ```
 
 Both commands install and precompile the Julia package. They do not download

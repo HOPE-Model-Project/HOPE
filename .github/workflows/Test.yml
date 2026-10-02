@@ -7,6 +7,10 @@ on:
     tags: ["*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test:
     uses: ./.github/workflows/ReusableTest.yml
@@ -16,8 +20,7 @@ jobs:
       arch: ${{ matrix.arch }}
       allow_failure: ${{ matrix.allow_failure }}
       run_codecov: ${{ matrix.version == '1' && matrix.os == 'ubuntu-latest' }}
-    secrets:
-      codecov_token: ${{ secrets.CODECOV_TOKEN }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +35,7 @@ jobs:
             allow_failure: false
           - version: "1"
             os: macOS-latest
-            arch: x64
+            arch: default
             allow_failure: false
           - version: "1"
             os: windows-latest

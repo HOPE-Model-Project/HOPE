@@ -16,6 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test:
     strategy:
@@ -31,5 +35,3 @@ jobs:
       arch: x64
       allow_failure: false
       run_codecov: ${{ matrix.version == '1' }}
-    secrets:
-      codecov_token: ${{ secrets.CODECOV_TOKEN }}
