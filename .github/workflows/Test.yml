@@ -9,11 +9,12 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   test:
     uses: ./.github/workflows/ReusableTest.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     with:
       os: ${{ matrix.os }}
       version: ${{ matrix.version }}

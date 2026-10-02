@@ -18,7 +18,6 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   test:
@@ -29,6 +28,8 @@ jobs:
           - "1.9"
           - "1"
     uses: ./.github/workflows/ReusableTest.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     with:
       os: ubuntu-latest
       version: ${{ matrix.version }}

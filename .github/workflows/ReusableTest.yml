@@ -23,6 +23,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
 
 jobs:
   test:
@@ -31,7 +34,6 @@ jobs:
     continue-on-error: ${{ inputs.allow_failure }}
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - uses: actions/checkout@v6
@@ -49,8 +51,5 @@ jobs:
         if: ${{ inputs.run_codecov }}
         with:
           files: lcov.info
-          # Keep tests independent of Codecov availability. After a repository
-          # rename, Codecov may need an account-side repository resync before
-          # it accepts OIDC uploads under the new slug.
-          fail_ci_if_error: false
-          use_oidc: true
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
